@@ -318,8 +318,8 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
           </div>
           <div class="form-grid">
             <div class="form-group col2">
-              <label>Descripción de la pieza</label>
-              <input id="cot-desc" placeholder="Ej. Puerta principal sala">
+              <label>Ubicación</label>
+              <input id="cot-desc" placeholder="Ej. Puerta principal sala, Ventana recámara 1">
             </div>
             <div class="form-group">
               <label>Línea de producto</label>
@@ -1660,6 +1660,25 @@ function renderAlertas(){
 document.querySelectorAll('.modal-overlay').forEach(o=>{
   o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');});
 });
+
+// ══════════════════════════════════════════════
+// MIGRACIÓN: recuperar datos guardados con prefijo anterior (aluvid_)
+// ══════════════════════════════════════════════
+(function migrarDatos(){
+  const tablas=['perfiles','herrajes','vidrios','recetas','proyectos'];
+  let migrado=0;
+  tablas.forEach(k=>{
+    const vieja='aluvid_'+k;
+    const nueva='av_'+k;
+    const datosViejos=localStorage.getItem(vieja);
+    const yaExiste=localStorage.getItem(nueva);
+    if(datosViejos&&!yaExiste){
+      localStorage.setItem(nueva,datosViejos);
+      migrado++;
+    }
+  });
+  if(migrado>0)console.log('AluVid: '+migrado+' tablas migradas correctamente.');
+})();
 
 // ══════════════════════════════════════════════
 // INIT
