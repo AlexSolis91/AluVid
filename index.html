@@ -587,7 +587,7 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
                   <button class="btn btn-ghost btn-sm" onclick="abrirModalComponente('perfil','receta')">+ Agregar perfil</button>
                 </div>
                 <div class="table-wrap"><table>
-                  <thead><tr><th>Clave</th><th>Nombre</th><th>Cantidad</th><th>Cortes V.</th><th>Cortes H.</th><th>Notas</th><th></th></tr></thead>
+                  <thead><tr><th>Clave</th><th>Nombre</th><th>Cortes V.</th><th>Cortes H.</th><th></th></tr></thead>
                   <tbody id="r-perfiles-tabla"></tbody>
                 </table></div>
               </div>
@@ -622,7 +622,7 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
                         <button class="btn btn-ghost btn-sm" onclick="abrirModalComponente('perfil','config')">+ Perfil</button>
                       </div>
                       <div class="table-wrap"><table>
-                        <thead><tr><th>Clave</th><th>Nombre</th><th>Cantidad</th><th>Cortes V.</th><th>Cortes H.</th><th>Notas</th><th></th></tr></thead>
+                        <thead><tr><th>Clave</th><th>Nombre</th><th>Cortes V.</th><th>Cortes H.</th><th></th></tr></thead>
                         <tbody id="rc-perfiles-tabla"></tbody>
                       </table></div>
                     </div>
@@ -692,14 +692,11 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
         <input id="modal-search" placeholder="Buscar por clave o nombre..." oninput="filtrarModalItems(this.value)">
       </div>
     </div>
-    <div class="form-group" style="margin-bottom:14px">
-      <select id="modal-comp-item" size="5" style="height:120px"></select>
-    </div>
+    <input type="hidden" id="modal-comp-item">
+    <div id="modal-items-list" style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg3);margin-bottom:14px"></div>
     <div class="form-grid">
-      <div class="form-group"><label>Cantidad / Piezas</label><input id="modal-cant" type="number" step="0.01" value="1"></div>
-      <div class="form-group"><label id="modal-v-label">Cortes verticales</label><input id="modal-v" type="number" step="0.01" value="0"></div>
-      <div class="form-group"><label id="modal-h-label">Cortes horizontales</label><input id="modal-h" type="number" step="0.01" value="0"></div>
-      <div class="form-group"><label>Notas</label><input id="modal-notas" placeholder="Opcional"></div>
+      <div class="form-group"><label id="modal-v-label">Cortes verticales</label><input id="modal-v" type="number" step="1" value="0"></div>
+      <div class="form-group"><label id="modal-h-label">Cortes horizontales</label><input id="modal-h" type="number" step="1" value="0"></div>
     </div>
     <div class="form-actions">
       <button class="btn btn-ghost" onclick="cerrarModal('modal-comp')">Cancelar</button>
@@ -1086,8 +1083,7 @@ function renderComponentesReceta(){
     r.perfiles.map((cp,i)=>`<tr>
       <td class="td-mono">${cp.clave||''}</td>
       <td>${cp.nombrePerfil||''}</td>
-      <td>${num(cp.cantidad)}</td><td>${num(cp.cortesV)}</td><td>${num(cp.cortesH)}</td>
-      <td class="td-muted">${cp.notas||'-'}</td>
+      <td>${cp.cortesV}</td><td>${cp.cortesH}</td>
       <td><button class="btn btn-danger btn-sm btn-icon" onclick="quitarComponenteReceta('perfil',${i})">✕</button></td>
     </tr>`).join(''):
     '<tr><td colspan="7"><div class="empty-state" style="padding:14px"><p>Sin perfiles</p></div></td></tr>';
@@ -1160,8 +1156,7 @@ function renderComponentesConfig(){
     c.perfiles.map((cp,i)=>`<tr>
       <td class="td-mono">${cp.clave||''}</td>
       <td>${cp.nombrePerfil||''}</td>
-      <td>${num(cp.cantidad)}</td><td>${num(cp.cortesV)}</td><td>${num(cp.cortesH)}</td>
-      <td class="td-muted">${cp.notas||'-'}</td>
+      <td>${cp.cortesV}</td><td>${cp.cortesH}</td>
       <td><button class="btn btn-danger btn-sm btn-icon" onclick="quitarComponenteConfig('perfil',${i})">✕</button></td>
     </tr>`).join(''):
     '<tr><td colspan="7"><div class="empty-state" style="padding:14px"><p>Sin perfiles</p></div></td></tr>';
@@ -1197,11 +1192,11 @@ function abrirModalComponente(tipo,scope){
     'Buscar por descripción o clave';
   document.getElementById('modal-v-label').textContent=esP?'Cortes verticales':'Metros verticales';
   document.getElementById('modal-h-label').textContent=esP?'Cortes horizontales':'Metros horizontales';
-  document.getElementById('modal-cant').value='1';
   document.getElementById('modal-v').value='0';
   document.getElementById('modal-h').value='0';
-  document.getElementById('modal-notas').value='';
   document.getElementById('modal-search').value='';
+  document.getElementById('modal-comp-item').value='';
+  document.getElementById('modal-items-list').innerHTML='';
 
   // Build items list — for perfiles: group by clave (unique claves only, one entry per clave)
   if(esP){
@@ -1222,12 +1217,30 @@ function abrirModalComponente(tipo,scope){
 
 function poblarModalItems(items){
   const esP=modalCtx.tipo==='perfil';
-  document.getElementById('modal-comp-item').innerHTML=items.length?
-    items.map(x=>esP?
-      `<option value="${x.clave}">${x.clave} — ${x.nombre}</option>`:
-      `<option value="${x.id}">${x.desc}</option>`
-    ).join(''):
-    '<option value="">Sin resultados</option>';
+  const lista=document.getElementById('modal-items-list');
+  if(!items.length){
+    lista.innerHTML='<div style="padding:14px;color:var(--text3);font-size:12px;text-align:center">Sin resultados</div>';
+    return;
+  }
+  lista.innerHTML=items.map(x=>{
+    const val=esP?x.clave:x.id;
+    const label=esP?`<span style="font-family:var(--mono);color:var(--accent2);font-size:12px">${x.clave}</span> <span style="color:var(--text)">${x.nombre}</span>`
+                   :`<span style="color:var(--text)">${x.desc}</span>`;
+    return `<div class="modal-list-item" data-val="${val}" onclick="seleccionarModalItem(this,'${val}')"
+      style="padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:8px;transition:background .12s">
+      ${label}
+    </div>`;
+  }).join('');
+}
+
+function seleccionarModalItem(el, val){
+  document.querySelectorAll('.modal-list-item').forEach(i=>{
+    i.style.background='';
+    i.style.borderLeft='';
+  });
+  el.style.background='rgba(79,142,247,0.12)';
+  el.style.borderLeft='3px solid var(--accent)';
+  document.getElementById('modal-comp-item').value=val;
 }
 
 function filtrarModalItems(q){
@@ -1245,23 +1258,21 @@ function confirmarComponente(){
   const esP=modalCtx.tipo==='perfil';
   const scope=modalCtx.scope;
   const val=document.getElementById('modal-comp-item').value;
-  if(!val){toast('Selecciona un elemento','error');return;}
-  const cant=parseFloat(document.getElementById('modal-cant').value)||0;
+  if(!val){toast('Selecciona un elemento de la lista','error');return;}
   const v=parseFloat(document.getElementById('modal-v').value)||0;
   const h=parseFloat(document.getElementById('modal-h').value)||0;
-  const notas=document.getElementById('modal-notas').value.trim();
   const recetas=DB.get('recetas');
   const r=recetas.find(x=>x.id===recetaActual.id);
 
   if(esP){
     // val = clave; nombre = from first matching perfil
     const p=DB.get('perfiles').find(x=>x.clave===val);
-    const item={clave:val,nombrePerfil:p?p.nombre:val,cantidad:cant,cortesV:v,cortesH:h,notas};
+    const item={clave:val,nombrePerfil:p?p.nombre:val,cortesV:v,cortesH:h};
     if(scope==='receta'){r.perfiles=r.perfiles||[];r.perfiles.push(item);}
     else{r.configs[configActual.idx].perfiles=r.configs[configActual.idx].perfiles||[];r.configs[configActual.idx].perfiles.push(item);}
   }else{
     const hj=DB.get('herrajes').find(x=>x.id===parseInt(val));
-    const item={herrajeId:parseInt(val),nombreHerraje:hj?hj.descripcion+(hj.clave?' ['+hj.clave+']':''):val,cantidad:cant,metrosV:v,metrosH:h,notas};
+    const item={herrajeId:parseInt(val),nombreHerraje:hj?hj.descripcion+(hj.clave?' ['+hj.clave+']':''):val,metrosV:v,metrosH:h};
     if(scope==='receta'){r.herrajes=r.herrajes||[];r.herrajes.push(item);}
     else{r.configs[configActual.idx].herrajes=r.configs[configActual.idx].herrajes||[];r.configs[configActual.idx].herrajes.push(item);}
   }
