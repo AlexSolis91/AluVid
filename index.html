@@ -522,6 +522,13 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
         <div class="form-grid">
           <input type="hidden" id="v-id">
           <div class="form-group col2"><label>Descripción *</label><input id="v-desc" placeholder="Ej. Cristal Claro 6mm Recocido"></div>
+          <div class="form-group">
+            <label>Tipo de vidrio *</label>
+            <select id="v-tipo">
+              <option value="SENCILLO">SENCILLO</option>
+              <option value="DUOVENT">DUOVENT</option>
+            </select>
+          </div>
           <div class="form-group"><label>Precio de lámina s/IVA *</label><input id="v-precio" type="number" step="0.01" placeholder="4000.00" oninput="calcVidrio()"></div>
           <div class="form-group"><label>Ancho (m) *</label><input id="v-ancho" type="number" step="0.01" placeholder="3.60" oninput="calcVidrio()"></div>
           <div class="form-group"><label>Alto (m) *</label><input id="v-alto" type="number" step="0.01" placeholder="2.60" oninput="calcVidrio()"></div>
@@ -538,7 +545,7 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
       <div class="section-header"><h2>Catálogo de vidrios (<span id="v-count">0</span>)</h2></div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Descripción</th><th>Precio Lámina</th><th>Ancho</th><th>Alto</th><th>m²</th><th>Precio/m²</th><th>Proveedor</th><th>Actualizado</th></tr></thead>
+          <thead><tr><th>Descripción</th><th>Tipo</th><th>Precio Lámina</th><th>Ancho</th><th>Alto</th><th>m²</th><th>Precio/m²</th><th>Proveedor</th><th>Actualizado</th></tr></thead>
           <tbody id="v-tabla"></tbody>
         </table>
       </div>
@@ -979,7 +986,8 @@ function guardarVidrio(){
   const vidrios=DB.get('vidrios');
   const id=parseInt(document.getElementById('v-id').value)||null;
   const m2=ancho*alto;
-  const obj={id:id||DB.nextId('vidrios'),descripcion:desc,precioLamina:precio,ancho,alto,m2,
+  const tipo=document.getElementById('v-tipo').value;
+  const obj={id:id||DB.nextId('vidrios'),descripcion:desc,tipo,precioLamina:precio,ancho,alto,m2,
     precioM2:precio/m2,proveedor:document.getElementById('v-proveedor').value.trim(),fecha:now()};
   if(id){vidrios[vidrios.findIndex(v=>v.id===id)]=obj;toast('Vidrio actualizado');}
   else{vidrios.push(obj);toast('Vidrio guardado');}
@@ -987,6 +995,7 @@ function guardarVidrio(){
 }
 function limpiarVidrio(){
   ['v-id','v-desc','v-precio','v-ancho','v-alto','v-m2','v-precio-m2','v-proveedor'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('v-tipo').value='SENCILLO';
   document.getElementById('v-btn-del').style.display='none';
   document.getElementById('v-form-title').textContent='Nuevo Tipo de Vidrio';
 }
@@ -1004,6 +1013,7 @@ function editarVidrio(id){
   document.getElementById('v-ancho').value=v.ancho;
   document.getElementById('v-alto').value=v.alto;
   document.getElementById('v-proveedor').value=v.proveedor||'';
+  document.getElementById('v-tipo').value=v.tipo||'SENCILLO';
   document.getElementById('v-btn-del').style.display='';
   document.getElementById('v-form-title').textContent='Editar Vidrio';
   calcVidrio();window.scrollTo(0,0);
@@ -1013,7 +1023,9 @@ function renderVidrios(){
   document.getElementById('v-count').textContent=V.length;
   document.getElementById('v-tabla').innerHTML=V.length?V.map(v=>`
     <tr onclick="editarVidrio(${v.id})">
-      <td>${v.descripcion}</td><td>${fmt(v.precioLamina)}</td>
+      <td>${v.descripcion}</td>
+      <td><span class="badge ${v.tipo==='DUOVENT'?'badge-purple':'badge-blue'}">${v.tipo||'SENCILLO'}</span></td>
+      <td>${fmt(v.precioLamina)}</td>
       <td class="td-mono">${num(v.ancho)}m</td><td class="td-mono">${num(v.alto)}m</td>
       <td class="td-mono">${num(v.m2)}m²</td><td>${fmt(v.precioM2)}</td>
       <td class="td-muted">${v.proveedor||'-'}</td>
