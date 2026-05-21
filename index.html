@@ -587,7 +587,7 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
                   <button class="btn btn-ghost btn-sm" onclick="abrirModalComponente('perfil','receta')">+ Agregar perfil</button>
                 </div>
                 <div class="table-wrap"><table>
-                  <thead><tr><th>Clave</th><th>Nombre</th><th>Cortes V.</th><th>Cortes H.</th><th></th></tr></thead>
+                  <thead><tr><th>Clave</th><th>Nombre</th><th>Cortes V.</th><th>Cortes H.</th><th>Tipo Vidrio</th><th></th></tr></thead>
                   <tbody id="r-perfiles-tabla"></tbody>
                 </table></div>
               </div>
@@ -622,7 +622,7 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
                         <button class="btn btn-ghost btn-sm" onclick="abrirModalComponente('perfil','config')">+ Perfil</button>
                       </div>
                       <div class="table-wrap"><table>
-                        <thead><tr><th>Clave</th><th>Nombre</th><th>Cortes V.</th><th>Cortes H.</th><th></th></tr></thead>
+                        <thead><tr><th>Clave</th><th>Nombre</th><th>Cortes V.</th><th>Cortes H.</th><th>Tipo Vidrio</th><th></th></tr></thead>
                         <tbody id="rc-perfiles-tabla"></tbody>
                       </table></div>
                     </div>
@@ -694,6 +694,14 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
     </div>
     <input type="hidden" id="modal-comp-item">
     <div id="modal-items-list" style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg3);margin-bottom:14px"></div>
+    <div class="form-group" style="margin-bottom:14px" id="modal-tipo-vidrio-wrap">
+      <label>Aplica para tipo de vidrio</label>
+      <div style="display:flex;gap:8px;margin-top:6px" id="modal-tipo-vidrio-pills">
+        <div class="pill active" data-val="AMBOS"    onclick="seleccionarTipoVidrio(this)">AMBOS</div>
+        <div class="pill"        data-val="SENCILLO" onclick="seleccionarTipoVidrio(this)">SENCILLO</div>
+        <div class="pill"        data-val="DUOVENT"  onclick="seleccionarTipoVidrio(this)">DUOVENT</div>
+      </div>
+    </div>
     <div class="form-grid">
       <div class="form-group"><label id="modal-v-label">Cortes verticales</label><input id="modal-v" type="number" step="1" value="0"></div>
       <div class="form-group"><label id="modal-h-label">Cortes horizontales</label><input id="modal-h" type="number" step="1" value="0"></div>
@@ -1084,6 +1092,7 @@ function renderComponentesReceta(){
       <td class="td-mono">${cp.clave||''}</td>
       <td>${cp.nombrePerfil||''}</td>
       <td>${cp.cortesV}</td><td>${cp.cortesH}</td>
+      <td><span class="badge ${cp.tipoVidrio==='SENCILLO'?'badge-blue':cp.tipoVidrio==='DUOVENT'?'badge-purple':'badge-green'}">${cp.tipoVidrio||'AMBOS'}</span></td>
       <td><button class="btn btn-danger btn-sm btn-icon" onclick="quitarComponenteReceta('perfil',${i})">✕</button></td>
     </tr>`).join(''):
     '<tr><td colspan="7"><div class="empty-state" style="padding:14px"><p>Sin perfiles</p></div></td></tr>';
@@ -1157,6 +1166,7 @@ function renderComponentesConfig(){
       <td class="td-mono">${cp.clave||''}</td>
       <td>${cp.nombrePerfil||''}</td>
       <td>${cp.cortesV}</td><td>${cp.cortesH}</td>
+      <td><span class="badge ${cp.tipoVidrio==='SENCILLO'?'badge-blue':cp.tipoVidrio==='DUOVENT'?'badge-purple':'badge-green'}">${cp.tipoVidrio||'AMBOS'}</span></td>
       <td><button class="btn btn-danger btn-sm btn-icon" onclick="quitarComponenteConfig('perfil',${i})">✕</button></td>
     </tr>`).join(''):
     '<tr><td colspan="7"><div class="empty-state" style="padding:14px"><p>Sin perfiles</p></div></td></tr>';
@@ -1197,6 +1207,12 @@ function abrirModalComponente(tipo,scope){
   document.getElementById('modal-search').value='';
   document.getElementById('modal-comp-item').value='';
   document.getElementById('modal-items-list').innerHTML='';
+  // Reset tipo vidrio a AMBOS por defecto
+  document.querySelectorAll('#modal-tipo-vidrio-pills .pill').forEach(p=>{
+    p.classList.toggle('active', p.dataset.val==='AMBOS');
+  });
+  // Solo mostrar tipo-vidrio para perfiles
+  document.getElementById('modal-tipo-vidrio-wrap').style.display=tipo==='perfil'?'':'none';
 
   // Build items list — for perfiles: group by clave (unique claves only, one entry per clave)
   if(esP){
@@ -1243,6 +1259,16 @@ function seleccionarModalItem(el, val){
   document.getElementById('modal-comp-item').value=val;
 }
 
+function seleccionarTipoVidrio(el){
+  document.querySelectorAll('#modal-tipo-vidrio-pills .pill').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function getTipoVidrio(){
+  const active=document.querySelector('#modal-tipo-vidrio-pills .pill.active');
+  return active?active.dataset.val:'AMBOS';
+}
+
 function filtrarModalItems(q){
   const esP=modalCtx.tipo==='perfil';
   const filtered=q?modalItemsAll.filter(x=>{
@@ -1267,7 +1293,8 @@ function confirmarComponente(){
   if(esP){
     // val = clave; nombre = from first matching perfil
     const p=DB.get('perfiles').find(x=>x.clave===val);
-    const item={clave:val,nombrePerfil:p?p.nombre:val,cortesV:v,cortesH:h};
+    const tipoVidrio=getTipoVidrio();
+    const item={clave:val,nombrePerfil:p?p.nombre:val,cortesV:v,cortesH:h,tipoVidrio};
     if(scope==='receta'){r.perfiles=r.perfiles||[];r.perfiles.push(item);}
     else{r.configs[configActual.idx].perfiles=r.configs[configActual.idx].perfiles||[];r.configs[configActual.idx].perfiles.push(item);}
   }else{
@@ -1416,6 +1443,12 @@ function seleccionarAcabadoCustom(){
   calcularPartida();
 }
 
+function selCotTipoVidrio(el){
+  document.querySelectorAll('#cot-tipo-vidrio-pills .pill').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  calcularPartida();
+}
+
 function calcularPartida(){
   const rid=parseInt(document.getElementById('cot-receta').value);
   const acabado=document.getElementById('cot-acabado-custom').value.trim();
@@ -1435,8 +1468,15 @@ function calcularPartida(){
   let lineasDesglose=[];
   let totalSinIVA=0;
 
+  // tipo de vidrio seleccionado en cotización (sencillo/duovent)
+  const tipoVidrioSeleccionado=document.getElementById('cot-tipo-vidrio')
+    ? (document.querySelector('#cot-tipo-vidrio-pills .pill.active')||{}).dataset?.val||'SENCILLO'
+    : 'SENCILLO';
+
   // Función para calcular costo de un perfil con acabado
-  const costoPerfil=(clave,cantidad,cortesV,cortesH)=>{
+  const costoPerfil=(clave,cantidad,cortesV,cortesH,tipoVidrioPerfil)=>{
+    // Si el perfil es exclusivo de un tipo y no coincide con el seleccionado, omitir
+    if(tipoVidrioPerfil&&tipoVidrioPerfil!=='AMBOS'&&tipoVidrioPerfil!==tipoVidrioSeleccionado) return null;
     const acabadoClean=acabado.replace(/\s+/g,'');
     const idComp=acabadoClean+clave;
     const p=todosPerfiles.find(x=>x.idCompuesto===idComp);
@@ -1464,7 +1504,7 @@ function calcularPartida(){
 
   // Perfiles globales de la receta
   (r.perfiles||[]).forEach(cp=>{
-    const res=costoPerfil(cp.clave,cp.cantidad,cp.cortesV,cp.cortesH);
+    const res=costoPerfil(cp.clave,cp.cantidad||1,cp.cortesV,cp.cortesH,cp.tipoVidrio);if(!res)return;
     lineasDesglose.push({...res,tipo:'Perfil'});
     totalSinIVA+=res.costo;
   });
@@ -1481,7 +1521,7 @@ function calcularPartida(){
     const cfg=r.configs[parseInt(cidx)];
     if(cfg){
       (cfg.perfiles||[]).forEach(cp=>{
-        const res=costoPerfil(cp.clave,cp.cantidad,cp.cortesV,cp.cortesH);
+        const res=costoPerfil(cp.clave,cp.cantidad||1,cp.cortesV,cp.cortesH,cp.tipoVidrio);if(!res)return;
         lineasDesglose.push({...res,tipo:'Perfil (config)'});
         totalSinIVA+=res.costo;
       });
