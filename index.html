@@ -577,32 +577,7 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
             </div>
 
             <div id="r-componentes" style="margin-top:20px;display:none">
-              <div class="tabs">
-                <div class="tab active" onclick="switchTab(this,'r-tab-perfiles')">Perfiles globales</div>
-                <div class="tab" onclick="switchTab(this,'r-tab-herrajes')">Herrajes globales</div>
-              </div>
-              <div id="r-tab-perfiles">
-                <div class="section-header" style="margin-bottom:10px">
-                  <span style="font-size:12px;color:var(--text3)">Perfiles que aplican a toda la receta (independientes del acabado)</span>
-                  <button class="btn btn-ghost btn-sm" onclick="abrirModalComponente('perfil','receta')">+ Agregar perfil</button>
-                </div>
-                <div class="table-wrap"><table>
-                  <thead><tr><th>Clave</th><th>Nombre</th><th>Cortes V.</th><th>Cortes H.</th><th>Tipo Vidrio</th><th></th></tr></thead>
-                  <tbody id="r-perfiles-tabla"></tbody>
-                </table></div>
-              </div>
-              <div id="r-tab-herrajes" style="display:none">
-                <div class="section-header" style="margin-bottom:10px">
-                  <span style="font-size:12px;color:var(--text3)">Herrajes que aplican a toda la receta</span>
-                  <button class="btn btn-ghost btn-sm" onclick="abrirModalComponente('herraje','receta')">+ Agregar herraje</button>
-                </div>
-                <div class="table-wrap"><table>
-                  <thead><tr><th>Herraje / Accesorio</th><th>Cantidad</th><th>Metros V.</th><th>Metros H.</th><th>Notas</th><th></th></tr></thead>
-                  <tbody id="r-herrajes-tabla"></tbody>
-                </table></div>
-              </div>
-
-              <!-- Sección 2: Configuraciones -->
+              <!-- Configuraciones -->
               <div style="margin-top:20px">
                 <div class="section-header">
                   <span style="font-size:13px;font-weight:600">Configuraciones</span>
@@ -628,11 +603,11 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
                     </div>
                     <div id="rc-tab-herrajes" style="display:none">
                       <div class="section-header" style="margin-bottom:10px">
-                        <span style="font-size:12px;color:var(--text3)">Herrajes específicos de esta configuración</span>
-                        <button class="btn btn-ghost btn-sm" onclick="abrirModalComponente('herraje','config')">+ Herraje</button>
+                        <span style="font-size:12px;color:var(--text3)">Herrajes y accesorios de esta configuración</span>
+                        <button class="btn btn-ghost btn-sm" onclick="abrirModalHerraje('config')">+ Herraje</button>
                       </div>
                       <div class="table-wrap"><table>
-                        <thead><tr><th>Herraje / Accesorio</th><th>Cantidad</th><th>Metros V.</th><th>Metros H.</th><th>Notas</th><th></th></tr></thead>
+                        <thead><tr><th>Herraje / Accesorio</th><th>Cant. Piezas</th><th>Metros V.</th><th>Metros H.</th><th></th></tr></thead>
                         <tbody id="rc-herrajes-tabla"></tbody>
                       </table></div>
                     </div>
@@ -709,6 +684,47 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
     <div class="form-actions">
       <button class="btn btn-ghost" onclick="cerrarModal('modal-comp')">Cancelar</button>
       <button class="btn btn-primary" onclick="confirmarComponente()">Agregar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL herrajes config -->
+<div class="modal-overlay" id="modal-herraje">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Agregar Herraje / Accesorio</span>
+      <button class="btn btn-ghost btn-icon" onclick="cerrarModal('modal-herraje')">✕</button>
+    </div>
+    <div class="form-group" style="margin-bottom:8px">
+      <label>Buscar herraje o accesorio</label>
+      <div class="search-wrap">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="mh-search" placeholder="Buscar por descripción o clave..." oninput="filtrarModalHerrajes(this.value)">
+      </div>
+    </div>
+    <input type="hidden" id="mh-item">
+    <div id="mh-items-list" style="max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg3);margin-bottom:16px"></div>
+    <div style="background:rgba(79,142,247,0.06);border:1px solid rgba(79,142,247,0.15);border-radius:var(--radius);padding:12px 14px;margin-bottom:14px;font-size:12px;color:var(--text2)">
+      <strong style="color:var(--accent2)">Cantidad x pieza</strong> — si el herraje se cobra por pieza, ingresa cuántas piezas lleva.<br>
+      <strong style="color:var(--accent2)">Metros V / H</strong> — si se cobra por metro lineal, ingresa cuántos cortes verticales u horizontales lleva (se multiplica por el alto/ancho al cotizar).
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Cantidad x pieza</label>
+        <input id="mh-cantidad" type="number" step="1" value="0" min="0" placeholder="0 = no aplica">
+      </div>
+      <div class="form-group">
+        <label>Cortes verticales (ml)</label>
+        <input id="mh-v" type="number" step="1" value="0" min="0">
+      </div>
+      <div class="form-group">
+        <label>Cortes horizontales (ml)</label>
+        <input id="mh-h" type="number" step="1" value="0" min="0">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="cerrarModal('modal-herraje')">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmarHerraje()">Agregar</button>
     </div>
   </div>
 </div>
@@ -1173,11 +1189,12 @@ function renderComponentesConfig(){
   document.getElementById('rc-herrajes-tabla').innerHTML=(c.herrajes||[]).length?
     c.herrajes.map((ch,i)=>`<tr>
       <td>${ch.nombreHerraje||''}</td>
-      <td>${num(ch.cantidad)}</td><td>${num(ch.metrosV)}</td><td>${num(ch.metrosH)}</td>
-      <td class="td-muted">${ch.notas||'-'}</td>
+      <td>${ch.cantidad||0}</td>
+      <td>${ch.metrosV||0}</td>
+      <td>${ch.metrosH||0}</td>
       <td><button class="btn btn-danger btn-sm btn-icon" onclick="quitarComponenteConfig('herraje',${i})">✕</button></td>
     </tr>`).join(''):
-    '<tr><td colspan="6"><div class="empty-state" style="padding:14px"><p>Sin herrajes</p></div></td></tr>';
+    '<tr><td colspan="5"><div class="empty-state" style="padding:14px"><p>Sin herrajes</p></div></td></tr>';
 }
 
 function quitarComponenteConfig(tipo,idx){
@@ -1703,6 +1720,106 @@ function renderAlertas(){
       <td><span class="badge badge-red">${fechaCorta(v.fecha)}</span></td>
     </tr>`).join(''):
     '<tr><td colspan="5"><div class="empty-state" style="padding:20px"><p>✓ Sin vidrios desactualizados</p></div></td></tr>';
+}
+
+// ══════════════════════════════════════════════
+// ══════════════════════════════════════════════
+// MODAL HERRAJES (config)
+// ══════════════════════════════════════════════
+let mhItemsAll = [];
+let mhScope = 'config';
+
+function abrirModalHerraje(scope) {
+  mhScope = scope;
+  document.getElementById('mh-search').value = '';
+  document.getElementById('mh-item').value = '';
+  document.getElementById('mh-cantidad').value = '0';
+  document.getElementById('mh-v').value = '0';
+  document.getElementById('mh-h').value = '0';
+  mhItemsAll = DB.get('herrajes').map(h => ({
+    id: h.id,
+    label: h.descripcion + (h.clave ? ' [' + h.clave + ']' : ''),
+    tipo: h.precioML ? 'ml' : 'pieza'
+  }));
+  poblarModalHerrajes(mhItemsAll);
+  document.getElementById('modal-herraje').classList.add('open');
+}
+
+function poblarModalHerrajes(items) {
+  const lista = document.getElementById('mh-items-list');
+  if (!items.length) {
+    lista.innerHTML = '<div style="padding:14px;color:var(--text3);font-size:12px;text-align:center">Sin resultados</div>';
+    return;
+  }
+  lista.innerHTML = items.map(x => `
+    <div class="modal-list-item" data-val="${x.id}" onclick="seleccionarModalHerraje(this,'${x.id}')"
+      style="padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;display:flex;align-items:center;justify-content:space-between">
+      <span style="color:var(--text)">${x.label}</span>
+      <span class="badge ${x.tipo==='ml'?'badge-blue':'badge-amber'}" style="font-size:10px">${x.tipo==='ml'?'por ml':'por pieza'}</span>
+    </div>`).join('');
+}
+
+function seleccionarModalHerraje(el, val) {
+  document.querySelectorAll('#mh-items-list .modal-list-item').forEach(i => {
+    i.style.background = '';
+    i.style.borderLeft = '';
+  });
+  el.style.background = 'rgba(79,142,247,0.12)';
+  el.style.borderLeft = '3px solid var(--accent)';
+  document.getElementById('mh-item').value = val;
+  // Sugerir campos según tipo
+  const item = mhItemsAll.find(x => x.id == val);
+  if (item && item.tipo === 'ml') {
+    document.getElementById('mh-cantidad').value = '0';
+    document.getElementById('mh-v').value = '1';
+  } else if (item) {
+    document.getElementById('mh-cantidad').value = '1';
+    document.getElementById('mh-v').value = '0';
+    document.getElementById('mh-h').value = '0';
+  }
+}
+
+function filtrarModalHerrajes(q) {
+  const filtered = q ? mhItemsAll.filter(x => x.label.toLowerCase().includes(q.toLowerCase())) : mhItemsAll;
+  poblarModalHerrajes(filtered);
+}
+
+function confirmarHerraje() {
+  const val = document.getElementById('mh-item').value;
+  if (!val) { toast('Selecciona un herraje de la lista', 'error'); return; }
+  const cantidad = parseFloat(document.getElementById('mh-cantidad').value) || 0;
+  const v = parseFloat(document.getElementById('mh-v').value) || 0;
+  const h = parseFloat(document.getElementById('mh-h').value) || 0;
+  const hj = DB.get('herrajes').find(x => x.id === parseInt(val));
+  if (!hj) return;
+  const item = {
+    herrajeId: hj.id,
+    nombreHerraje: hj.descripcion + (hj.clave ? ' [' + hj.clave + ']' : ''),
+    precioUnitario: hj.precioUnitario || 0,
+    precioML: hj.precioML || 0,
+    cantidad,
+    metrosV: v,
+    metrosH: h
+  };
+  const recetas = DB.get('recetas');
+  const r = recetas.find(x => x.id === recetaActual.id);
+  if (mhScope === 'config' && configActual !== null) {
+    r.configs[configActual.idx].herrajes = r.configs[configActual.idx].herrajes || [];
+    r.configs[configActual.idx].herrajes.push(item);
+  } else {
+    r.herrajes = r.herrajes || [];
+    r.herrajes.push(item);
+  }
+  DB.set('recetas', recetas);
+  recetaActual = r;
+  if (mhScope === 'config') {
+    configActual = { idx: configActual.idx, ...r.configs[configActual.idx] };
+    renderComponentesConfig();
+  } else {
+    renderComponentesReceta();
+  }
+  cerrarModal('modal-herraje');
+  toast('Herraje agregado');
 }
 
 // ══════════════════════════════════════════════
