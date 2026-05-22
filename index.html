@@ -376,7 +376,7 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
             <!-- Opciones adicionales de la receta -->
             <div id="cot-extras-wrap" style="margin-top:12px"></div>
 
-            <!-- Preview de precio -->
+            <!-- Desglose con checkboxes -->
             <div id="cot-preview" style="display:none;margin-top:16px">
               <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px">
                 <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Desglose de la partida</div>
@@ -384,6 +384,52 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
                   <span style="font-size:13px;color:var(--text2)">Total partida (sin IVA)</span>
                   <span class="td-mono" style="font-size:18px;color:var(--green)" id="cot-total-partida">$0.00</span>
+                </div>
+              </div>
+
+              <!-- Extras manuales -->
+              <div style="margin-top:14px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px">
+                <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">Agregar materiales adicionales a esta partida</div>
+                <div class="tabs" id="extras-tabs">
+                  <div class="tab active" onclick="switchExtrasTab(this,'extra-tab-perfil')">+ Perfil extra</div>
+                  <div class="tab" onclick="switchExtrasTab(this,'extra-tab-herraje')">+ Herraje extra</div>
+                </div>
+
+                <!-- Extra Perfil -->
+                <div id="extra-tab-perfil">
+                  <div class="search-wrap" style="margin-bottom:8px">
+                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input id="ep-search" placeholder="Buscar por clave o nombre..." oninput="filtrarExtraPerfiles(this.value)">
+                  </div>
+                  <input type="hidden" id="ep-item">
+                  <div id="ep-list" style="max-height:150px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg2);margin-bottom:10px"></div>
+                  <div class="form-grid" style="margin-bottom:8px">
+                    <div class="form-group"><label>Cortes verticales</label><input id="ep-v" type="number" step="0.01" value="0" oninput="calcExtraPerfil()"></div>
+                    <div class="form-group"><label>Largo vertical (m)</label><input id="ep-lv" type="number" step="0.01" value="0" placeholder="deja 0 para usar alto" oninput="calcExtraPerfil()"></div>
+                    <div class="form-group"><label>Cortes horizontales</label><input id="ep-h" type="number" step="0.01" value="0" oninput="calcExtraPerfil()"></div>
+                    <div class="form-group"><label>Largo horizontal (m)</label><input id="ep-lh" type="number" step="0.01" value="0" placeholder="deja 0 para usar ancho" oninput="calcExtraPerfil()"></div>
+                  </div>
+                  <div id="ep-preview" style="font-size:12px;color:var(--text2);margin-bottom:8px"></div>
+                  <button class="btn btn-ghost btn-sm" onclick="agregarExtraPerfil()">+ Agregar perfil</button>
+                </div>
+
+                <!-- Extra Herraje -->
+                <div id="extra-tab-herraje" style="display:none">
+                  <div class="search-wrap" style="margin-bottom:8px">
+                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input id="eh-search" placeholder="Buscar herraje o accesorio..." oninput="filtrarExtraHerrajes(this.value)">
+                  </div>
+                  <input type="hidden" id="eh-item">
+                  <div id="eh-list" style="max-height:150px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg2);margin-bottom:10px"></div>
+                  <div class="form-grid" style="margin-bottom:8px">
+                    <div class="form-group"><label>Cantidad x pieza</label><input id="eh-cantidad" type="number" step="1" value="0" oninput="calcExtraHerraje()"></div>
+                    <div class="form-group"><label>Cortes verticales</label><input id="eh-v" type="number" step="0.01" value="0" oninput="calcExtraHerraje()"></div>
+                    <div class="form-group"><label>Largo vertical (m)</label><input id="eh-lv" type="number" step="0.01" value="0" placeholder="0 = usar alto" oninput="calcExtraHerraje()"></div>
+                    <div class="form-group"><label>Cortes horizontales</label><input id="eh-h" type="number" step="0.01" value="0" oninput="calcExtraHerraje()"></div>
+                    <div class="form-group"><label>Largo horizontal (m)</label><input id="eh-lh" type="number" step="0.01" value="0" placeholder="0 = usar ancho" oninput="calcExtraHerraje()"></div>
+                  </div>
+                  <div id="eh-preview" style="font-size:12px;color:var(--text2);margin-bottom:8px"></div>
+                  <button class="btn btn-ghost btn-sm" onclick="agregarExtraHerraje()">+ Agregar herraje</button>
                 </div>
               </div>
             </div>
@@ -611,7 +657,7 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
                     </div>
                     <div id="rc-tab-herrajes" style="display:none">
                       <div class="table-wrap"><table>
-                        <thead><tr><th>Herraje / Accesorio</th><th>Cant. Piezas</th><th>Metros V.</th><th>Metros H.</th><th></th></tr></thead>
+                        <thead><tr><th>Herraje / Accesorio</th><th>Cant. Piezas</th><th>Metros V.</th><th>Metros H.</th><th>Tipo Vidrio</th><th></th></tr></thead>
                         <tbody id="rc-herrajes-tabla"></tbody>
                       </table></div>
                     </div>
@@ -711,6 +757,14 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
     <div style="background:rgba(79,142,247,0.06);border:1px solid rgba(79,142,247,0.15);border-radius:var(--radius);padding:12px 14px;margin-bottom:14px;font-size:12px;color:var(--text2)">
       <strong style="color:var(--accent2)">Cantidad x pieza</strong> — si el herraje se cobra por pieza, ingresa cuántas piezas lleva.<br>
       <strong style="color:var(--accent2)">Metros V / H</strong> — si se cobra por metro lineal, ingresa cuántos cortes verticales u horizontales lleva (se multiplica por el alto/ancho al cotizar).
+    </div>
+    <div class="form-group" style="margin-bottom:14px">
+      <label>Aplica para tipo de vidrio</label>
+      <div style="display:flex;gap:8px;margin-top:6px" id="mh-tipo-vidrio-pills">
+        <div class="pill active" data-val="AMBOS"    onclick="selMhTipoVidrio(this)">AMBOS</div>
+        <div class="pill"        data-val="SENCILLO" onclick="selMhTipoVidrio(this)">SENCILLO</div>
+        <div class="pill"        data-val="DUOVENT"  onclick="selMhTipoVidrio(this)">DUOVENT</div>
+      </div>
     </div>
     <div class="form-grid">
       <div class="form-group">
@@ -1208,9 +1262,10 @@ function renderComponentesConfig(){
       <td>${ch.cantidad||0}</td>
       <td>${ch.metrosV||0}</td>
       <td>${ch.metrosH||0}</td>
+      <td><span class="badge ${(ch.tipoVidrio||'AMBOS')==='SENCILLO'?'badge-blue':(ch.tipoVidrio||'AMBOS')==='DUOVENT'?'badge-purple':'badge-green'}">${ch.tipoVidrio||'AMBOS'}</span></td>
       <td><button class="btn btn-danger btn-sm btn-icon" onclick="quitarComponenteConfig('herraje',${i})">✕</button></td>
     </tr>`).join(''):
-    '<tr><td colspan="5"><div class="empty-state" style="padding:14px"><p>Sin herrajes</p></div></td></tr>';
+    '<tr><td colspan="6"><div class="empty-state" style="padding:14px"><p>Sin herrajes</p></div></td></tr>';
 }
 
 function quitarComponenteConfig(tipo,idx){
@@ -1481,6 +1536,217 @@ function seleccionarAcabadoCustom(){
   calcularPartida();
 }
 
+// ══════════════════════════════════════════════
+// DESGLOSE CON CHECKBOXES
+// ══════════════════════════════════════════════
+function renderDesglose(){
+  if(!proyectoActivo||!proyectoActivo._temp) return;
+  const lineas=proyectoActivo._temp.lineasDesglose||[];
+  const cantidad=proyectoActivo._temp.cantidad||1;
+
+  document.getElementById('cot-desglose').innerHTML=lineas.length?
+    lineas.map((l,i)=>{
+      const badgeColor=l.tipo==='Vidrio'?'badge-green':l.tipo==='Herraje'?'badge-amber':l.tipo==='Info'?'badge-red':'badge-blue';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);${!l.activo?'opacity:.4':''}">
+        <input type="checkbox" ${l.activo?'checked':''} onchange="toggleDesglose(${i},this.checked)"
+          style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent);flex-shrink:0">
+        <span class="badge ${badgeColor}" style="flex-shrink:0">${l.tipo}</span>
+        <span style="font-size:12px;flex:1;color:${l.encontrado===false?'var(--red)':'var(--text)'}">${l.label}</span>
+        ${l.detalle?`<span style="font-size:11px;color:var(--text3);white-space:nowrap">${l.detalle}</span>`:''}
+        <span style="font-family:var(--mono);font-size:13px;font-weight:600;color:${l.activo&&l.costo>0?'var(--green)':'var(--text3)'};white-space:nowrap;min-width:80px;text-align:right">${fmt(l.costo)}</span>
+      </div>`;
+    }).join(''):
+    '<p style="color:var(--text3);font-size:12px;padding:8px 0">Selecciona configuración y medidas para ver el desglose</p>';
+
+  // Recalcular total solo con líneas activas
+  const total=lineas.filter(l=>l.activo).reduce((s,l)=>s+l.costo,0)*cantidad;
+  document.getElementById('cot-total-partida').textContent=fmt(total);
+  if(proyectoActivo._temp) proyectoActivo._temp.totalSinIVA=total;
+}
+
+function toggleDesglose(idx, activo){
+  if(!proyectoActivo._temp) return;
+  proyectoActivo._temp.lineasDesglose[idx].activo=activo;
+  renderDesglose();
+}
+
+// ══════════════════════════════════════════════
+// EXTRAS MANUALES EN COTIZACIÓN
+// ══════════════════════════════════════════════
+let extraPerfilesAll=[], extraHerrajesAll=[];
+
+function switchExtrasTab(el,targetId){
+  el.parentElement.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  ['extra-tab-perfil','extra-tab-herraje'].forEach(id=>{
+    document.getElementById(id).style.display=id===targetId?'':'none';
+  });
+}
+
+function cargarExtrasListas(){
+  // Perfiles: deduplicated by clave
+  const perfiles=DB.get('perfiles');
+  const claveMap={};
+  perfiles.forEach(p=>{ if(!claveMap[p.clave]) claveMap[p.clave]={clave:p.clave,nombre:p.nombre}; });
+  extraPerfilesAll=Object.values(claveMap);
+  renderExtraLista('ep-list', extraPerfilesAll, 'perfil');
+
+  // Herrajes
+  extraHerrajesAll=DB.get('herrajes').map(h=>({id:h.id,label:h.descripcion+(h.clave?' ['+h.clave+']':''),tipo:h.precioML?'ml':'pieza'}));
+  renderExtraLista('eh-list', extraHerrajesAll, 'herraje');
+}
+
+function renderExtraLista(elId, items, tipo){
+  document.getElementById(elId).innerHTML=items.slice(0,50).map(x=>{
+    const val=tipo==='perfil'?x.clave:x.id;
+    const label=tipo==='perfil'
+      ?`<span style="font-family:var(--mono);color:var(--accent2);font-size:12px">${x.clave}</span> <span>${x.nombre}</span>`
+      :`<span>${x.label}</span> <span class="badge ${x.tipo==='ml'?'badge-blue':'badge-amber'}" style="font-size:10px">${x.tipo}</span>`;
+    return `<div class="modal-list-item" data-val="${val}" onclick="selExtra('${tipo}','${val}',this)"
+      style="padding:8px 12px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:8px">
+      ${label}
+    </div>`;
+  }).join('');
+}
+
+function filtrarExtraPerfiles(q){
+  const f=q?extraPerfilesAll.filter(x=>(x.clave+' '+x.nombre).toLowerCase().includes(q.toLowerCase())):extraPerfilesAll;
+  renderExtraLista('ep-list',f,'perfil');
+}
+function filtrarExtraHerrajes(q){
+  const f=q?extraHerrajesAll.filter(x=>x.label.toLowerCase().includes(q.toLowerCase())):extraHerrajesAll;
+  renderExtraLista('eh-list',f,'herraje');
+}
+
+function selExtra(tipo, val, el){
+  const listId=tipo==='perfil'?'ep-list':'eh-list';
+  const hiddenId=tipo==='perfil'?'ep-item':'eh-item';
+  document.querySelectorAll(`#${listId} .modal-list-item`).forEach(i=>{i.style.background='';i.style.borderLeft='';});
+  el.style.background='rgba(79,142,247,0.12)';
+  el.style.borderLeft='3px solid var(--accent)';
+  document.getElementById(hiddenId).value=val;
+  if(tipo==='herraje'){
+    const h=extraHerrajesAll.find(x=>x.id==val);
+    if(h&&h.tipo==='ml'){document.getElementById('eh-v').value='1';}
+    else{document.getElementById('eh-cantidad').value='1';document.getElementById('eh-v').value='0';document.getElementById('eh-h').value='0';}
+    calcExtraHerraje();
+  } else {
+    calcExtraPerfil();
+  }
+}
+
+function calcExtraPerfil(){
+  const clave=document.getElementById('ep-item').value;
+  const acabado=(document.getElementById('cot-acabado-custom').value||'').trim();
+  const ancho=parseFloat(document.getElementById('cot-ancho').value)||0;
+  const alto=parseFloat(document.getElementById('cot-alto').value)||0;
+  const v=parseFloat(document.getElementById('ep-v').value)||0;
+  const lv=parseFloat(document.getElementById('ep-lv').value)||0;
+  const h=parseFloat(document.getElementById('ep-h').value)||0;
+  const lh=parseFloat(document.getElementById('ep-lh').value)||0;
+  const largoV=lv||alto;
+  const largoH=lh||ancho;
+  const ml=(v*largoV)+(h*largoH);
+  const el=document.getElementById('ep-preview');
+  if(!clave){el.textContent='';return;}
+  const idComp=acabado.replace(/\s+/g,'')+clave;
+  const p=DB.get('perfiles').find(x=>x.idCompuesto===idComp);
+  if(!p){el.innerHTML=`<span style="color:var(--red)">${clave} — acabado "${acabado}" no encontrado</span>`;return;}
+  el.innerHTML=`<span style="color:var(--text2)">${p.idCompuesto} — ${p.nombre} | ${num(ml)} ml × ${fmt(p.precioML)}/ml = <strong style="color:var(--green)">${fmt(ml*p.precioML)}</strong></span>`;
+}
+
+function calcExtraHerraje(){
+  const id=parseInt(document.getElementById('eh-item').value);
+  const ancho=parseFloat(document.getElementById('cot-ancho').value)||0;
+  const alto=parseFloat(document.getElementById('cot-alto').value)||0;
+  const cant=parseFloat(document.getElementById('eh-cantidad').value)||0;
+  const v=parseFloat(document.getElementById('eh-v').value)||0;
+  const lv=parseFloat(document.getElementById('eh-lv').value)||0;
+  const h=parseFloat(document.getElementById('eh-h').value)||0;
+  const lh=parseFloat(document.getElementById('eh-lh').value)||0;
+  const el=document.getElementById('eh-preview');
+  if(!id){el.textContent='';return;}
+  const hj=DB.get('herrajes').find(x=>x.id===id);
+  if(!hj){el.textContent='';return;}
+  const largoV=lv||alto, largoH=lh||ancho;
+  const ml=(v*largoV)+(h*largoH);
+  let costo=0, det='';
+  if(ml>0){costo+=(hj.precioML||0)*ml; det+=`${num(ml)} ml × ${fmt(hj.precioML||0)}/ml`;}
+  if(cant>0){costo+=(hj.precioUnitario||0)*cant; det+=(det?' + ':'')+`${cant} pzs × ${fmt(hj.precioUnitario||0)}`;}
+  el.innerHTML=`<span style="color:var(--text2)">${hj.descripcion} | ${det} = <strong style="color:var(--green)">${fmt(costo)}</strong></span>`;
+}
+
+function agregarExtraPerfil(){
+  const clave=document.getElementById('ep-item').value;
+  if(!clave){toast('Selecciona un perfil','error');return;}
+  const acabado=(document.getElementById('cot-acabado-custom').value||'').trim();
+  const ancho=parseFloat(document.getElementById('cot-ancho').value)||0;
+  const alto=parseFloat(document.getElementById('cot-alto').value)||0;
+  const v=parseFloat(document.getElementById('ep-v').value)||0;
+  const lv=parseFloat(document.getElementById('ep-lv').value)||0;
+  const h=parseFloat(document.getElementById('ep-h').value)||0;
+  const lh=parseFloat(document.getElementById('ep-lh').value)||0;
+  const largoV=lv||alto, largoH=lh||ancho;
+  const ml=(v*largoV)+(h*largoH);
+  const idComp=acabado.replace(/\s+/g,'')+clave;
+  const p=DB.get('perfiles').find(x=>x.idCompuesto===idComp);
+  if(!p){toast(`Perfil ${clave} no encontrado con acabado "${acabado}"`, 'error');return;}
+  const costo=p.precioML*ml;
+  const linea={
+    idx: proyectoActivo._temp.lineasDesglose.length,
+    label:`${p.idCompuesto} — ${p.nombre} [EXTRA]`,
+    tipo:'Perfil', costo, encontrado:true, activo:true,
+    detalle:`${num(ml)} ml × ${fmt(p.precioML)}/ml`
+  };
+  proyectoActivo._temp.lineasDesglose.push(linea);
+  renderDesglose();
+  // Reset
+  document.getElementById('ep-item').value='';
+  document.getElementById('ep-v').value='0';
+  document.getElementById('ep-h').value='0';
+  document.getElementById('ep-lv').value='0';
+  document.getElementById('ep-lh').value='0';
+  document.getElementById('ep-preview').textContent='';
+  document.getElementById('ep-search').value='';
+  cargarExtrasListas();
+  toast('Perfil extra agregado');
+}
+
+function agregarExtraHerraje(){
+  const id=parseInt(document.getElementById('eh-item').value);
+  if(!id){toast('Selecciona un herraje','error');return;}
+  const ancho=parseFloat(document.getElementById('cot-ancho').value)||0;
+  const alto=parseFloat(document.getElementById('cot-alto').value)||0;
+  const cant=parseFloat(document.getElementById('eh-cantidad').value)||0;
+  const v=parseFloat(document.getElementById('eh-v').value)||0;
+  const lv=parseFloat(document.getElementById('eh-lv').value)||0;
+  const h=parseFloat(document.getElementById('eh-h').value)||0;
+  const lh=parseFloat(document.getElementById('eh-lh').value)||0;
+  const largoV=lv||alto, largoH=lh||ancho;
+  const ml=(v*largoV)+(h*largoH);
+  const hj=DB.get('herrajes').find(x=>x.id===id);
+  if(!hj){toast('Herraje no encontrado','error');return;}
+  let costo=0,det='';
+  if(ml>0){costo+=(hj.precioML||0)*ml;det+=`${num(ml)} ml × ${fmt(hj.precioML||0)}/ml`;}
+  if(cant>0){costo+=(hj.precioUnitario||0)*cant;det+=(det?' + ':'')+`${cant} pzs × ${fmt(hj.precioUnitario||0)}`;}
+  if(!costo){toast('Ingresa cantidad o cortes','error');return;}
+  const linea={
+    idx:proyectoActivo._temp.lineasDesglose.length,
+    label:hj.descripcion+(hj.clave?' ['+hj.clave+']':'')+' [EXTRA]',
+    tipo:'Herraje',costo,encontrado:true,activo:true,detalle:det
+  };
+  proyectoActivo._temp.lineasDesglose.push(linea);
+  renderDesglose();
+  document.getElementById('eh-item').value='';
+  document.getElementById('eh-v').value='0';document.getElementById('eh-h').value='0';
+  document.getElementById('eh-lv').value='0';document.getElementById('eh-lh').value='0';
+  document.getElementById('eh-cantidad').value='0';
+  document.getElementById('eh-preview').textContent='';
+  document.getElementById('eh-search').value='';
+  cargarExtrasListas();
+  toast('Herraje extra agregado');
+}
+
 function selCotTipoVidrio(el){
   document.querySelectorAll('#cot-tipo-vidrio-pills .pill').forEach(p=>p.classList.remove('active'));
   el.classList.add('active');
@@ -1544,7 +1810,10 @@ function calcularPartida(){
   };
 
   // ── Calcular costo de un herraje ─────────────────────────────
-  const costoHerraje=(herrajeId, cantPiezas, metrosV, metrosH)=>{
+  const costoHerraje=(herrajeId, cantPiezas, metrosV, metrosH, tipoVidH)=>{
+    // Filtrar por tipo de vidrio igual que perfiles
+    const tvh=(tipoVidH||'AMBOS').toUpperCase();
+    if(tvh!=='AMBOS' && tvh!==tipoVidrioSeleccionado) return null;
     const h=todosHerrajes.find(x=>x.id===herrajeId);
     if(!h)return{label:'Herraje no encontrado',costo:0,detalle:''};
 
@@ -1600,26 +1869,15 @@ function calcularPartida(){
   totalSinIVA*=cantidad;
 
   // Render desglose
-  document.getElementById('cot-desglose').innerHTML=lineasDesglose.length?
-    lineasDesglose.map(l=>{
-      const badgeColor=l.tipo==='Vidrio'?'badge-green':l.tipo==='Herraje'?'badge-amber':l.tipo==='Info'?'badge-red':'badge-blue';
-      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <span class="badge ${badgeColor}">${l.tipo}</span>
-          <span style="font-size:12px;color:${l.encontrado===false?'var(--red)':'var(--text)'}">${l.label}</span>
-          ${l.detalle?`<span style="font-size:11px;color:var(--text3)">${l.detalle}</span>`:''}
-        </div>
-        <span style="font-family:var(--mono);font-size:13px;font-weight:600;color:${l.costo>0?'var(--green)':'var(--text3)'};white-space:nowrap;margin-left:12px">${fmt(l.costo)}</span>
-      </div>`;
-    }).join(''):
-    '<p style="color:var(--text3);font-size:12px;padding:8px 0">Selecciona configuración y medidas para ver el desglose</p>';
+  // Store lineas in temp for checkbox toggling
+  proyectoActivo._temp = proyectoActivo._temp || {};
+  proyectoActivo._temp.lineasDesglose = lineasDesglose.map((l,i)=>({...l,idx:i,activo:true}));
+  proyectoActivo._temp.cantidad = cantidad;
+  renderDesglose();
 
-  document.getElementById('cot-total-partida').textContent=fmt(totalSinIVA);
   document.getElementById('cot-preview').style.display='';
-
-  // Store temp
-  if(!proyectoActivo._temp)proyectoActivo._temp={};
-  proyectoActivo._temp={totalSinIVA,lineasDesglose,cantidad};
+  // Load extras lists
+  cargarExtrasListas();
 }
 
 function agregarPartida(){
@@ -1650,6 +1908,11 @@ function agregarPartida(){
   proyectoActivo.partidas=proyectoActivo.partidas||[];
   proyectoActivo.partidas.push(partida);
   proyectoActivo._temp=null;
+  // Reset extras
+  document.getElementById('ep-item').value='';
+  document.getElementById('eh-item').value='';
+  document.getElementById('ep-search').value='';
+  document.getElementById('eh-search').value='';
 
   // Limpiar form
   document.getElementById('cot-desc').value='';
@@ -1766,6 +2029,11 @@ function renderAlertas(){
 let mhItemsAll = [];
 let mhScope = 'config';
 
+function selMhTipoVidrio(el){
+  document.querySelectorAll('#mh-tipo-vidrio-pills .pill').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+}
+
 function abrirModalHerraje(scope) {
   mhScope = scope;
   document.getElementById('mh-search').value = '';
@@ -1773,6 +2041,10 @@ function abrirModalHerraje(scope) {
   document.getElementById('mh-cantidad').value = '0';
   document.getElementById('mh-v').value = '0';
   document.getElementById('mh-h').value = '0';
+  // Reset tipo vidrio
+  document.querySelectorAll('#mh-tipo-vidrio-pills .pill').forEach(p=>{
+    p.classList.toggle('active', p.dataset.val==='AMBOS');
+  });
   mhItemsAll = DB.get('herrajes').map(h => ({
     id: h.id,
     label: h.descripcion + (h.clave ? ' [' + h.clave + ']' : ''),
@@ -1829,6 +2101,7 @@ function confirmarHerraje() {
   const h = parseFloat(document.getElementById('mh-h').value) || 0;
   const hj = DB.get('herrajes').find(x => x.id === parseInt(val));
   if (!hj) return;
+  const tipoVidrio=(document.querySelector('#mh-tipo-vidrio-pills .pill.active')||{}).dataset?.val||'AMBOS';
   const item = {
     herrajeId: hj.id,
     nombreHerraje: hj.descripcion + (hj.clave ? ' [' + hj.clave + ']' : ''),
@@ -1836,7 +2109,8 @@ function confirmarHerraje() {
     precioML: hj.precioML || 0,
     cantidad,
     metrosV: v,
-    metrosH: h
+    metrosH: h,
+    tipoVidrio
   };
   const recetas = DB.get('recetas');
   const r = recetas.find(x => x.id === recetaActual.id);
