@@ -717,7 +717,7 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
                     </div>
                     <div id="rc-tab-perfiles">
                       <div class="table-wrap"><table>
-                        <thead><tr><th>Clave</th><th>Nombre</th><th>Cortes V.</th><th>Cortes H.</th><th>Tipo Vidrio</th><th></th></tr></thead>
+                        <thead><tr><th>Clave</th><th>Nombre</th><th>Cortes / Grupos</th><th>Tipo Vidrio</th><th></th></tr></thead>
                         <tbody id="rc-perfiles-tabla"></tbody>
                       </table></div>
                     </div>
@@ -814,10 +814,16 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
         <div class="pill"        data-val="DUOVENT"  onclick="seleccionarTipoVidrio(this)">DUOVENT</div>
       </div>
     </div>
-    <div class="form-grid">
-      <div class="form-group"><label id="modal-v-label">Cortes verticales</label><input id="modal-v" type="number" step="1" value="0"></div>
-      <div class="form-group"><label id="modal-h-label">Cortes horizontales</label><input id="modal-h" type="number" step="1" value="0"></div>
+
+    <!-- Grupos de cortes dinámicos -->
+    <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Grupos de cortes</div>
+    <div style="background:rgba(79,142,247,.04);border:1px solid rgba(79,142,247,.15);border-radius:var(--radius);padding:10px 12px;margin-bottom:10px;font-size:12px;color:var(--text2)">
+      <strong style="color:var(--accent2)">Tipo proporcional</strong> — cantidad × alto o ancho del cancel.<br>
+      <strong style="color:var(--accent2)">Tipo longitud fija</strong> — cantidad × la medida exacta que ingreses (ej. 4 cortes de 0.04 m).
     </div>
+    <div id="modal-grupos-cortes"></div>
+    <button class="btn btn-ghost btn-sm" style="margin-bottom:14px" onclick="agregarGrupoCorte()">+ Agregar grupo de cortes</button>
+
     <div class="form-actions">
       <button class="btn btn-ghost" onclick="cerrarModal('modal-comp')">Cancelar</button>
       <button class="btn btn-primary" onclick="confirmarComponente()">Agregar</button>
@@ -1365,14 +1371,22 @@ function renderComponentesConfig(){
   const c=r.configs[configActual.idx];
   // Perfiles — CLAVE + NOMBRE
   document.getElementById('rc-perfiles-tabla').innerHTML=(c.perfiles||[]).length?
-    c.perfiles.map((cp,i)=>`<tr>
-      <td class="td-mono">${cp.clave||''}</td>
-      <td>${cp.nombrePerfil||''}</td>
-      <td>${cp.cortesV}</td><td>${cp.cortesH}</td>
-      <td><span class="badge ${cp.tipoVidrio==='SENCILLO'?'badge-blue':cp.tipoVidrio==='DUOVENT'?'badge-purple':'badge-green'}">${cp.tipoVidrio||'AMBOS'}</span></td>
-      <td><button class="btn btn-danger btn-sm btn-icon" onclick="quitarComponenteConfig('perfil',${i})">✕</button></td>
-    </tr>`).join(''):
-    '<tr><td colspan="7"><div class="empty-state" style="padding:14px"><p>Sin perfiles</p></div></td></tr>';
+    c.perfiles.map((cp,i)=>{
+      const grupos=cp.grupos||[{tipo:cp.cortesV>0?'vertical':'horizontal',cant:cp.cortesV||cp.cortesH||0,divisor:1}];
+      const resGrupos=grupos.map(g=>{
+        if(g.tipo==='fijo') return `${g.cant}×${g.long}m`;
+        if(g.tipo==='vertical') return `${g.cant}×alto${g.divisor>1?'/'+g.divisor:''}`;
+        return `${g.cant}×ancho${g.divisor>1?'/'+g.divisor:''}`;
+      }).join(' + ');
+      return `<tr>
+        <td class="td-mono">${cp.clave||''}</td>
+        <td>${cp.nombrePerfil||''}</td>
+        <td style="font-size:11px;color:var(--text2)">${resGrupos}</td>
+        <td><span class="badge ${cp.tipoVidrio==='SENCILLO'?'badge-blue':cp.tipoVidrio==='DUOVENT'?'badge-purple':'badge-green'}">${cp.tipoVidrio||'AMBOS'}</span></td>
+        <td><button class="btn btn-danger btn-sm btn-icon" onclick="quitarComponenteConfig('perfil',${i})">✕</button></td>
+      </tr>`;
+    }).join(''):
+    '<tr><td colspan="5"><div class="empty-state" style="padding:14px"><p>Sin perfiles</p></div></td></tr>';
   document.getElementById('rc-herrajes-tabla').innerHTML=(c.herrajes||[]).length?
     c.herrajes.map((ch,i)=>`<tr>
       <td>${ch.nombreHerraje||''}</td>
@@ -1407,8 +1421,6 @@ function abrirModalComponente(tipo,scope){
     'Buscar por descripción o clave';
   document.getElementById('modal-v-label').textContent=esP?'Cortes verticales':'Metros verticales';
   document.getElementById('modal-h-label').textContent=esP?'Cortes horizontales':'Metros horizontales';
-  document.getElementById('modal-v').value='0';
-  document.getElementById('modal-h').value='0';
   document.getElementById('modal-search').value='';
   document.getElementById('modal-comp-item').value='';
   document.getElementById('modal-items-list').innerHTML='';
@@ -1418,6 +1430,9 @@ function abrirModalComponente(tipo,scope){
   });
   // Solo mostrar tipo-vidrio para perfiles
   document.getElementById('modal-tipo-vidrio-wrap').style.display=tipo==='perfil'?'':'none';
+  // Inicializar grupos de cortes con uno por defecto
+  window._modalGrupos=[];
+  agregarGrupoCorte(); // primer grupo vacío
 
   // Build items list — for perfiles: group by clave (unique claves only, one entry per clave)
   if(esP){
@@ -1513,25 +1528,110 @@ function filtrarModalItems(q){
 
 function cerrarModal(id){document.getElementById(id).classList.remove('open');}
 
+// ── Grupos de cortes dinámicos ───────────────────────────────────
+let _grupoCounter=0;
+
+function agregarGrupoCorte(){
+  const id=_grupoCounter++;
+  window._modalGrupos=window._modalGrupos||[];
+  window._modalGrupos.push(id);
+  const div=document.createElement('div');
+  div.id='grupo-corte-'+id;
+  div.style.cssText='background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin-bottom:8px;position:relative';
+  div.innerHTML=`
+    <button onclick="eliminarGrupoCorte(${id})" style="position:absolute;top:8px;right:8px;background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;opacity:.7">✕</button>
+    <div class="form-grid" style="margin-bottom:8px">
+      <div class="form-group">
+        <label>Tipo de corte</label>
+        <select id="gc-tipo-${id}" onchange="toggleGrupoLongitud(${id})">
+          <option value="vertical">Vertical (× alto)</option>
+          <option value="horizontal">Horizontal (× ancho)</option>
+          <option value="fijo">Longitud fija</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Cantidad de cortes</label>
+        <input id="gc-cant-${id}" type="number" step="1" min="1" value="1" placeholder="Ej. 4">
+      </div>
+      <div class="form-group" id="gc-long-wrap-${id}" style="display:none">
+        <label>Longitud del corte (m)</label>
+        <input id="gc-long-${id}" type="number" step="0.001" min="0.001" value="0" placeholder="Ej. 0.04">
+      </div>
+      <div class="form-group" id="gc-divisor-wrap-${id}" style="display:none">
+        <label>Dividir ancho/alto entre</label>
+        <input id="gc-div-${id}" type="number" step="1" min="1" value="1" placeholder="Ej. 6 hojas">
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--text3)" id="gc-preview-${id}"></div>`;
+  document.getElementById('modal-grupos-cortes').appendChild(div);
+  // Add listeners for preview
+  ['gc-tipo-'+id,'gc-cant-'+id,'gc-long-'+id,'gc-div-'+id].forEach(eid=>{
+    const el=document.getElementById(eid);
+    if(el) el.addEventListener('input',()=>previewGrupo(id));
+    if(el) el.addEventListener('change',()=>previewGrupo(id));
+  });
+}
+
+function toggleGrupoLongitud(id){
+  const tipo=document.getElementById('gc-tipo-'+id).value;
+  document.getElementById('gc-long-wrap-'+id).style.display=tipo==='fijo'?'':'none';
+  document.getElementById('gc-divisor-wrap-'+id).style.display=(tipo==='vertical'||tipo==='horizontal')?'':'none';
+  previewGrupo(id);
+}
+
+function previewGrupo(id){
+  const tipo=document.getElementById('gc-tipo-'+id).value;
+  const cant=parseInt(document.getElementById('gc-cant-'+id).value)||0;
+  const long=parseFloat(document.getElementById('gc-long-'+id)?.value)||0;
+  const div=parseInt(document.getElementById('gc-div-'+id)?.value)||1;
+  const el=document.getElementById('gc-preview-'+id);
+  if(!el)return;
+  if(tipo==='vertical') el.innerHTML=`→ ${cant} corte${cant!==1?'s':''} × (alto ÷ ${div}) m`;
+  else if(tipo==='horizontal') el.innerHTML=`→ ${cant} corte${cant!==1?'s':''} × (ancho ÷ ${div}) m`;
+  else if(tipo==='fijo'&&long>0) el.innerHTML=`→ ${cant} corte${cant!==1?'s':''} de ${long.toFixed(3)} m fijos`;
+  else el.innerHTML='';
+}
+
+function eliminarGrupoCorte(id){
+  const el=document.getElementById('grupo-corte-'+id);
+  if(el)el.remove();
+  window._modalGrupos=(window._modalGrupos||[]).filter(x=>x!==id);
+}
+
+function leerGruposCortes(){
+  // Returns array of {tipo, cant, long, divisor}
+  const grupos=[];
+  (window._modalGrupos||[]).forEach(id=>{
+    const tipoEl=document.getElementById('gc-tipo-'+id);
+    if(!tipoEl)return;
+    const tipo=tipoEl.value;
+    const cant=parseInt(document.getElementById('gc-cant-'+id).value)||0;
+    const long=parseFloat(document.getElementById('gc-long-'+id)?.value)||0;
+    const divisor=parseInt(document.getElementById('gc-div-'+id)?.value)||1;
+    if(cant>0) grupos.push({tipo,cant,long,divisor});
+  });
+  return grupos;
+}
+
 function confirmarComponente(){
   const esP=modalCtx.tipo==='perfil';
   const scope=modalCtx.scope;
   const val=document.getElementById('modal-comp-item').value;
   if(!val){toast('Selecciona un elemento de la lista','error');return;}
-  const v=parseFloat(document.getElementById('modal-v').value)||0;
-  const h=parseFloat(document.getElementById('modal-h').value)||0;
   const recetas=DB.get('recetas');
   const r=recetas.find(x=>x.id===recetaActual.id);
 
   if(esP){
-    // val = clave; nombre = from first matching perfil
     const p=DB.get('perfiles').find(x=>x.clave===val);
     const tipoVidrio=getTipoVidrio();
-    const item={clave:val,nombrePerfil:p?p.nombre:val,cortesV:v,cortesH:h,tipoVidrio};
+    const grupos=leerGruposCortes();
+    if(!grupos.length){toast('Agrega al menos un grupo de cortes','error');return;}
+    const item={clave:val,nombrePerfil:p?p.nombre:val,tipoVidrio,grupos};
     if(scope==='receta'){r.perfiles=r.perfiles||[];r.perfiles.push(item);}
     else{r.configs[configActual.idx].perfiles=r.configs[configActual.idx].perfiles||[];r.configs[configActual.idx].perfiles.push(item);}
   }else{
     const hj=DB.get('herrajes').find(x=>x.id===parseInt(val));
+    const v=0, h=0; // herrajes still use simple V/H from modal-v/h (not grupos)
     const item={herrajeId:parseInt(val),nombreHerraje:hj?hj.descripcion+(hj.clave?' ['+hj.clave+']':''):val,metrosV:v,metrosH:h};
     if(scope==='receta'){r.herrajes=r.herrajes||[];r.herrajes.push(item);}
     else{r.configs[configActual.idx].herrajes=r.configs[configActual.idx].herrajes||[];r.configs[configActual.idx].herrajes.push(item);}
@@ -1540,7 +1640,7 @@ function confirmarComponente(){
   DB.set('recetas',recetas);recetaActual=r;
   if(scope==='receta')renderComponentesReceta();
   else{configActual={idx:configActual.idx,...r.configs[configActual.idx]};renderComponentesConfig();}
-  cerrarModal('modal-comp');toast('Componente agregado');
+  cerrarModal('modal-comp');toast('Perfil agregado');
 }
 
 // ══════════════════════════════════════════════
@@ -1930,25 +2030,46 @@ function calcularPartida(){
   }
 
   // ── Calcular costo de un perfil ──────────────────────────────
-  const costoPerfil=(clave, cortesV, cortesH, tipoVidrioPerfil)=>{
-    // Filtrar por tipo de vidrio: si es SENCILLO o DUOVENT exclusivo y no coincide, omitir
+  // grupos: [{tipo:'vertical'|'horizontal'|'fijo', cant, long, divisor}]
+  // legacy: cortesV, cortesH (backwards compat)
+  const costoPerfil=(clave, cortesV, cortesH, tipoVidrioPerfil, grupos)=>{
     const tvp=(tipoVidrioPerfil||'AMBOS').toUpperCase();
     if(tvp!=='AMBOS' && tvp!==tipoVidrioSeleccionado) return null;
 
-    // Buscar perfil en catálogo con el acabado seleccionado
     const acabadoClean=acabado.replace(/\s+/g,'');
     const idComp=acabadoClean+clave;
     const p=acabado ? todosPerfiles.find(x=>x.idCompuesto===idComp) : null;
 
-    // Calcular metros lineales: cortesV × alto + cortesH × ancho
-    const ml=(cortesV*alto)+(cortesH*ancho);
+    // Calcular metros lineales desde grupos (nueva lógica) o cortesV/H (legacy)
+    let ml=0;
+    let detalleGrupos=[];
+    if(grupos&&grupos.length>0){
+      grupos.forEach(g=>{
+        const divisor=g.divisor||1;
+        let longCorte=0, cantCortes=g.cant||0;
+        if(g.tipo==='fijo') longCorte=g.long||0;
+        else if(g.tipo==='vertical') longCorte=alto/divisor;
+        else longCorte=ancho/divisor;
+        const mlGrupo=cantCortes*longCorte;
+        ml+=mlGrupo;
+        if(g.tipo==='fijo') detalleGrupos.push(`${cantCortes}×${g.long}m`);
+        else if(g.tipo==='vertical') detalleGrupos.push(`${cantCortes}×${num(longCorte)}m(alt${divisor>1?'/'+divisor:''})`);
+        else detalleGrupos.push(`${cantCortes}×${num(longCorte)}m(anch${divisor>1?'/'+divisor:''})`);
+      });
+    } else {
+      // Legacy: cortesV × alto + cortesH × ancho
+      ml=(cortesV*alto)+(cortesH*ancho);
+      if(cortesV>0) detalleGrupos.push(`${cortesV}×alto`);
+      if(cortesH>0) detalleGrupos.push(`${cortesH}×ancho`);
+    }
+
+    const detalleCortes=detalleGrupos.join(' + ');
 
     if(!p){
-      // Perfil no encontrado con ese acabado — mostrar alerta pero incluir en lista
       return{
-        label: clave+(acabado?` (acabado "${acabado}" no encontrado)`:'  ← elige un acabado'),
+        label: clave+(acabado?` (acabado "${acabado}" no encontrado)`:' ← elige un acabado'),
         costo:0, encontrado:false,
-        detalle: ml>0?`${num(ml)} ml`:''
+        detalle: ml>0?`${detalleCortes} = ${num(ml)} ml`:''
       };
     }
 
@@ -1956,7 +2077,7 @@ function calcularPartida(){
     return{
       label:`${p.idCompuesto} — ${p.nombre}`,
       costo, encontrado:true,
-      detalle:`${num(ml)} ml × ${fmt(p.precioML)}/ml`
+      detalle:`${detalleCortes} = ${num(ml)} ml × ${fmt(p.precioML)}/ml`
     };
   };
 
@@ -1989,7 +2110,7 @@ function calcularPartida(){
     const cfg=r.configs[cidx];
     if(cfg){
       (cfg.perfiles||[]).forEach(cp=>{
-        const res=costoPerfil(cp.clave,cp.cortesV||0,cp.cortesH||0,cp.tipoVidrio);
+        const res=costoPerfil(cp.clave,cp.cortesV||0,cp.cortesH||0,cp.tipoVidrio,cp.grupos);
         if(res===null)return; // filtrado por tipo vidrio
         lineasDesglose.push({...res,tipo:'Perfil'});
         totalSinIVA+=res.costo;
@@ -2289,7 +2410,7 @@ function recotizarPartida(idx){
     if(tv!=='AMBOS'&&tv!==tipoVidrio) return null;
     const idComp=acabado.replace(/\s+/g,'')+clave;
     const pf=acabado?todosPerfiles.find(x=>x.idCompuesto===idComp):null;
-    const ml=(cortesV*alto)+(cortesH*ancho);
+    const ml=(cortesV*alto)+(cortesH*ancho); // legacy fallback
     if(!pf) return{label:clave+(acabado?` (acabado "${acabado}" no encontrado)`:''),costo:0,encontrado:false,detalle:ml>0?num(ml)+' ml':'',activo:true,tipo:'Perfil'};
     return{label:`${pf.idCompuesto} — ${pf.nombre}`,costo:pf.precioML*ml,encontrado:true,detalle:`${num(ml)} ml × ${fmt(pf.precioML)}/ml`,activo:true,tipo:'Perfil'};
   };
@@ -2313,7 +2434,7 @@ function recotizarPartida(idx){
   if(cidx!==null&&r.configs&&r.configs[cidx]){
     const cfg=r.configs[cidx];
     (cfg.perfiles||[]).forEach(cp=>{
-      const res=costoPerfil(cp.clave,cp.cortesV||0,cp.cortesH||0,cp.tipoVidrio);
+      const res=costoPerfil(cp.clave,cp.cortesV||0,cp.cortesH||0,cp.tipoVidrio,cp.grupos);
       if(!res) return;
       res.activo=findPrev(res.label);
       lineas.push(res); total+=res.activo?res.costo:0;
@@ -2870,23 +2991,37 @@ function recopilarCortes(proyecto){
           const cfg=receta.configs?receta.configs.find(c=>c.tipo===configNombre):null;
           if(cfg){
             const cp=cfg.perfiles?cfg.perfiles.find(x=>x.clave===pf.clave):null;
-            if(cp){cortesV=cp.cortesV||0; cortesH=cp.cortesH||0;}
+            if(cp){
+              // Nueva lógica: grupos de cortes
+              if(cp.grupos&&cp.grupos.length>0){
+                cp.grupos.forEach(g=>{
+                  const divisor=g.divisor||1;
+                  let longCorte=0;
+                  if(g.tipo==='fijo') longCorte=g.long||0;
+                  else if(g.tipo==='vertical') longCorte=alto/divisor;
+                  else longCorte=ancho/divisor;
+                  for(let ci=0;ci<(g.cant||0)*cant;ci++){
+                    mapaPerfiles[key].cortes.push({longitud:parseFloat(longCorte.toFixed(4)),ubicacion});
+                  }
+                });
+              } else {
+                // Legacy: cortesV × alto + cortesH × ancho
+                cortesV=cp.cortesV||0; cortesH=cp.cortesH||0;
+                if(cortesV>0&&alto>0){
+                  for(let ci=0;ci<cortesV*cant;ci++)
+                    mapaPerfiles[key].cortes.push({longitud:parseFloat(alto.toFixed(3)),ubicacion});
+                }
+                if(cortesH>0&&ancho>0){
+                  for(let ci=0;ci<cortesH*cant;ci++)
+                    mapaPerfiles[key].cortes.push({longitud:parseFloat(ancho.toFixed(3)),ubicacion});
+                }
+              }
+            }
           }
         }
-        // Generar cortes individuales
-        if(cortesV>0 && alto>0){
-          for(let i=0;i<cortesV*cant;i++){
-            mapaPerfiles[key].cortes.push({longitud:parseFloat(alto.toFixed(3)),ubicacion});
-          }
-        }
-        if(cortesH>0 && ancho>0){
-          for(let i=0;i<cortesH*cant;i++){
-            mapaPerfiles[key].cortes.push({longitud:parseFloat(ancho.toFixed(3)),ubicacion});
-          }
-        }
-        // Si no hay cortes V/H (cortes manuales extras), dividir ml total
-        if(cortesV===0&&cortesH===0){
-          const mlMatch=linea.detalle?linea.detalle.match(/^([\d,.]+)\s*ml/):null;
+        // Si no hay cortes de receta (extras manuales), usar ml del detalle
+        if(mapaPerfiles[key].cortes.length===0){
+          const mlMatch=linea.detalle?linea.detalle.match(/([\d,.]+)\s*ml/):null;
           if(mlMatch){
             const mlTotal=parseFloat(mlMatch[1].replace(',','.'))||0;
             if(mlTotal>0) mapaPerfiles[key].cortes.push({longitud:parseFloat(mlTotal.toFixed(3)),ubicacion});
