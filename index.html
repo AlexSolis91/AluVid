@@ -354,10 +354,13 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
                 <input id="cot-acabado-custom" placeholder="O escribe el acabado manualmente" style="margin-top:6px" oninput="seleccionarAcabadoCustom()">
               </div>
               <div class="form-group">
-                <label>Tipo de vidrio</label>
-                <select id="cot-vidrio">
+                <label>Tipo de vidrio del cancel</label>
+                <select id="cot-vidrio" onchange="alCambiarVidrio()">
                   <option value="">— Sin vidrio —</option>
                 </select>
+                <div id="cot-tipo-vidrio-indicator" style="display:none;margin-top:6px;font-size:11px;color:var(--text3)">
+                  Tipo detectado: <span id="cot-tipo-vidrio-label" style="font-weight:600"></span>
+                </div>
               </div>
               <div class="form-group">
                 <label>Ancho (m)</label>
@@ -1431,7 +1434,7 @@ function mostrarEditorCotizacion(){
   // Cargar vidrios en select
   const vs=DB.get('vidrios');
   document.getElementById('cot-vidrio').innerHTML='<option value="">— Sin vidrio —</option>'+
-    vs.map(v=>`<option value="${v.id}">${v.descripcion} — ${fmt(v.precioM2)}/m²</option>`).join('');
+    vs.map(v=>`<option value="${v.id}">[${v.tipo||'SENCILLO'}] ${v.descripcion} — ${fmt(v.precioM2)}/m²</option>`).join('');
 }
 
 function cerrarCotizacion(){
@@ -1747,9 +1750,7 @@ function agregarExtraHerraje(){
   toast('Herraje extra agregado');
 }
 
-function selCotTipoVidrio(el){
-  document.querySelectorAll('#cot-tipo-vidrio-pills .pill').forEach(p=>p.classList.remove('active'));
-  el.classList.add('active');
+function alCambiarVidrio(){
   calcularPartida();
 }
 
@@ -1774,9 +1775,22 @@ function calcularPartida(){
   let lineasDesglose=[];
   let totalSinIVA=0;
 
-  // Tipo de vidrio seleccionado (SENCILLO o DUOVENT)
-  const tipoVidrioActivo=(document.querySelector('#cot-tipo-vidrio-pills .pill.active')||{}).dataset||{};
-  const tipoVidrioSeleccionado=tipoVidrioActivo.val||'SENCILLO';
+  // Tipo de vidrio: se detecta automáticamente del vidrio elegido en catálogo
+  let tipoVidrioSeleccionado='SENCILLO'; // default
+  if(vidrioId){
+    const vSel=DB.get('vidrios').find(x=>x.id===vidrioId);
+    if(vSel&&vSel.tipo) tipoVidrioSeleccionado=vSel.tipo.toUpperCase();
+  }
+  // Actualizar indicador visual
+  const indicador=document.getElementById('cot-tipo-vidrio-indicator');
+  const labelTv=document.getElementById('cot-tipo-vidrio-label');
+  if(indicador&&labelTv){
+    indicador.style.display=vidrioId?'':'none';
+    if(vidrioId){
+      labelTv.textContent=tipoVidrioSeleccionado;
+      labelTv.style.color=tipoVidrioSeleccionado==='DUOVENT'?'var(--purple)':'var(--accent2)';
+    }
+  }
 
   // ── Calcular costo de un perfil ──────────────────────────────
   const costoPerfil=(clave, cortesV, cortesH, tipoVidrioPerfil)=>{
