@@ -618,12 +618,24 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
             <input type="hidden" id="r-id">
             <div class="form-grid" style="margin-bottom:14px">
               <div class="form-group col2"><label>Nombre de la receta *</label><input id="r-nombre" placeholder="Ej. PUERTA CORREDIZA S-70"></div>
-              <div class="form-group col2">
+              <div class="form-group">
                 <label>Línea de producto *</label>
                 <select id="r-linea">
                   <option>Panorama</option><option>Eurovent Classic</option><option>Eurovent Premium</option>
                   <option>Fachada</option><option>Domo</option><option>Barandales</option><option>Canceles de Baño</option>
                 </select>
+              </div>
+              <div class="form-group">
+                <label>Separador (Duovent)</label>
+                <select id="r-separador" onchange="toggleSeparadorPrecio()">
+                  <option value="">— Sin separador —</option>
+                  <option value="1/2">Separador 1/2"</option>
+                  <option value="1/4">Separador 1/4"</option>
+                </select>
+              </div>
+              <div class="form-group" id="r-separador-precio-wrap" style="display:none">
+                <label>Precio separador ($/ml s/IVA)</label>
+                <input id="r-separador-precio" type="number" step="0.01" placeholder="86.00">
               </div>
             </div>
             <div class="form-actions" style="margin-top:0;padding-top:12px">
@@ -646,11 +658,13 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
                     <!-- Tab bar + action buttons always visible -->
                     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
                       <div class="tabs" style="flex:1;margin-bottom:0">
-                        <div class="tab active" onclick="switchTab(this,'rc-tab-perfiles');toggleRcBtn('perfil')">Perfiles de config</div>
-                        <div class="tab" onclick="switchTab(this,'rc-tab-herrajes');toggleRcBtn('herraje')">Herrajes de config</div>
+                        <div class="tab active" onclick="switchTab(this,'rc-tab-perfiles');toggleRcBtn('perfil')">Perfiles</div>
+                        <div class="tab" onclick="switchTab(this,'rc-tab-herrajes');toggleRcBtn('herraje')">Herrajes</div>
+                        <div class="tab" onclick="switchTab(this,'rc-tab-separador');toggleRcBtn('separador')">Separador</div>
                       </div>
                       <button class="btn btn-ghost btn-sm" id="rc-btn-perfil" onclick="abrirModalComponente('perfil','config')">+ Perfil</button>
                       <button class="btn btn-ghost btn-sm" id="rc-btn-herraje" onclick="abrirModalHerraje('config')" style="display:none">+ Herraje</button>
+                      <button class="btn btn-ghost btn-sm" id="rc-btn-separador" style="display:none" onclick="guardarSeparadorConfig()">💾 Guardar</button>
                     </div>
                     <div id="rc-tab-perfiles">
                       <div class="table-wrap"><table>
@@ -663,6 +677,27 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
                         <thead><tr><th>Herraje / Accesorio</th><th>Cant. Piezas</th><th>Metros V.</th><th>Metros H.</th><th>Tipo Vidrio</th><th></th></tr></thead>
                         <tbody id="rc-herrajes-tabla"></tbody>
                       </table></div>
+                    </div>
+                    <div id="rc-tab-separador" style="display:none">
+                      <div style="background:rgba(167,139,250,.06);border:1px solid rgba(167,139,250,.2);border-radius:var(--radius);padding:14px 16px;margin-top:4px">
+                        <div style="font-size:12px;color:var(--text2);margin-bottom:14px">
+                          Ingresa cuántos cortes verticales y horizontales de separador lleva esta configuración.<br>
+                          <span style="color:var(--text3);font-size:11px">Al cotizar con vidrio Duovent, el costo se sumará automáticamente al precio del vidrio.</span>
+                        </div>
+                        <div class="form-grid">
+                          <div class="form-group">
+                            <label>Cortes verticales</label>
+                            <input id="rc-sep-v" type="number" step="1" min="0" value="0" placeholder="Ej. 2">
+                          </div>
+                          <div class="form-group">
+                            <label>Cortes horizontales</label>
+                            <input id="rc-sep-h" type="number" step="1" min="0" value="0" placeholder="Ej. 2">
+                          </div>
+                        </div>
+                        <div style="font-size:11px;color:var(--text3);margin-top:8px">
+                          El precio por metro lineal del separador se configura en la receta (campo "Separador Duovent").
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1118,6 +1153,9 @@ function nuevaReceta(){
   document.getElementById('r-id').value='';
   document.getElementById('r-nombre').value='';
   document.getElementById('r-linea').value='Panorama';
+  document.getElementById('r-separador').value='';
+  document.getElementById('r-separador-precio').value='';
+  document.getElementById('r-separador-precio-wrap').style.display='none';
   document.getElementById('r-btn-del').style.display='none';
   document.getElementById('r-editor-title').textContent='Nueva Receta';
   document.getElementById('r-editor').style.display='';
@@ -1136,21 +1174,38 @@ function mostrarEditorReceta(){
   document.getElementById('r-id').value=recetaActual.id;
   document.getElementById('r-nombre').value=recetaActual.nombre;
   document.getElementById('r-linea').value=recetaActual.linea||'Panorama';
+  // Load separador
+  document.getElementById('r-separador').value=recetaActual.separador||'';
+  document.getElementById('r-separador-precio').value=recetaActual.separadorPrecio||'';
+  toggleSeparadorPrecio();
   document.getElementById('r-btn-del').style.display='';
   document.getElementById('r-editor-title').textContent='Editar Receta';
   document.getElementById('r-editor').style.display='';
   document.getElementById('r-placeholder').style.display='none';
   document.getElementById('r-componentes').style.display='';
-  renderComponentesReceta();renderConfiguraciones();
+  // Auto-select first config if none selected
+  renderConfiguraciones();
+  if(!configActual){
+    const r=DB.get('recetas').find(x=>x.id===recetaActual.id);
+    if(r&&r.configs&&r.configs.length>0) seleccionarConfig(0);
+  }
+  renderComponentesReceta();
+}
+
+function toggleSeparadorPrecio(){
+  const val=document.getElementById('r-separador').value;
+  document.getElementById('r-separador-precio-wrap').style.display=val?'':'none';
 }
 
 function guardarReceta(){
   const nombre=document.getElementById('r-nombre').value.trim();
   const linea=document.getElementById('r-linea').value;
   if(!nombre){toast('El nombre es obligatorio','error');return;}
+  const separador=document.getElementById('r-separador').value;
+  const separadorPrecio=parseFloat(document.getElementById('r-separador-precio').value)||0;
   const recetas=DB.get('recetas');
   const id=parseInt(document.getElementById('r-id').value)||null;
-  let obj={id:id||DB.nextId('recetas'),nombre,linea,perfiles:[],herrajes:[],configs:[],fecha:now()};
+  let obj={id:id||DB.nextId('recetas'),nombre,linea,separador,separadorPrecio,perfiles:[],herrajes:[],configs:[],fecha:now()};
   if(id){
     const idx=recetas.findIndex(r=>r.id===id);
     obj.perfiles=recetas[idx].perfiles||[];
@@ -1164,6 +1219,8 @@ function guardarReceta(){
   document.getElementById('r-componentes').style.display='';
   document.getElementById('r-editor-title').textContent='Editar Receta';
   renderRecetaLista();renderConfiguraciones();renderComponentesReceta();
+  // Auto-open first config
+  if(!configActual&&obj.configs&&obj.configs.length>0) seleccionarConfig(0);
 }
 
 function eliminarReceta(){
@@ -1209,9 +1266,15 @@ function renderConfiguraciones(){
   const configs=r.configs||[];
   document.getElementById('r-configs-tags').innerHTML=configs.map((c,i)=>`
     <div class="config-tag ${configActual&&configActual.idx===i?'active':''}" onclick="seleccionarConfig(${i})">
-      ${c.tipo}
-      <span class="del" onclick="event.stopPropagation();eliminarConfig(${i})" style="color:var(--red);margin-left:4px;opacity:.7">✕</span>
-    </div>`).join('')+(configs.length?'':'<span style="color:var(--text3);font-size:12px">Sin configuraciones</span>');
+      <span style="font-weight:600">${c.tipo}</span>
+      ${c.sepV||c.sepH?`<span style="font-size:10px;color:var(--purple);margin-left:4px">sep:${c.sepV||0}v+${c.sepH||0}h</span>`:''}
+      <span class="del" onclick="event.stopPropagation();eliminarConfig(${i})" style="color:var(--red);margin-left:6px;opacity:.7">✕</span>
+    </div>`).join('')+(configs.length?'':'<span style="color:var(--text3);font-size:12px">Sin configuraciones — usa "+ Config" para agregar</span>');
+  // Always show config editor if a config is selected
+  if(configActual){
+    document.getElementById('r-config-editor').style.display='';
+    document.getElementById('r-config-nombre').textContent=configActual.tipo;
+  }
 }
 
 function seleccionarConfig(idx){
@@ -1351,8 +1414,31 @@ function seleccionarModalItem(el, val){
 }
 
 function toggleRcBtn(which){
-  document.getElementById('rc-btn-perfil').style.display  = which==='perfil'  ? '' : 'none';
-  document.getElementById('rc-btn-herraje').style.display = which==='herraje' ? '' : 'none';
+  document.getElementById('rc-btn-perfil').style.display    = which==='perfil'    ? '' : 'none';
+  document.getElementById('rc-btn-herraje').style.display   = which==='herraje'   ? '' : 'none';
+  document.getElementById('rc-btn-separador').style.display = which==='separador' ? '' : 'none';
+  if(which==='separador') cargarSeparadorConfig();
+}
+
+function cargarSeparadorConfig(){
+  if(!configActual||configActual.idx===undefined) return;
+  const r=DB.get('recetas').find(x=>x.id===recetaActual.id);
+  const c=r.configs[configActual.idx];
+  document.getElementById('rc-sep-v').value=c.sepV||0;
+  document.getElementById('rc-sep-h').value=c.sepH||0;
+}
+
+function guardarSeparadorConfig(){
+  if(!configActual||configActual.idx===undefined){toast('Selecciona una configuración','error');return;}
+  const v=parseInt(document.getElementById('rc-sep-v').value)||0;
+  const h=parseInt(document.getElementById('rc-sep-h').value)||0;
+  const recetas=DB.get('recetas');
+  const r=recetas.find(x=>x.id===recetaActual.id);
+  r.configs[configActual.idx].sepV=v;
+  r.configs[configActual.idx].sepH=h;
+  DB.set('recetas',recetas);
+  recetaActual=r;
+  toast(`Separador guardado: ${v} vert. + ${h} horiz.`);
 }
 
 function seleccionarTipoVidrio(el){
@@ -1868,15 +1954,30 @@ function calcularPartida(){
     lineasDesglose.push({label:'Esta receta no tiene configuraciones definidas',costo:0,encontrado:false,tipo:'Info',detalle:''});
   }
 
-  // ── Vidrio ───────────────────────────────────────────────────
+  // ── Vidrio + Separador ───────────────────────────────────────
   if(vidrioId){
     const v=DB.get('vidrios').find(x=>x.id===vidrioId);
     if(v){
       const m2=ancho*alto;
-      const costo=v.precioM2*m2;
-      lineasDesglose.push({label:v.descripcion,tipo:'Vidrio',costo,encontrado:true,
-        detalle:`${num(m2)} m² × ${fmt(v.precioM2)}/m²`});
-      totalSinIVA+=costo;
+      let costoVidrio=v.precioM2*m2;
+      let detalleVidrio=`${num(m2)} m² × ${fmt(v.precioM2)}/m²`;
+      // Sumar separador si es DUOVENT y la receta/config tiene separador definido
+      if(tipoVidrioSeleccionado==='DUOVENT' && cidx!==null && r.configs && r.configs[cidx]){
+        const cfg=r.configs[cidx];
+        if(r.separadorPrecio>0){
+          const sepV=cfg.sepV||0;
+          const sepH=cfg.sepH||0;
+          const mlSep=(sepV*alto)+(sepH*ancho);
+          if(mlSep>0){
+            const costoSep=r.separadorPrecio*mlSep;
+            costoVidrio+=costoSep;
+            detalleVidrio+=` + sep."${r.separador||''}": ${num(mlSep)} ml × ${fmt(r.separadorPrecio)}/ml = ${fmt(costoSep)}`;
+          }
+        }
+      }
+      lineasDesglose.push({label:v.descripcion,tipo:'Vidrio',costo:costoVidrio,encontrado:true,
+        detalle:detalleVidrio});
+      totalSinIVA+=costoVidrio;
     }
   }
 
@@ -2178,11 +2279,26 @@ function recotizarPartida(idx){
     const v=DB.get('vidrios').find(x=>x.id===vidrioId);
     if(v){
       const m2=ancho*alto;
-      const costo=v.precioM2*m2;
+      let costoVidrio=v.precioM2*m2;
+      let detalleVidrio=`${num(m2)} m² × ${fmt(v.precioM2)}/m²`;
+      // Separador Duovent
+      if(tipoVidrio==='DUOVENT'&&cidx!==null&&r.configs&&r.configs[cidx]){
+        const cfg=r.configs[cidx];
+        if(r.separadorPrecio>0){
+          const sepV=cfg.sepV||0;
+          const sepH=cfg.sepH||0;
+          const mlSep=(sepV*alto)+(sepH*ancho);
+          if(mlSep>0){
+            const costoSep=r.separadorPrecio*mlSep;
+            costoVidrio+=costoSep;
+            detalleVidrio+=` + sep.${r.separador||''}: ${num(mlSep)} ml × ${fmt(r.separadorPrecio)}/ml`;
+          }
+        }
+      }
       const label=v.descripcion;
       const activo=findPrev(label);
-      lineas.push({label,tipo:'Vidrio',costo,encontrado:true,detalle:`${num(m2)} m² × ${fmt(v.precioM2)}/m²`,activo});
-      total+=activo?costo:0;
+      lineas.push({label,tipo:'Vidrio',costo:costoVidrio,encontrado:true,detalle:detalleVidrio,activo});
+      total+=activo?costoVidrio:0;
     }
   }
 
