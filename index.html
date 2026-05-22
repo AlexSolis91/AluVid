@@ -698,7 +698,10 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
               <div style="margin-top:20px">
                 <div class="section-header">
                   <span style="font-size:13px;font-weight:600">Configuraciones</span>
-                  <button class="btn btn-ghost btn-sm" onclick="agregarConfiguracion()">+ Config (OX, OXXO…)</button>
+                  <div style="display:flex;gap:6px">
+                    <button class="btn btn-ghost btn-sm" onclick="copiarConfiguracion()" title="Copiar la configuración activa como base para una nueva">⎘ Copiar config activa</button>
+                    <button class="btn btn-ghost btn-sm" onclick="agregarConfiguracion()">+ Config (OX, OXXO…)</button>
+                  </div>
                 </div>
                 <div class="configs-wrap" id="r-configs-tags"></div>
                 <div id="r-config-editor" style="display:none">
@@ -1385,7 +1388,10 @@ function renderComponentesConfig(){
         <td>${cp.nombrePerfil||''}</td>
         <td style="font-size:11px;color:var(--text2)">${resGrupos}</td>
         <td><span class="badge ${cp.tipoVidrio==='SENCILLO'?'badge-blue':cp.tipoVidrio==='DUOVENT'?'badge-purple':'badge-green'}">${cp.tipoVidrio||'AMBOS'}</span></td>
-        <td><button class="btn btn-danger btn-sm btn-icon" onclick="quitarComponenteConfig('perfil',${i})">✕</button></td>
+        <td style="display:flex;gap:4px">
+          <button class="btn btn-ghost btn-sm btn-icon" onclick="editarPerfilConfig(${i})" title="Editar">✏</button>
+          <button class="btn btn-danger btn-sm btn-icon" onclick="quitarComponenteConfig('perfil',${i})" title="Eliminar">✕</button>
+        </td>
       </tr>`;
     }).join(''):
     '<tr><td colspan="5"><div class="empty-state" style="padding:14px"><p>Sin perfiles</p></div></td></tr>';
@@ -1396,9 +1402,115 @@ function renderComponentesConfig(){
       <td>${ch.metrosV||0}</td>
       <td>${ch.metrosH||0}</td>
       <td><span class="badge ${(ch.tipoVidrio||'AMBOS')==='SENCILLO'?'badge-blue':(ch.tipoVidrio||'AMBOS')==='DUOVENT'?'badge-purple':'badge-green'}">${ch.tipoVidrio||'AMBOS'}</span></td>
-      <td><button class="btn btn-danger btn-sm btn-icon" onclick="quitarComponenteConfig('herraje',${i})">✕</button></td>
+      <td style="display:flex;gap:4px">
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="editarHerrajeConfig(${i})" title="Editar">✏</button>
+        <button class="btn btn-danger btn-sm btn-icon" onclick="quitarComponenteConfig('herraje',${i})" title="Eliminar">✕</button>
+      </td>
     </tr>`).join(''):
     '<tr><td colspan="6"><div class="empty-state" style="padding:14px"><p>Sin herrajes</p></div></td></tr>';
+}
+
+// ── Copiar configuración activa ──────────────────────────────────
+function copiarConfiguracion(){
+  if(!recetaActual){toast('Guarda la receta primero','error');return;}
+  const recetas=DB.get('recetas');
+  const r=recetas.find(x=>x.id===recetaActual.id);
+  if(!configActual||configActual.idx===undefined){
+    toast('Selecciona una configuración para copiar','error');return;
+  }
+  const tipo=prompt('Nombre para la nueva configuración (copia):');
+  if(!tipo||!tipo.trim())return;
+  // Deep copy de la config activa
+  const original=r.configs[configActual.idx];
+  const copia={
+    tipo:tipo.trim().toUpperCase(),
+    perfiles:JSON.parse(JSON.stringify(original.perfiles||[])),
+    herrajes:JSON.parse(JSON.stringify(original.herrajes||[])),
+    sepV:original.sepV||0,
+    sepH:original.sepH||0
+  };
+  r.configs.push(copia);
+  DB.set('recetas',recetas);
+  recetaActual=r;
+  renderConfiguraciones();
+  seleccionarConfig(r.configs.length-1);
+  toast('Configuración copiada — edita lo que necesites cambiar');
+}
+
+// ── Editar perfil en configuración ───────────────────────────────
+function editarPerfilConfig(idx){
+  if(!configActual||configActual.idx===undefined)return;
+  const r=DB.get('recetas').find(x=>x.id===recetaActual.id);
+  const c=r.configs[configActual.idx];
+  const cp=c.perfiles[idx];
+  if(!cp)return;
+
+  // Open modal in edit mode
+  abrirModalComponente('perfil','config');
+  // Wait for modal to render, then pre-fill
+  setTimeout(()=>{
+    // Pre-select the perfil in list
+    document.getElementById('modal-search').value=cp.clave;
+    filtrarModalItems(cp.clave);
+    setTimeout(()=>{
+      const items=document.querySelectorAll('#modal-items-list .modal-list-item');
+      items.forEach(el=>{if(el.dataset.val===cp.clave) seleccionarModalItem(el,cp.clave);});
+    },50);
+    // Pre-fill tipo vidrio
+    document.querySelectorAll('#modal-tipo-vidrio-pills .pill').forEach(p=>{
+      p.classList.toggle('active',p.dataset.val===(cp.tipoVidrio||'AMBOS'));
+    });
+    // Pre-fill grupos
+    const gruposWrap=document.getElementById('modal-grupos-cortes');
+    if(gruposWrap) gruposWrap.innerHTML='';
+    window._modalGrupos=[];
+    const grupos=cp.grupos||[{tipo:cp.cortesV>0?'vertical':'horizontal',cant:cp.cortesV||cp.cortesH||0,divisor:1,long:0}];
+    grupos.forEach(g=>{
+      agregarGrupoCorte();
+      const gid=window._modalGrupos[window._modalGrupos.length-1];
+      setTimeout(()=>{
+        const tipoEl=document.getElementById('gc-tipo-'+gid);
+        if(tipoEl){tipoEl.value=g.tipo||'vertical';toggleGrupoLongitud(gid);}
+        const cantEl=document.getElementById('gc-cant-'+gid);
+        if(cantEl) cantEl.value=g.cant||0;
+        const longEl=document.getElementById('gc-long-'+gid);
+        if(longEl) longEl.value=g.long||0;
+        const divEl=document.getElementById('gc-div-'+gid);
+        if(divEl) divEl.value=g.divisor||1;
+        previewGrupo(gid);
+      },80);
+    });
+    // Store edit index so confirmarComponente replaces instead of appends
+    modalCtx._editIdx=idx;
+  },50);
+}
+
+// ── Editar herraje en configuración ──────────────────────────────
+function editarHerrajeConfig(idx){
+  if(!configActual||configActual.idx===undefined)return;
+  const r=DB.get('recetas').find(x=>x.id===recetaActual.id);
+  const c=r.configs[configActual.idx];
+  const ch=c.herrajes[idx];
+  if(!ch)return;
+
+  abrirModalHerraje('config');
+  setTimeout(()=>{
+    // Pre-select herraje
+    document.getElementById('mh-search').value=ch.nombreHerraje||'';
+    filtrarModalHerrajes(ch.nombreHerraje||'');
+    setTimeout(()=>{
+      const items=document.querySelectorAll('#mh-items-list .modal-list-item');
+      items.forEach(el=>{if(parseInt(el.dataset.val)===ch.herrajeId) seleccionarModalHerraje(el,ch.herrajeId);});
+    },50);
+    document.getElementById('mh-cantidad').value=ch.cantidad||0;
+    document.getElementById('mh-v').value=ch.metrosV||0;
+    document.getElementById('mh-h').value=ch.metrosH||0;
+    document.querySelectorAll('#mh-tipo-vidrio-pills .pill').forEach(p=>{
+      p.classList.toggle('active',p.dataset.val===(ch.tipoVidrio||'AMBOS'));
+    });
+    // Store edit index
+    window._mhEditIdx=idx;
+  },50);
 }
 
 function quitarComponenteConfig(tipo,idx){
@@ -1635,7 +1747,15 @@ function confirmarComponente(){
     if(!grupos.length){toast('Agrega al menos un grupo de cortes','error');return;}
     const item={clave:val,nombrePerfil:p?p.nombre:val,tipoVidrio,grupos};
     if(scope==='receta'){r.perfiles=r.perfiles||[];r.perfiles.push(item);}
-    else{r.configs[configActual.idx].perfiles=r.configs[configActual.idx].perfiles||[];r.configs[configActual.idx].perfiles.push(item);}
+    else{
+      r.configs[configActual.idx].perfiles=r.configs[configActual.idx].perfiles||[];
+      if(modalCtx._editIdx!==undefined){
+        r.configs[configActual.idx].perfiles[modalCtx._editIdx]=item; // replace
+        delete modalCtx._editIdx;
+      } else {
+        r.configs[configActual.idx].perfiles.push(item);
+      }
+    }
   }else{
     const hj=DB.get('herrajes').find(x=>x.id===parseInt(val));
     const v=0, h=0; // herrajes still use simple V/H from modal-v/h (not grupos)
@@ -2865,7 +2985,12 @@ function confirmarHerraje() {
   const r = recetas.find(x => x.id === recetaActual.id);
   if (mhScope === 'config' && configActual !== null) {
     r.configs[configActual.idx].herrajes = r.configs[configActual.idx].herrajes || [];
-    r.configs[configActual.idx].herrajes.push(item);
+    if(window._mhEditIdx!==undefined){
+      r.configs[configActual.idx].herrajes[window._mhEditIdx]=item; // replace
+      delete window._mhEditIdx;
+    } else {
+      r.configs[configActual.idx].herrajes.push(item);
+    }
   } else {
     r.herrajes = r.herrajes || [];
     r.herrajes.push(item);
