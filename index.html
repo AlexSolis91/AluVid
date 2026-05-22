@@ -1967,39 +1967,79 @@ function renderPartidas(){
           <button class="btn btn-danger btn-icon btn-sm" onclick="eliminarPartida(${i})" title="Eliminar">✕</button>
         </div>
       </div>
-      <!-- Panel de edición (oculto por defecto) -->
-      <div id="edit-panel-${i}" style="display:none;border-top:1px solid var(--border);padding:16px;width:100%;background:var(--bg2)">
-        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">Editar partida</div>
+      <!-- Panel de edición completo -->
+      <div id="edit-panel-${i}" style="display:none;border-top:1px solid var(--border);padding:20px;width:100%;background:rgba(79,142,247,0.04)">
+        <div style="font-size:11px;color:var(--accent2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px;font-weight:600">✏ Editar partida</div>
+
+        <!-- Fila 1: Ubicación y medidas básicas -->
         <div class="form-grid" style="margin-bottom:12px">
           <div class="form-group col2">
             <label>Ubicación</label>
-            <input id="ep-ubicacion-${i}" value="${p.ubicacion||p.descripcion||''}" placeholder="Ubicación">
-          </div>
-          <div class="form-group">
-            <label>Acabado / Color</label>
-            <input id="ep-acabado-${i}" value="${p.acabado||''}" placeholder="Negro, Blanco...">
+            <input id="ep-ubicacion-${i}" value="${p.ubicacion||p.descripcion||''}" placeholder="Ej. Puerta sala, Ventana recámara 1">
           </div>
           <div class="form-group">
             <label>Ancho (m)</label>
-            <input id="ep-ancho-${i}" type="number" step="0.01" value="${p.ancho||0}" oninput="recalcPartidaEdicion(${i})">
+            <input id="ep-ancho-${i}" type="number" step="0.01" value="${p.ancho||0}" oninput="recotizarPartida(${i})">
           </div>
           <div class="form-group">
             <label>Alto (m)</label>
-            <input id="ep-alto-${i}" type="number" step="0.01" value="${p.alto||0}" oninput="recalcPartidaEdicion(${i})">
+            <input id="ep-alto-${i}" type="number" step="0.01" value="${p.alto||0}" oninput="recotizarPartida(${i})">
           </div>
           <div class="form-group">
             <label>Cantidad</label>
-            <input id="ep-cant-${i}" type="number" step="1" min="1" value="${p.cantidad||1}" oninput="recalcPartidaEdicion(${i})">
+            <input id="ep-cant-${i}" type="number" step="1" min="1" value="${p.cantidad||1}" oninput="recotizarPartida(${i})">
           </div>
         </div>
-        <!-- Desglose editable -->
-        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Desglose (marca/desmarca para incluir)</div>
-        <div id="ep-desglose-${i}"></div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
-          <span style="font-size:12px;color:var(--text2)">Total partida (sin IVA)</span>
-          <span style="font-family:var(--mono);font-size:16px;font-weight:700;color:var(--green)" id="ep-total-${i}">$0.00</span>
+
+        <!-- Fila 2: Receta, Config, Acabado, Vidrio -->
+        <div class="form-grid" style="margin-bottom:12px">
+          <div class="form-group">
+            <label>Línea</label>
+            <select id="ep-linea-${i}" onchange="epCargarRecetas(${i})">
+              ${['Panorama','Eurovent Classic','Eurovent Premium','Fachada','Domo','Barandales','Canceles de Baño'].map(l=>`<option value="${l}" ${p.linea===l?'selected':''}>${l}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Receta / Cancel</label>
+            <select id="ep-receta-${i}" onchange="epCargarConfigs(${i})"></select>
+          </div>
+          <div class="form-group">
+            <label>Configuración</label>
+            <select id="ep-config-${i}" onchange="recotizarPartida(${i})"></select>
+          </div>
+          <div class="form-group">
+            <label>Acabado / Color</label>
+            <input id="ep-acabado-${i}" value="${p.acabado||''}" placeholder="Negro, Blanco..." oninput="recotizarPartida(${i})">
+          </div>
+          <div class="form-group">
+            <label>Tipo de vidrio</label>
+            <select id="ep-vidrio-${i}" onchange="recotizarPartida(${i})">
+              <option value="">— Sin vidrio —</option>
+              ${DB.get('vidrios').map(v=>`<option value="${v.id}" ${p.vidrioId==v.id?'selected':''}>[${v.tipo||'SENCILLO'}] ${v.descripcion} — ${fmt(v.precioM2)}/m²</option>`).join('')}
+            </select>
+          </div>
         </div>
-        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+
+        <!-- Desglose recalculado -->
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:12px">
+          <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Desglose — desmarca lo que no deseas incluir</div>
+          <div id="ep-desglose-${i}"></div>
+          <!-- Extras manuales -->
+          <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border2)">
+            <div style="font-size:11px;color:var(--text3);margin-bottom:6px">Agregar material extra:</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button class="btn btn-ghost btn-sm" onclick="epAbrirExtraPerfil(${i})">+ Perfil</button>
+              <button class="btn btn-ghost btn-sm" onclick="epAbrirExtraHerraje(${i})">+ Herraje</button>
+            </div>
+            <div id="ep-extra-form-${i}" style="display:none;margin-top:10px"></div>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <span style="font-size:13px;color:var(--text2)">Total partida (sin IVA)</span>
+          <span style="font-family:var(--mono);font-size:18px;font-weight:700;color:var(--green)" id="ep-total-${i}">$0.00</span>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
           <button class="btn btn-ghost btn-sm" onclick="toggleEditPartida(${i})">Cancelar</button>
           <button class="btn btn-primary btn-sm" onclick="guardarEdicionPartida(${i})">💾 Guardar cambios</button>
         </div>
@@ -2026,108 +2066,348 @@ function toggleEditPartida(idx){
   panel.style.display=open?'':'none';
   btn.style.background=open?'rgba(79,142,247,.15)':'';
   btn.style.color=open?'var(--accent2)':'';
-  if(open) renderDesgloseEdicion(idx);
+  if(open){
+    // Populate recetas select
+    epCargarRecetas(idx);
+    // Trigger full recalc
+    recotizarPartida(idx);
+  }
 }
 
-function renderDesgloseEdicion(idx){
+// Populate recetas by linea for edit panel
+function epCargarRecetas(idx){
+  const linea=document.getElementById('ep-linea-'+idx).value;
+  const recetas=DB.get('recetas').filter(r=>r.linea===linea);
   const p=proyectoActivo.partidas[idx];
-  const lineas=p.desglose||[];
-  const cantidad=p.cantidad||1;
-  const el=document.getElementById('ep-desglose-'+idx);
-  if(!el)return;
-  el.innerHTML=lineas.map((l,li)=>`
-    <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);${!l.activo?'opacity:.4':''}">
-      <input type="checkbox" ${l.activo!==false?'checked':''} onchange="toggleDesgloseEdicion(${idx},${li},this.checked)"
-        style="width:15px;height:15px;cursor:pointer;accent-color:var(--accent);flex-shrink:0">
-      <span class="badge ${l.tipo==='Vidrio'?'badge-green':l.tipo==='Herraje'?'badge-amber':'badge-blue'}" style="flex-shrink:0;font-size:10px">${l.tipo}</span>
-      <span style="font-size:12px;flex:1;color:${l.activo===false?'var(--text3)':'var(--text)'}">${l.label}</span>
-      <span style="font-size:11px;color:var(--text3);white-space:nowrap">${l.detalle||''}</span>
-      <span style="font-family:var(--mono);font-size:12px;font-weight:600;color:${l.activo!==false&&l.costo>0?'var(--green)':'var(--text3)'};min-width:72px;text-align:right">${fmt(l.costo)}</span>
-    </div>`).join('');
-  recalcTotalEdicion(idx);
+  const sel=document.getElementById('ep-receta-'+idx);
+  sel.innerHTML=recetas.length
+    ? recetas.map(r=>`<option value="${r.id}" ${r.nombre===p.receta?'selected':''}>${r.nombre}</option>`).join('')
+    : '<option value="">Sin recetas en esta línea</option>';
+  epCargarConfigs(idx);
 }
 
-function toggleDesgloseEdicion(partidaIdx, lineaIdx, activo){
-  proyectoActivo.partidas[partidaIdx].desglose[lineaIdx].activo=activo;
-  renderDesgloseEdicion(partidaIdx);
-}
-
-function recalcTotalEdicion(idx){
+// Populate configs for selected receta
+function epCargarConfigs(idx){
+  const rid=parseInt(document.getElementById('ep-receta-'+idx).value);
   const p=proyectoActivo.partidas[idx];
-  const ancho=parseFloat(document.getElementById('ep-ancho-'+idx).value)||p.ancho||0;
-  const alto=parseFloat(document.getElementById('ep-alto-'+idx).value)||p.alto||0;
-  const cantidad=parseInt(document.getElementById('ep-cant-'+idx).value)||1;
-  const total=(p.desglose||[]).filter(l=>l.activo!==false).reduce((s,l)=>s+l.costo,0)*cantidad;
-  const el=document.getElementById('ep-total-'+idx);
-  if(el) el.textContent=fmt(total);
+  const r=DB.get('recetas').find(x=>x.id===rid);
+  const sel=document.getElementById('ep-config-'+idx);
+  if(r&&r.configs&&r.configs.length){
+    sel.innerHTML='<option value="">— Sin config —</option>'+
+      r.configs.map((c,i)=>`<option value="${i}" ${c.tipo===p.config?'selected':''}>${c.tipo}</option>`).join('');
+  } else {
+    sel.innerHTML='<option value="">Sin configuraciones</option>';
+  }
+  recotizarPartida(idx);
 }
 
-function recalcPartidaEdicion(idx){
-  // Recalcular metros lineales de cada perfil en el desglose con nuevas medidas
+// Full recalculation using same logic as calcularPartida
+function recotizarPartida(idx){
   const p=proyectoActivo.partidas[idx];
   const ancho=parseFloat(document.getElementById('ep-ancho-'+idx).value)||0;
   const alto=parseFloat(document.getElementById('ep-alto-'+idx).value)||0;
   const cantidad=parseInt(document.getElementById('ep-cant-'+idx).value)||1;
-  const acabado=(document.getElementById('ep-acabado-'+idx).value||'').trim().replace(/\s+/g,'');
+  const acabado=(document.getElementById('ep-acabado-'+idx).value||'').trim();
+  const ridEl=document.getElementById('ep-receta-'+idx);
+  const rid=ridEl?parseInt(ridEl.value):null;
+  const cidxEl=document.getElementById('ep-config-'+idx);
+  const cidxRaw=cidxEl?cidxEl.value:'';
+  const cidx=cidxRaw!==''?parseInt(cidxRaw):null;
+  const vidrioId=parseInt(document.getElementById('ep-vidrio-'+idx).value)||null;
+
+  if(!rid||!ancho||!alto) return;
+
+  const r=DB.get('recetas').find(x=>x.id===rid);
+  if(!r) return;
+
   const todosPerfiles=DB.get('perfiles');
   const todosHerrajes=DB.get('herrajes');
+  let lineas=[];
+  let total=0;
 
-  // Recalcular costo de cada línea del desglose original
-  // Buscamos en la receta las proporciones originales (cortesV, cortesH)
-  const receta=DB.get('recetas').find(r=>r.nombre===p.receta);
-  if(receta){
-    const cfgIdx=receta.configs?receta.configs.findIndex(c=>c.tipo===p.config):-1;
-    const cfg=cfgIdx>=0?receta.configs[cfgIdx]:null;
-    if(cfg){
-      // Re-run cost calculation for each desglose line
-      (p.desglose||[]).forEach(l=>{
-        if(l.tipo==='Perfil'){
-          // Extract clave from label (format: "AcabadoClave — Nombre")
-          const clave=Object.values(DB.get('perfiles').reduce((m,pf)=>{m[pf.idCompuesto]=pf;return m},{}))[0]
-            ? (() => {
-                const match=todosPerfiles.find(pf=>pf.idCompuesto===l.label.split(' — ')[0]);
-                return match?match.clave:null;
-              })() : null;
-          if(clave){
-            const idComp=acabado+clave;
-            const pf=todosPerfiles.find(x=>x.idCompuesto===idComp);
-            const cp=cfg.perfiles?cfg.perfiles.find(x=>x.clave===clave):null;
-            if(pf&&cp){
-              const ml=(cp.cortesV*alto)+(cp.cortesH*ancho);
-              l.costo=pf.precioML*ml;
-              l.detalle=`${num(ml)} ml × ${fmt(pf.precioML)}/ml`;
-              l.label=`${pf.idCompuesto} — ${pf.nombre}`;
-            }
-          }
-        } else if(l.tipo==='Herraje'){
-          const hj=todosHerrajes.find(x=>x.id===l.herrajeId||(l.label&&l.label.startsWith(x.descripcion)));
-          const ch=cfg.herrajes?cfg.herrajes.find(x=>todosHerrajes.find(h=>h.id===x.herrajeId&&h.descripcion&&l.label.startsWith(h.descripcion))):null;
-          if(hj&&ch){
-            const ml=(ch.metrosV*alto)+(ch.metrosH*ancho);
-            let costo=0;
-            if(ml>0) costo+=(hj.precioML||0)*ml;
-            if(ch.cantidad>0) costo+=(hj.precioUnitario||0)*ch.cantidad;
-            l.costo=costo;
-          }
-        }
-      });
+  // Detect tipo vidrio from selected vidrio
+  let tipoVidrio='SENCILLO';
+  if(vidrioId){
+    const v=DB.get('vidrios').find(x=>x.id===vidrioId);
+    if(v&&v.tipo) tipoVidrio=v.tipo.toUpperCase();
+  }
+
+  const costoPerfil=(clave,cortesV,cortesH,tvp)=>{
+    const tv=(tvp||'AMBOS').toUpperCase();
+    if(tv!=='AMBOS'&&tv!==tipoVidrio) return null;
+    const idComp=acabado.replace(/\s+/g,'')+clave;
+    const pf=acabado?todosPerfiles.find(x=>x.idCompuesto===idComp):null;
+    const ml=(cortesV*alto)+(cortesH*ancho);
+    if(!pf) return{label:clave+(acabado?` (acabado "${acabado}" no encontrado)`:''),costo:0,encontrado:false,detalle:ml>0?num(ml)+' ml':'',activo:true,tipo:'Perfil'};
+    return{label:`${pf.idCompuesto} — ${pf.nombre}`,costo:pf.precioML*ml,encontrado:true,detalle:`${num(ml)} ml × ${fmt(pf.precioML)}/ml`,activo:true,tipo:'Perfil'};
+  };
+
+  const costoHerraje=(herrajeId,cant,metrosV,metrosH,tvh)=>{
+    const tv=(tvh||'AMBOS').toUpperCase();
+    if(tv!=='AMBOS'&&tv!==tipoVidrio) return null;
+    const h=todosHerrajes.find(x=>x.id===herrajeId);
+    if(!h) return null;
+    let costo=0,det='';
+    const ml=(metrosV*alto)+(metrosH*ancho);
+    if(ml>0){costo+=(h.precioML||0)*ml; det+=`${num(ml)} ml × ${fmt(h.precioML||0)}/ml`;}
+    if(cant>0){costo+=(h.precioUnitario||0)*cant; det+=(det?' + ':'')+`${cant} pzs × ${fmt(h.precioUnitario||0)}`;}
+    return{label:h.descripcion+(h.clave?' ['+h.clave+']':''),costo,encontrado:true,detalle:det,activo:true,tipo:'Herraje'};
+  };
+
+  // Preserve activo state from existing desglose if possible
+  const prevDesglose=p._editDesglose||p.desglose||[];
+  const findPrev=(label)=>{const found=prevDesglose.find(l=>l.label===label);return found?found.activo!==false:true;};
+
+  if(cidx!==null&&r.configs&&r.configs[cidx]){
+    const cfg=r.configs[cidx];
+    (cfg.perfiles||[]).forEach(cp=>{
+      const res=costoPerfil(cp.clave,cp.cortesV||0,cp.cortesH||0,cp.tipoVidrio);
+      if(!res) return;
+      res.activo=findPrev(res.label);
+      lineas.push(res); total+=res.activo?res.costo:0;
+    });
+    (cfg.herrajes||[]).forEach(ch=>{
+      const res=costoHerraje(ch.herrajeId,ch.cantidad||0,ch.metrosV||0,ch.metrosH||0,ch.tipoVidrio);
+      if(!res) return;
+      res.activo=findPrev(res.label);
+      lineas.push(res); total+=res.activo?res.costo:0;
+    });
+  }
+
+  if(vidrioId){
+    const v=DB.get('vidrios').find(x=>x.id===vidrioId);
+    if(v){
+      const m2=ancho*alto;
+      const costo=v.precioM2*m2;
+      const label=v.descripcion;
+      const activo=findPrev(label);
+      lineas.push({label,tipo:'Vidrio',costo,encontrado:true,detalle:`${num(m2)} m² × ${fmt(v.precioM2)}/m²`,activo});
+      total+=activo?costo:0;
     }
   }
-  renderDesgloseEdicion(idx);
+
+  // Add any manual extras that were previously added (marked [EXTRA])
+  (prevDesglose||[]).filter(l=>l.label&&l.label.includes('[EXTRA]')).forEach(l=>{
+    if(!lineas.find(x=>x.label===l.label)) lineas.push(l);
+    total+=l.activo?l.costo:0;
+  });
+
+  total*=cantidad;
+  p._editDesglose=lineas;
+
+  // Update receta/config names for display
+  p._editRecetaNombre=r.nombre;
+  p._editLinea=document.getElementById('ep-linea-'+idx).value;
+  p._editConfig=cidx!==null&&r.configs?r.configs[cidx].tipo:'—';
+  p._editVidrioId=vidrioId;
+
+  renderDesgloseEdicion(idx,lineas,total);
+}
+
+function renderDesgloseEdicion(idx, lineas, total){
+  if(!lineas) {
+    const p=proyectoActivo.partidas[idx];
+    lineas=p._editDesglose||p.desglose||[];
+    const cantidad=parseInt(document.getElementById('ep-cant-'+idx)?.value)||p.cantidad||1;
+    total=(lineas.filter(l=>l.activo!==false).reduce((s,l)=>s+l.costo,0))*cantidad;
+  }
+  const el=document.getElementById('ep-desglose-'+idx);
+  if(!el) return;
+  el.innerHTML=lineas.length?lineas.map((l,li)=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);${!l.activo?'opacity:.4':''}">
+      <input type="checkbox" ${l.activo!==false?'checked':''} onchange="toggleDesgloseEdicion(${idx},${li},this.checked)"
+        style="width:15px;height:15px;cursor:pointer;accent-color:var(--accent);flex-shrink:0">
+      <span class="badge ${l.tipo==='Vidrio'?'badge-green':l.tipo==='Herraje'?'badge-amber':'badge-blue'}" style="font-size:10px;flex-shrink:0">${l.tipo}</span>
+      <span style="font-size:12px;flex:1;color:${l.encontrado===false?'var(--red)':'var(--text)'}">${l.label}</span>
+      <span style="font-size:11px;color:var(--text3);white-space:nowrap">${l.detalle||''}</span>
+      <span style="font-family:var(--mono);font-size:12px;font-weight:600;min-width:72px;text-align:right;color:${l.activo!==false&&l.costo>0?'var(--green)':'var(--text3)'}">${fmt(l.costo)}</span>
+    </div>`).join(''):
+    '<p style="color:var(--text3);font-size:12px;padding:8px 0">Sin materiales calculados — verifica receta, configuración y medidas</p>';
+  const elTotal=document.getElementById('ep-total-'+idx);
+  if(elTotal) elTotal.textContent=fmt(total);
+}
+
+function toggleDesgloseEdicion(partidaIdx, lineaIdx, activo){
+  const p=proyectoActivo.partidas[partidaIdx];
+  if(p._editDesglose) p._editDesglose[lineaIdx].activo=activo;
+  else if(p.desglose) p.desglose[lineaIdx].activo=activo;
+  // Recalc total
+  const cantidad=parseInt(document.getElementById('ep-cant-'+partidaIdx)?.value)||p.cantidad||1;
+  const lineas=p._editDesglose||p.desglose||[];
+  const total=lineas.filter(l=>l.activo!==false).reduce((s,l)=>s+l.costo,0)*cantidad;
+  renderDesgloseEdicion(partidaIdx, lineas, total);
+}
+
+// Extra perfil/herraje in edit panel
+function epAbrirExtraPerfil(idx){
+  const form=document.getElementById('ep-extra-form-'+idx);
+  form.style.display='';
+  form.innerHTML=`
+    <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);padding:12px">
+      <div style="font-size:11px;color:var(--accent2);margin-bottom:8px">+ Perfil extra</div>
+      <div class="search-wrap" style="margin-bottom:6px">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input placeholder="Buscar por clave o nombre..." oninput="epFiltrarPerfiles(this.value,${idx})" id="ep-extra-search-${idx}">
+      </div>
+      <input type="hidden" id="ep-extra-clave-${idx}">
+      <div id="ep-extra-perfil-list-${idx}" style="max-height:120px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg3);margin-bottom:8px"></div>
+      <div class="form-grid">
+        <div class="form-group"><label>Cortes V.</label><input id="ep-extra-v-${idx}" type="number" step="0.01" value="0"></div>
+        <div class="form-group"><label>Largo V. (m) — 0=alto</label><input id="ep-extra-lv-${idx}" type="number" step="0.01" value="0"></div>
+        <div class="form-group"><label>Cortes H.</label><input id="ep-extra-h-${idx}" type="number" step="0.01" value="0"></div>
+        <div class="form-group"><label>Largo H. (m) — 0=ancho</label><input id="ep-extra-lh-${idx}" type="number" step="0.01" value="0"></div>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('ep-extra-form-${idx}').style.display='none'">Cancelar</button>
+        <button class="btn btn-primary btn-sm" onclick="epConfirmarExtraPerfil(${idx})">Agregar</button>
+      </div>
+    </div>`;
+  // Load list
+  const perfiles=DB.get('perfiles');
+  const claveMap={};
+  perfiles.forEach(p=>{if(!claveMap[p.clave])claveMap[p.clave]={clave:p.clave,nombre:p.nombre};});
+  epRenderPerfilList(Object.values(claveMap), idx);
+}
+
+function epFiltrarPerfiles(q,idx){
+  const perfiles=DB.get('perfiles');
+  const claveMap={};
+  perfiles.forEach(p=>{if(!claveMap[p.clave])claveMap[p.clave]={clave:p.clave,nombre:p.nombre};});
+  const items=Object.values(claveMap).filter(x=>!q||(x.clave+' '+x.nombre).toLowerCase().includes(q.toLowerCase()));
+  epRenderPerfilList(items,idx);
+}
+
+function epRenderPerfilList(items,idx){
+  document.getElementById('ep-extra-perfil-list-'+idx).innerHTML=items.slice(0,40).map(x=>
+    `<div onclick="epSelPerfil(this,'${x.clave}',${idx})" style="padding:7px 12px;border-bottom:1px solid var(--border);cursor:pointer;font-size:12px">
+      <span style="font-family:var(--mono);color:var(--accent2)">${x.clave}</span> ${x.nombre}
+    </div>`).join('');
+}
+
+function epSelPerfil(el,clave,idx){
+  el.parentElement.querySelectorAll('div').forEach(d=>{d.style.background='';d.style.borderLeft='';});
+  el.style.background='rgba(79,142,247,.12)'; el.style.borderLeft='3px solid var(--accent)';
+  document.getElementById('ep-extra-clave-'+idx).value=clave;
+}
+
+function epConfirmarExtraPerfil(idx){
+  const clave=document.getElementById('ep-extra-clave-'+idx).value;
+  if(!clave){toast('Selecciona un perfil','error');return;}
+  const acabado=(document.getElementById('ep-acabado-'+idx).value||'').trim();
+  const ancho=parseFloat(document.getElementById('ep-ancho-'+idx).value)||0;
+  const alto=parseFloat(document.getElementById('ep-alto-'+idx).value)||0;
+  const v=parseFloat(document.getElementById('ep-extra-v-'+idx).value)||0;
+  const lv=parseFloat(document.getElementById('ep-extra-lv-'+idx).value)||0;
+  const h=parseFloat(document.getElementById('ep-extra-h-'+idx).value)||0;
+  const lh=parseFloat(document.getElementById('ep-extra-lh-'+idx).value)||0;
+  const largoV=lv||alto, largoH=lh||ancho;
+  const ml=(v*largoV)+(h*largoH);
+  const idComp=acabado.replace(/\s+/g,'')+clave;
+  const pf=DB.get('perfiles').find(x=>x.idCompuesto===idComp);
+  if(!pf){toast(`Perfil ${clave} no encontrado con acabado "${acabado}"`, 'error');return;}
+  const linea={label:`${pf.idCompuesto} — ${pf.nombre} [EXTRA]`,tipo:'Perfil',costo:pf.precioML*ml,encontrado:true,detalle:`${num(ml)} ml × ${fmt(pf.precioML)}/ml`,activo:true};
+  const p=proyectoActivo.partidas[idx];
+  p._editDesglose=p._editDesglose||[...p.desglose||[]];
+  p._editDesglose.push(linea);
+  document.getElementById('ep-extra-form-'+idx).style.display='none';
+  recotizarPartida(idx);
+  toast('Perfil extra agregado');
+}
+
+function epAbrirExtraHerraje(idx){
+  const form=document.getElementById('ep-extra-form-'+idx);
+  form.style.display='';
+  const herrajes=DB.get('herrajes');
+  form.innerHTML=`
+    <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);padding:12px">
+      <div style="font-size:11px;color:var(--amber);margin-bottom:8px">+ Herraje extra</div>
+      <div class="search-wrap" style="margin-bottom:6px">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input placeholder="Buscar herraje..." oninput="epFiltrarHerrajes(this.value,${idx})" id="ep-extra-hsearch-${idx}">
+      </div>
+      <input type="hidden" id="ep-extra-hid-${idx}">
+      <div id="ep-extra-herraje-list-${idx}" style="max-height:120px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg3);margin-bottom:8px">
+        ${herrajes.slice(0,40).map(h=>`<div onclick="epSelHerraje(this,${h.id},${idx})" style="padding:7px 12px;border-bottom:1px solid var(--border);cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:space-between">
+          <span>${h.descripcion}${h.clave?' ['+h.clave+']':''}</span>
+          <span class="badge ${h.precioML?'badge-blue':'badge-amber'}" style="font-size:10px">${h.precioML?'ml':'pieza'}</span>
+        </div>`).join('')}
+      </div>
+      <div class="form-grid">
+        <div class="form-group"><label>Cant. piezas</label><input id="ep-extra-hcant-${idx}" type="number" step="1" value="0"></div>
+        <div class="form-group"><label>Cortes V.</label><input id="ep-extra-hv-${idx}" type="number" step="0.01" value="0"></div>
+        <div class="form-group"><label>Largo V. (m) — 0=alto</label><input id="ep-extra-hlv-${idx}" type="number" step="0.01" value="0"></div>
+        <div class="form-group"><label>Cortes H.</label><input id="ep-extra-hh-${idx}" type="number" step="0.01" value="0"></div>
+        <div class="form-group"><label>Largo H. (m) — 0=ancho</label><input id="ep-extra-hlh-${idx}" type="number" step="0.01" value="0"></div>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('ep-extra-form-${idx}').style.display='none'">Cancelar</button>
+        <button class="btn btn-primary btn-sm" onclick="epConfirmarExtraHerraje(${idx})">Agregar</button>
+      </div>
+    </div>`;
+}
+
+function epFiltrarHerrajes(q,idx){
+  const herrajes=DB.get('herrajes').filter(h=>!q||(h.descripcion+(h.clave||'')).toLowerCase().includes(q.toLowerCase()));
+  document.getElementById('ep-extra-herraje-list-'+idx).innerHTML=herrajes.slice(0,40).map(h=>
+    `<div onclick="epSelHerraje(this,${h.id},${idx})" style="padding:7px 12px;border-bottom:1px solid var(--border);cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:space-between">
+      <span>${h.descripcion}${h.clave?' ['+h.clave+']':''}</span>
+      <span class="badge ${h.precioML?'badge-blue':'badge-amber'}" style="font-size:10px">${h.precioML?'ml':'pieza'}</span>
+    </div>`).join('');
+}
+
+function epSelHerraje(el,id,idx){
+  el.parentElement.querySelectorAll('div').forEach(d=>{d.style.background='';d.style.borderLeft='';});
+  el.style.background='rgba(79,142,247,.12)'; el.style.borderLeft='3px solid var(--accent)';
+  document.getElementById('ep-extra-hid-'+idx).value=id;
+  const h=DB.get('herrajes').find(x=>x.id===id);
+  if(h&&h.precioML){document.getElementById('ep-extra-hv-'+idx).value='1';}
+  else if(h){document.getElementById('ep-extra-hcant-'+idx).value='1';}
+}
+
+function epConfirmarExtraHerraje(idx){
+  const id=parseInt(document.getElementById('ep-extra-hid-'+idx).value);
+  if(!id){toast('Selecciona un herraje','error');return;}
+  const ancho=parseFloat(document.getElementById('ep-ancho-'+idx).value)||0;
+  const alto=parseFloat(document.getElementById('ep-alto-'+idx).value)||0;
+  const cant=parseFloat(document.getElementById('ep-extra-hcant-'+idx).value)||0;
+  const v=parseFloat(document.getElementById('ep-extra-hv-'+idx).value)||0;
+  const lv=parseFloat(document.getElementById('ep-extra-hlv-'+idx).value)||0;
+  const h2=parseFloat(document.getElementById('ep-extra-hh-'+idx).value)||0;
+  const lh=parseFloat(document.getElementById('ep-extra-hlh-'+idx).value)||0;
+  const largoV=lv||alto, largoH=lh||ancho;
+  const ml=(v*largoV)+(h2*largoH);
+  const hj=DB.get('herrajes').find(x=>x.id===id);
+  if(!hj){return;}
+  let costo=0,det='';
+  if(ml>0){costo+=(hj.precioML||0)*ml; det+=`${num(ml)} ml × ${fmt(hj.precioML||0)}/ml`;}
+  if(cant>0){costo+=(hj.precioUnitario||0)*cant; det+=(det?' + ':'')+`${cant} pzs × ${fmt(hj.precioUnitario||0)}`;}
+  if(!costo){toast('Ingresa cantidad o cortes','error');return;}
+  const linea={label:hj.descripcion+(hj.clave?' ['+hj.clave+']':'')+' [EXTRA]',tipo:'Herraje',costo,encontrado:true,detalle:det,activo:true};
+  const p=proyectoActivo.partidas[idx];
+  p._editDesglose=p._editDesglose||[...p.desglose||[]];
+  p._editDesglose.push(linea);
+  document.getElementById('ep-extra-form-'+idx).style.display='none';
+  recotizarPartida(idx);
+  toast('Herraje extra agregado');
 }
 
 function guardarEdicionPartida(idx){
   const p=proyectoActivo.partidas[idx];
-  const ancho=parseFloat(document.getElementById('ep-ancho-'+idx).value)||p.ancho;
-  const alto=parseFloat(document.getElementById('ep-alto-'+idx).value)||p.alto;
-  const cantidad=parseInt(document.getElementById('ep-cant-'+idx).value)||p.cantidad;
   p.ubicacion=document.getElementById('ep-ubicacion-'+idx).value.trim()||p.ubicacion;
   p.acabado=document.getElementById('ep-acabado-'+idx).value.trim()||p.acabado;
-  p.ancho=ancho;
-  p.alto=alto;
-  p.cantidad=cantidad;
-  p.totalPartida=(p.desglose||[]).filter(l=>l.activo!==false).reduce((s,l)=>s+l.costo,0)*cantidad;
-  toast('Partida actualizada');
+  p.ancho=parseFloat(document.getElementById('ep-ancho-'+idx).value)||p.ancho;
+  p.alto=parseFloat(document.getElementById('ep-alto-'+idx).value)||p.alto;
+  p.cantidad=parseInt(document.getElementById('ep-cant-'+idx).value)||p.cantidad;
+  // Update receta/config/vidrio names
+  if(p._editRecetaNombre) p.receta=p._editRecetaNombre;
+  if(p._editConfig) p.config=p._editConfig;
+  if(p._editLinea) p.linea=p._editLinea;
+  if(p._editVidrioId!==undefined) p.vidrioId=p._editVidrioId;
+  // Commit desglose
+  if(p._editDesglose) p.desglose=p._editDesglose;
+  p.totalPartida=(p.desglose||[]).filter(l=>l.activo!==false).reduce((s,l)=>s+l.costo,0)*p.cantidad;
+  delete p._editDesglose; delete p._editRecetaNombre; delete p._editConfig; delete p._editLinea; delete p._editVidrioId;
+  toast('Partida actualizada ✓');
   renderPartidas();
 }
 
