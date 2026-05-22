@@ -1493,10 +1493,12 @@ function calcularPartida(){
   const ancho=parseFloat(document.getElementById('cot-ancho').value)||0;
   const alto=parseFloat(document.getElementById('cot-alto').value)||0;
   const cantidad=parseInt(document.getElementById('cot-cantidad').value)||1;
-  const cidx=document.getElementById('cot-config').value;
+  const cidxRaw=document.getElementById('cot-config').value;
+  const cidx=cidxRaw!==''?parseInt(cidxRaw):null;
   const vidrioId=parseInt(document.getElementById('cot-vidrio').value)||null;
 
-  if(!rid||!acabado||!ancho||!alto){document.getElementById('cot-preview').style.display='none';return;}
+  // Mostrar desglose aunque no haya acabado, para ver los perfiles pendientes
+  if(!rid||!ancho||!alto){document.getElementById('cot-preview').style.display='none';return;}
 
   const r=DB.get('recetas').find(x=>x.id===rid);
   if(!r)return;
@@ -1506,78 +1508,91 @@ function calcularPartida(){
   let lineasDesglose=[];
   let totalSinIVA=0;
 
-  // tipo de vidrio seleccionado en cotización (sencillo/duovent)
-  const tipoVidrioSeleccionado=document.getElementById('cot-tipo-vidrio')
-    ? (document.querySelector('#cot-tipo-vidrio-pills .pill.active')||{}).dataset?.val||'SENCILLO'
-    : 'SENCILLO';
+  // Tipo de vidrio seleccionado (SENCILLO o DUOVENT)
+  const tipoVidrioActivo=(document.querySelector('#cot-tipo-vidrio-pills .pill.active')||{}).dataset||{};
+  const tipoVidrioSeleccionado=tipoVidrioActivo.val||'SENCILLO';
 
-  // Función para calcular costo de un perfil con acabado
-  const costoPerfil=(clave,cantidad,cortesV,cortesH,tipoVidrioPerfil)=>{
-    // Si el perfil es exclusivo de un tipo y no coincide con el seleccionado, omitir
-    if(tipoVidrioPerfil&&tipoVidrioPerfil!=='AMBOS'&&tipoVidrioPerfil!==tipoVidrioSeleccionado) return null;
+  // ── Calcular costo de un perfil ──────────────────────────────
+  const costoPerfil=(clave, cortesV, cortesH, tipoVidrioPerfil)=>{
+    // Filtrar por tipo de vidrio: si es SENCILLO o DUOVENT exclusivo y no coincide, omitir
+    const tvp=(tipoVidrioPerfil||'AMBOS').toUpperCase();
+    if(tvp!=='AMBOS' && tvp!==tipoVidrioSeleccionado) return null;
+
+    // Buscar perfil en catálogo con el acabado seleccionado
     const acabadoClean=acabado.replace(/\s+/g,'');
     const idComp=acabadoClean+clave;
-    const p=todosPerfiles.find(x=>x.idCompuesto===idComp);
-    if(!p)return{nombre:`${clave} (sin acabado ${acabado})`,costo:0,encontrado:false};
-    // metros = cortes verticales * alto + cortes horizontales * ancho
-    const metros=(cortesV*alto)+(cortesH*ancho)+(cortesV===0&&cortesH===0?cantidad:0);
-    const costo=p.precioML*(cortesV>0||cortesH>0?(cortesV*alto)+(cortesH*ancho):cantidad);
-    return{nombre:`${p.idCompuesto} — ${p.nombre}`,costo,encontrado:true,
-      detalle:`${num(cortesV>0||cortesH>0?(cortesV*alto)+(cortesH*ancho):cantidad)} ml × ${fmt(p.precioML)}/ml`};
-  };
+    const p=acabado ? todosPerfiles.find(x=>x.idCompuesto===idComp) : null;
 
-  const costoHerraje=(herrajeId,cantidad,metrosV,metrosH)=>{
-    const h=todosHerrajes.find(x=>x.id===herrajeId);
-    if(!h)return{nombre:'Herraje desconocido',costo:0};
-    let costo=0;
-    if(metrosV>0||metrosH>0){
-      const metros=(metrosV*alto)+(metrosH*ancho);
-      costo=(h.precioML||0)*metros;
-      return{nombre:h.descripcion,costo,detalle:`${num(metros)} ml × ${fmt(h.precioML||0)}/ml`};
-    }else{
-      costo=(h.precioUnitario||0)*cantidad;
-      return{nombre:h.descripcion,costo,detalle:`${cantidad} pzs × ${fmt(h.precioUnitario||0)}`};
+    // Calcular metros lineales: cortesV × alto + cortesH × ancho
+    const ml=(cortesV*alto)+(cortesH*ancho);
+
+    if(!p){
+      // Perfil no encontrado con ese acabado — mostrar alerta pero incluir en lista
+      return{
+        label: clave+(acabado?` (acabado "${acabado}" no encontrado)`:'  ← elige un acabado'),
+        costo:0, encontrado:false,
+        detalle: ml>0?`${num(ml)} ml`:''
+      };
     }
+
+    const costo=p.precioML*ml;
+    return{
+      label:`${p.idCompuesto} — ${p.nombre}`,
+      costo, encontrado:true,
+      detalle:`${num(ml)} ml × ${fmt(p.precioML)}/ml`
+    };
   };
 
-  // Perfiles globales de la receta
-  (r.perfiles||[]).forEach(cp=>{
-    const res=costoPerfil(cp.clave,cp.cantidad||1,cp.cortesV,cp.cortesH,cp.tipoVidrio);if(!res)return;
-    lineasDesglose.push({...res,tipo:'Perfil'});
-    totalSinIVA+=res.costo;
-  });
+  // ── Calcular costo de un herraje ─────────────────────────────
+  const costoHerraje=(herrajeId, cantPiezas, metrosV, metrosH)=>{
+    const h=todosHerrajes.find(x=>x.id===herrajeId);
+    if(!h)return{label:'Herraje no encontrado',costo:0,detalle:''};
 
-  // Herrajes globales
-  (r.herrajes||[]).forEach(ch=>{
-    const res=costoHerraje(ch.herrajeId,ch.cantidad,ch.metrosV||0,ch.metrosH||0);
-    lineasDesglose.push({...res,tipo:'Herraje'});
-    totalSinIVA+=res.costo;
-  });
+    let costo=0, detalle='';
+    // Si tiene cortes de metros lineales
+    if(metrosV>0||metrosH>0){
+      const ml=(metrosV*alto)+(metrosH*ancho);
+      costo=(h.precioML||0)*ml;
+      detalle=`${num(ml)} ml × ${fmt(h.precioML||0)}/ml`;
+    }
+    // Si tiene piezas
+    if(cantPiezas>0){
+      const costoPiezas=(h.precioUnitario||0)*cantPiezas;
+      costo+=costoPiezas;
+      detalle+=(detalle?'  +  ':'')+`${cantPiezas} pzs × ${fmt(h.precioUnitario||0)}`;
+    }
+    return{label:h.descripcion+(h.clave?' ['+h.clave+']':''),costo,detalle};
+  };
 
-  // Componentes de la configuración seleccionada
-  if(cidx!==''){
-    const cfg=r.configs[parseInt(cidx)];
+  // ── Procesar configuración seleccionada ──────────────────────
+  if(cidx!==null){
+    const cfg=r.configs[cidx];
     if(cfg){
       (cfg.perfiles||[]).forEach(cp=>{
-        const res=costoPerfil(cp.clave,cp.cantidad||1,cp.cortesV,cp.cortesH,cp.tipoVidrio);if(!res)return;
-        lineasDesglose.push({...res,tipo:'Perfil (config)'});
+        const res=costoPerfil(cp.clave,cp.cortesV||0,cp.cortesH||0,cp.tipoVidrio);
+        if(res===null)return; // filtrado por tipo vidrio
+        lineasDesglose.push({...res,tipo:'Perfil'});
         totalSinIVA+=res.costo;
       });
       (cfg.herrajes||[]).forEach(ch=>{
-        const res=costoHerraje(ch.herrajeId,ch.cantidad,ch.metrosV||0,ch.metrosH||0);
-        lineasDesglose.push({...res,tipo:'Herraje (config)'});
+        const res=costoHerraje(ch.herrajeId,ch.cantidad||0,ch.metrosV||0,ch.metrosH||0);
+        lineasDesglose.push({...res,tipo:'Herraje'});
         totalSinIVA+=res.costo;
       });
     }
+  } else if(r.configs&&r.configs.length===0){
+    // Receta sin configuraciones — mostrar aviso
+    lineasDesglose.push({label:'Esta receta no tiene configuraciones definidas',costo:0,encontrado:false,tipo:'Info',detalle:''});
   }
 
-  // Vidrio
+  // ── Vidrio ───────────────────────────────────────────────────
   if(vidrioId){
     const v=DB.get('vidrios').find(x=>x.id===vidrioId);
     if(v){
       const m2=ancho*alto;
       const costo=v.precioM2*m2;
-      lineasDesglose.push({nombre:v.descripcion,tipo:'Vidrio',costo,detalle:`${num(m2)} m² × ${fmt(v.precioM2)}/m²`});
+      lineasDesglose.push({label:v.descripcion,tipo:'Vidrio',costo,encontrado:true,
+        detalle:`${num(m2)} m² × ${fmt(v.precioM2)}/m²`});
       totalSinIVA+=costo;
     }
   }
@@ -1586,17 +1601,18 @@ function calcularPartida(){
 
   // Render desglose
   document.getElementById('cot-desglose').innerHTML=lineasDesglose.length?
-    lineasDesglose.map(l=>`
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border)">
-        <div>
-          <span class="badge ${l.tipo.includes('Perfil')?'badge-blue':l.tipo==='Vidrio'?'badge-green':'badge-amber'}" style="margin-right:6px">${l.tipo}</span>
-          <span style="font-size:12px">${l.nombre}</span>
-          ${l.detalle?`<span style="font-size:11px;color:var(--text3);margin-left:6px">${l.detalle}</span>`:''}
-          ${!l.encontrado?`<span class="badge badge-red" style="margin-left:6px">No encontrado con acabado ${acabado}</span>`:''}
+    lineasDesglose.map(l=>{
+      const badgeColor=l.tipo==='Vidrio'?'badge-green':l.tipo==='Herraje'?'badge-amber':l.tipo==='Info'?'badge-red':'badge-blue';
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span class="badge ${badgeColor}">${l.tipo}</span>
+          <span style="font-size:12px;color:${l.encontrado===false?'var(--red)':'var(--text)'}">${l.label}</span>
+          ${l.detalle?`<span style="font-size:11px;color:var(--text3)">${l.detalle}</span>`:''}
         </div>
-        <span style="font-family:var(--mono);font-size:12px;color:${l.costo>0?'var(--text)':'var(--red)'}">${fmt(l.costo)}</span>
-      </div>`).join(''):
-    '<p style="color:var(--text3);font-size:12px">Agrega perfiles y herrajes a la receta para ver el desglose</p>';
+        <span style="font-family:var(--mono);font-size:13px;font-weight:600;color:${l.costo>0?'var(--green)':'var(--text3)'};white-space:nowrap;margin-left:12px">${fmt(l.costo)}</span>
+      </div>`;
+    }).join(''):
+    '<p style="color:var(--text3);font-size:12px;padding:8px 0">Selecciona configuración y medidas para ver el desglose</p>';
 
   document.getElementById('cot-total-partida').textContent=fmt(totalSinIVA);
   document.getElementById('cot-preview').style.display='';
@@ -1609,9 +1625,9 @@ function calcularPartida(){
 function agregarPartida(){
   const desc=document.getElementById('cot-desc').value.trim();
   const rid=parseInt(document.getElementById('cot-receta').value);
-  if(!desc){toast('Ingresa la descripción de la pieza','error');return;}
+  if(!desc){toast('Ingresa la ubicación','error');return;}
   if(!rid){toast('Selecciona una receta','error');return;}
-  if(!proyectoActivo._temp||!proyectoActivo._temp.totalSinIVA){toast('Configura las medidas primero','error');return;}
+  if(!proyectoActivo._temp){toast('Configura las medidas primero','error');return;}
 
   const r=DB.get('recetas').find(x=>x.id===rid);
   const cfgIdx=document.getElementById('cot-config').value;
@@ -1620,7 +1636,7 @@ function agregarPartida(){
 
   const partida={
     id:Date.now(),
-    descripcion:desc,
+    ubicacion:desc,
     receta:r.nombre,
     config:cfgNombre,
     acabado,
@@ -1658,7 +1674,7 @@ function renderPartidas(){
   el.innerHTML=partidas.map((p,i)=>`
     <div class="partida-row">
       <div class="partida-info">
-        <div class="partida-nombre">${i+1}. ${p.descripcion}</div>
+        <div class="partida-nombre">${i+1}. ${p.ubicacion||p.descripcion||""}</div>
         <div class="partida-detalle">
           <span class="badge badge-blue" style="margin-right:4px">${p.receta}</span>
           <span class="badge badge-purple" style="margin-right:4px">${p.config}</span>
