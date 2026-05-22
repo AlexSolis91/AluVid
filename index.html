@@ -228,10 +228,10 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
       <span class="nav-badge" id="badge-proyectos" style="display:none">0</span>
     </div>
 
-    <div class="nav-section">Principal</div>
-    <div class="nav-item active" data-view="dashboard" onclick="nav(this)">
-      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-      Dashboard
+    <div class="nav-section">Materiales</div>
+    <div class="nav-item active" data-view="materiales" onclick="nav(this)">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+      Lista de Material
     </div>
 
     <div class="nav-section">Catálogos</div>
@@ -478,19 +478,68 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
       </div>
     </div>
 
-    <!-- ════════════════ DASHBOARD ════════════════ -->
-    <div class="view active" id="view-dashboard">
+    <!-- ════════════════ MATERIALES ════════════════ -->
+    <div class="view active" id="view-materiales">
       <div class="dashboard-welcome">
-        <div class="dashboard-welcome-icon">🔩</div>
+        <div class="dashboard-welcome-icon">📦</div>
         <div>
-          <h2>Bienvenido a AluVid</h2>
-          <p>Sistema de gestión de catálogos, recetas y cotizaciones de aluminio y vidrio.</p>
+          <h2>Lista de Material</h2>
+          <p>Selecciona un proyecto para ver el desglose completo de materiales con optimización de cortes.</p>
         </div>
       </div>
-      <div class="stats-grid" id="dash-stats"></div>
-      <div class="card">
-        <div class="card-title"><span>⚠</span> Precios por actualizar</div>
-        <div id="dash-alertas-preview"></div>
+      <!-- Buscador de proyectos -->
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px">
+        <div class="search-wrap" style="flex:1">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input id="mat-buscar" placeholder="Buscar por folio o cliente..." oninput="filtrarMatProyectos(this.value)" style="width:100%">
+        </div>
+      </div>
+      <!-- Lista de proyectos -->
+      <div id="mat-proyectos-lista" style="margin-bottom:20px"></div>
+      <!-- Vista de material del proyecto -->
+      <div id="mat-detalle" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <div>
+            <div style="font-family:var(--mono);font-size:22px;font-weight:700;color:var(--purple)" id="mat-folio-title"></div>
+            <div style="font-size:12px;color:var(--text2)" id="mat-cliente-title"></div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost btn-sm" onclick="document.getElementById('mat-detalle').style.display='none';document.getElementById('mat-proyectos-lista').style.display=''">← Proyectos</button>
+            <button class="btn btn-ghost btn-sm" onclick="imprimirMaterial()">🖨 Imprimir</button>
+          </div>
+        </div>
+
+        <!-- Tabs: Perfiles / Herrajes / Vidrio -->
+        <div class="tabs">
+          <div class="tab active" onclick="switchTab(this,'mat-tab-perfiles')">Perfiles de Aluminio</div>
+          <div class="tab" onclick="switchTab(this,'mat-tab-herrajes')">Herrajes y Accesorios</div>
+          <div class="tab" onclick="switchTab(this,'mat-tab-vidrio')">Vidrio</div>
+        </div>
+
+        <!-- TAB PERFILES -->
+        <div id="mat-tab-perfiles">
+          <div id="mat-perfiles-content"></div>
+        </div>
+
+        <!-- TAB HERRAJES -->
+        <div id="mat-tab-herrajes" style="display:none">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Herraje / Accesorio</th><th>Tipo</th><th>Total Piezas</th><th>Total Metros L.</th><th>Costo Total</th></tr></thead>
+              <tbody id="mat-herrajes-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TAB VIDRIO -->
+        <div id="mat-tab-vidrio" style="display:none">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Tipo de Vidrio</th><th>Total m²</th><th>Precio/m²</th><th>Costo Total</th></tr></thead>
+              <tbody id="mat-vidrio-tbody"></tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -857,7 +906,7 @@ function ageClass(d){const y=dateDiff(d);return y>=1?'badge-red':y>=0.75?'badge-
 // ══════════════════════════════════════════════
 // NAVIGATION
 // ══════════════════════════════════════════════
-const TITLES={cotizar:'Nueva Cotización',proyectos:'Mis Proyectos',dashboard:'Dashboard',
+const TITLES={cotizar:'Nueva Cotización',proyectos:'Mis Proyectos',materiales:'Lista de Material',
   perfiles:'Perfiles de Aluminio',herrajes:'Herrajes y Accesorios',
   vidrios:'Tipos de Vidrio',recetas:'Recetas de Canceles',alertas:'Alertas de Precios'};
 
@@ -868,7 +917,7 @@ function nav(el){
   const v=el.dataset.view;
   document.getElementById('view-'+v).classList.add('active');
   document.getElementById('page-title').textContent=TITLES[v];
-  if(v==='dashboard')renderDashboard();
+  if(v==='materiales')renderMatProyectos();
   if(v==='perfiles')renderPerfiles();
   if(v==='herrajes')renderHerrajes();
   if(v==='vidrios')renderVidrios();
@@ -899,7 +948,8 @@ function switchTab(el,targetId){
 function renderDashboard(){
   const P=DB.get('perfiles'),H=DB.get('herrajes'),V=DB.get('vidrios'),R=DB.get('recetas'),PR=DB.get('proyectos');
   const al=[...P,...H,...V].filter(x=>dateDiff(x.fecha)>=1).length;
-  document.getElementById('dash-stats').innerHTML=[
+  const dsEl=document.getElementById('dash-stats');if(!dsEl)return;
+  dsEl.innerHTML=[
     {l:'Perfiles',v:P.length,s:'en catálogo'},
     {l:'Herrajes',v:H.length,s:'y accesorios'},
     {l:'Vidrios',v:V.length,s:'tipos'},
@@ -912,6 +962,7 @@ function renderDashboard(){
     <div class="stat-sub">${s.s}</div></div>`).join('');
   const desact=[...P,...H,...V].filter(x=>dateDiff(x.fecha)>=1);
   const el=document.getElementById('dash-alertas-preview');
+  if(!el)return;
   el.innerHTML=desact.length?`<div class="table-wrap"><table><thead><tr><th>Tipo</th><th>Nombre</th><th>Últ. actualización</th></tr></thead><tbody>
     ${desact.slice(0,6).map(x=>`<tr><td><span class="badge badge-amber">${x.nombre?'Perfil':x.descripcion?'Herraje/Vidrio':'-'}</span></td><td>${x.nombre||x.descripcion}</td><td><span class="badge badge-red">${fechaCorta(x.fecha)}</span></td></tr>`).join('')}
     </tbody></table></div>`:
@@ -2730,9 +2781,311 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
 })();
 
 // ══════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════════════════
+//  LISTA DE MATERIAL — CUTTING STOCK PROBLEM
+// ══════════════════════════════════════════════════════════════════
+
+let matProyectoActivo = null;
+
+function renderMatProyectos(){
+  filtrarMatProyectos(document.getElementById('mat-buscar')?document.getElementById('mat-buscar').value:'');
+}
+
+function filtrarMatProyectos(q){
+  const proyectos=DB.get('proyectos').slice().reverse();
+  const filtrados=q?proyectos.filter(p=>
+    p.folio.toLowerCase().includes(q.toLowerCase())||
+    (p.cliente||'').toLowerCase().includes(q.toLowerCase())
+  ):proyectos;
+  const el=document.getElementById('mat-proyectos-lista');
+  if(!el)return;
+  el.style.display='';
+  document.getElementById('mat-detalle').style.display='none';
+  el.innerHTML=filtrados.length?`
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Folio</th><th>Cliente</th><th>Partidas</th><th>Total s/IVA</th><th>Fecha</th><th></th></tr></thead>
+        <tbody>${filtrados.map(p=>`<tr>
+          <td class="td-mono">${p.folio}</td>
+          <td>${p.cliente||'<span class="td-muted">Sin nombre</span>'}</td>
+          <td>${(p.partidas||[]).length}</td>
+          <td style="color:var(--green);font-weight:600">${fmt((p.partidas||[]).reduce((s,x)=>s+(x.totalPartida||0),0))}</td>
+          <td>${fechaCorta(p.fecha)}</td>
+          <td><button class="btn btn-primary btn-sm" onclick="abrirMatProyecto(${p.id})">Ver Material</button></td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>`:
+    '<div class="empty-state"><p>No hay proyectos guardados</p></div>';
+}
+
+function abrirMatProyecto(id){
+  matProyectoActivo=DB.get('proyectos').find(p=>p.id===id);
+  if(!matProyectoActivo)return;
+  document.getElementById('mat-proyectos-lista').style.display='none';
+  document.getElementById('mat-detalle').style.display='';
+  document.getElementById('mat-folio-title').textContent=matProyectoActivo.folio;
+  document.getElementById('mat-cliente-title').textContent=matProyectoActivo.cliente||'Sin cliente';
+  calcularListaMaterial(matProyectoActivo);
+}
+
+// ── RECOPILAR CORTES DE TODAS LAS PARTIDAS ──────────────────────
+function recopilarCortes(proyecto){
+  const todosPerfiles=DB.get('perfiles');
+  const todosHerrajes=DB.get('herrajes');
+
+  // Map: clave+acabado → {perfil, cortes:[{longitud, qty, ubicacion}]}
+  const mapaPerfiles={};
+  // Map: herrajeId → {herraje, totalPiezas, totalML}
+  const mapaHerrajes={};
+  // Map: vidrioId → {vidrio, totalM2}
+  const mapaVidrios={};
+
+  (proyecto.partidas||[]).forEach(partida=>{
+    const ancho=partida.ancho||0;
+    const alto=partida.alto||0;
+    const cant=partida.cantidad||1;
+    const acabado=(partida.acabado||'').replace(/\s+/g,'');
+    const ubicacion=partida.ubicacion||'';
+
+    (partida.desglose||[]).filter(l=>l.activo!==false).forEach(linea=>{
+      if(linea.tipo==='Perfil'){
+        // Extraer idCompuesto del label (formato "IdComp — Nombre" o "clave sin acabado")
+        const labelParts=linea.label.split(' — ');
+        const idComp=labelParts[0].trim();
+        const pf=todosPerfiles.find(x=>x.idCompuesto===idComp);
+        if(!pf)return;
+        const key=pf.idCompuesto;
+        if(!mapaPerfiles[key]) mapaPerfiles[key]={perfil:pf,cortes:[]};
+        // Calcular la longitud del corte desde el detalle
+        // Detalle: "X.XX ml × $Y.YY/ml" — extraer X.XX como longitud total
+        // Pero necesitamos saber los cortes individuales: cortesV x alto + cortesH x ancho
+        // Reconstruir desde la receta si es posible, sino usar el ml total
+        // Buscar en la receta los cortesV y cortesH de esta clave
+        const recetaNombre=partida.receta;
+        const configNombre=partida.config;
+        const receta=DB.get('recetas').find(r=>r.nombre===recetaNombre);
+        let cortesV=0, cortesH=0;
+        if(receta){
+          const cfg=receta.configs?receta.configs.find(c=>c.tipo===configNombre):null;
+          if(cfg){
+            const cp=cfg.perfiles?cfg.perfiles.find(x=>x.clave===pf.clave):null;
+            if(cp){cortesV=cp.cortesV||0; cortesH=cp.cortesH||0;}
+          }
+        }
+        // Generar cortes individuales
+        if(cortesV>0 && alto>0){
+          for(let i=0;i<cortesV*cant;i++){
+            mapaPerfiles[key].cortes.push({longitud:parseFloat(alto.toFixed(3)),ubicacion});
+          }
+        }
+        if(cortesH>0 && ancho>0){
+          for(let i=0;i<cortesH*cant;i++){
+            mapaPerfiles[key].cortes.push({longitud:parseFloat(ancho.toFixed(3)),ubicacion});
+          }
+        }
+        // Si no hay cortes V/H (cortes manuales extras), dividir ml total
+        if(cortesV===0&&cortesH===0){
+          const mlMatch=linea.detalle?linea.detalle.match(/^([\d,.]+)\s*ml/):null;
+          if(mlMatch){
+            const mlTotal=parseFloat(mlMatch[1].replace(',','.'))||0;
+            if(mlTotal>0) mapaPerfiles[key].cortes.push({longitud:parseFloat(mlTotal.toFixed(3)),ubicacion});
+          }
+        }
+      }
+      else if(linea.tipo==='Herraje'){
+        // Buscar el herraje por nombre en el label
+        const hj=todosHerrajes.find(x=>{
+          const lbl=x.descripcion+(x.clave?' ['+x.clave+']':'');
+          return linea.label.startsWith(x.descripcion);
+        });
+        if(!hj)return;
+        const key=hj.id;
+        if(!mapaHerrajes[key]) mapaHerrajes[key]={herraje:hj,totalPiezas:0,totalML:0,costo:0};
+        // Extraer del detalle
+        const det=linea.detalle||'';
+        const mlMatch=det.match(/([\d,.]+)\s*ml/);
+        const pzMatch=det.match(/([\d,.]+)\s*pzs/);
+        const mlVal=mlMatch?parseFloat(mlMatch[1].replace(',','.'))*cant:0;
+        const pzVal=pzMatch?parseFloat(pzMatch[1].replace(',','.'))*cant:0;
+        mapaHerrajes[key].totalML+=mlVal;
+        mapaHerrajes[key].totalPiezas+=pzVal;
+        mapaHerrajes[key].costo+=linea.costo*cant;
+      }
+      else if(linea.tipo==='Vidrio'){
+        const vidrioNombre=linea.label;
+        const key=vidrioNombre;
+        if(!mapaVidrios[key]) mapaVidrios[key]={nombre:vidrioNombre,totalM2:0,costo:0,precioM2:0};
+        const m2=ancho*alto*cant;
+        mapaVidrios[key].totalM2+=m2;
+        mapaVidrios[key].costo+=linea.costo*cant;
+        if(ancho>0&&alto>0) mapaVidrios[key].precioM2=linea.costo/(ancho*alto);
+      }
+    });
+  });
+
+  return {mapaPerfiles, mapaHerrajes, mapaVidrios};
+}
+
+// ── CUTTING STOCK PROBLEM — First Fit Decreasing ────────────────
+function cuttingStockFFD(cortes, longitudTramo, tolerancia=0.005){
+  // tolerancia: margen de corte de sierra (5mm por defecto)
+  if(!cortes||cortes.length===0) return {tramos:[],sobrante:0};
+
+  // Ordenar cortes de mayor a menor
+  const cortesOrdenados=[...cortes].map((c,i)=>({...c,idx:i}))
+    .sort((a,b)=>b.longitud-a.longitud);
+
+  const tramos=[]; // cada tramo: {cortes:[{longitud,ubicacion}], usado, libre}
+
+  cortesOrdenados.forEach(corte=>{
+    const longCorte=corte.longitud+tolerancia;
+    // Buscar primer tramo donde quepa
+    let colocado=false;
+    for(let t=0;t<tramos.length;t++){
+      if(tramos[t].libre>=longCorte){
+        tramos[t].cortes.push({longitud:corte.longitud,ubicacion:corte.ubicacion});
+        tramos[t].usado+=longCorte;
+        tramos[t].libre-=longCorte;
+        colocado=true;
+        break;
+      }
+    }
+    if(!colocado){
+      // Nuevo tramo
+      tramos.push({
+        cortes:[{longitud:corte.longitud,ubicacion:corte.ubicacion}],
+        usado:longCorte,
+        libre:longitudTramo-longCorte,
+        total:longitudTramo
+      });
+    }
+  });
+
+  const totalSobrante=tramos.reduce((s,t)=>s+t.libre,0);
+  return {tramos,sobrante:parseFloat(totalSobrante.toFixed(3))};
+}
+
+// ── RENDER LISTA DE MATERIAL ──────────────────────────────────────
+function calcularListaMaterial(proyecto){
+  const {mapaPerfiles,mapaHerrajes,mapaVidrios}=recopilarCortes(proyecto);
+
+  // ── PERFILES ──────────────────────────────────────────────────
+  const perfilesHTML=Object.values(mapaPerfiles).map(({perfil,cortes})=>{
+    if(cortes.length===0)return'';
+    const {tramos,sobrante}=cuttingStockFFD(cortes,perfil.longitudTramo);
+    const costSobrante=sobrante*perfil.precioML;
+
+    // Agrupar cortes por longitud para resumen
+    const resumenCortes={};
+    cortes.forEach(c=>{
+      const k=c.longitud.toFixed(3);
+      if(!resumenCortes[k]) resumenCortes[k]={longitud:c.longitud,qty:0,ubicaciones:[]};
+      resumenCortes[k].qty++;
+      if(c.ubicacion&&!resumenCortes[k].ubicaciones.includes(c.ubicacion))
+        resumenCortes[k].ubicaciones.push(c.ubicacion);
+    });
+
+    return `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:16px;overflow:hidden">
+      <!-- Header del perfil -->
+      <div style="background:var(--bg3);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:center;gap:12px">
+          <span class="td-mono" style="font-size:14px;font-weight:700;color:var(--accent2)">${perfil.idCompuesto}</span>
+          <span style="font-size:13px;color:var(--text2)">${perfil.nombre}</span>
+          <span class="badge badge-blue">${perfil.acabado}</span>
+        </div>
+        <div style="display:flex;gap:16px;align-items:center">
+          <span style="font-size:12px;color:var(--text3)">Tramo: <strong style="color:var(--text)">${num(perfil.longitudTramo)} m</strong></span>
+          <span style="font-size:12px;color:var(--text3)">Precio/ml: <strong style="color:var(--text)">${fmt(perfil.precioML)}</strong></span>
+          <span class="badge badge-purple">${tramos.length} tramo${tramos.length!==1?'s':''}</span>
+        </div>
+      </div>
+
+      <div style="padding:14px 16px;display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <!-- Resumen de cortes -->
+        <div>
+          <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Cortes requeridos</div>
+          <table style="width:100%;font-size:12px;border-collapse:collapse">
+            <thead><tr>
+              <th style="text-align:left;padding:4px 8px;background:var(--bg3);color:var(--text3);font-size:10px;text-transform:uppercase">Longitud</th>
+              <th style="text-align:center;padding:4px 8px;background:var(--bg3);color:var(--text3);font-size:10px;text-transform:uppercase">Cant.</th>
+              <th style="text-align:left;padding:4px 8px;background:var(--bg3);color:var(--text3);font-size:10px;text-transform:uppercase">Ubicaciones</th>
+            </tr></thead>
+            <tbody>${Object.values(resumenCortes).sort((a,b)=>b.longitud-a.longitud).map(c=>`
+              <tr style="border-bottom:1px solid var(--border)">
+                <td style="padding:5px 8px;font-family:var(--mono);color:var(--accent2)">${num(c.longitud)} m</td>
+                <td style="padding:5px 8px;text-align:center;font-weight:600;color:var(--text)">× ${c.qty}</td>
+                <td style="padding:5px 8px;color:var(--text3);font-size:11px">${c.ubicaciones.join(', ')}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Tramos optimizados -->
+        <div>
+          <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">
+            Distribución de tramos (FFD)
+          </div>
+          ${tramos.map((t,ti)=>{
+            const pct=Math.round((t.usado/t.total)*100);
+            return `<div style="margin-bottom:8px">
+              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:3px">
+                <span>Tramo ${ti+1}</span>
+                <span>${t.cortes.map(c=>num(c.longitud)+'m').join(' + ')} = ${num(t.usado-t.cortes.length*0.005)}m usados</span>
+                <span style="color:${t.libre<0.1?'var(--green)':'var(--amber)'}">sobra ${num(t.libre)}m</span>
+              </div>
+              <div style="height:8px;background:var(--border);border-radius:4px;overflow:hidden">
+                <div style="height:100%;background:${pct>90?'var(--green)':pct>70?'var(--accent)':'var(--amber)'};width:${pct}%;border-radius:4px;transition:width .3s"></div>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+
+      <!-- Sobrante -->
+      ${sobrante>0.01?`
+      <div style="background:rgba(251,191,36,.06);border-top:1px solid rgba(251,191,36,.2);padding:10px 16px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:12px;color:var(--amber)">⚠ Sobrante total: <strong>${num(sobrante)} m</strong></span>
+        <span style="font-size:12px;color:var(--amber)">Costo de sobrante: <strong>${fmt(costSobrante)}</strong></span>
+      </div>`:'<div style="background:rgba(52,211,153,.06);border-top:1px solid rgba(52,211,153,.2);padding:8px 16px;font-size:12px;color:var(--green)">✓ Sin sobrante significativo</div>'}
+    </div>`;
+  }).join('');
+
+  document.getElementById('mat-perfiles-content').innerHTML=perfilesHTML||
+    '<div class="empty-state"><p>Sin perfiles en este proyecto</p></div>';
+
+  // ── HERRAJES ──────────────────────────────────────────────────
+  const herrajesHTML=Object.values(mapaHerrajes);
+  document.getElementById('mat-herrajes-tbody').innerHTML=herrajesHTML.length?
+    herrajesHTML.map(({herraje,totalPiezas,totalML,costo})=>`<tr>
+      <td>${herraje.descripcion}${herraje.clave?' <span class="td-mono" style="font-size:11px">['+herraje.clave+']</span>':''}</td>
+      <td><span class="badge ${herraje.precioML?'badge-blue':'badge-amber'}">${herraje.precioML?'ml':'pieza'}</span></td>
+      <td style="font-family:var(--mono);font-weight:600">${totalPiezas>0?totalPiezas+' pzs':'-'}</td>
+      <td style="font-family:var(--mono);font-weight:600">${totalML>0?num(totalML)+' ml':'-'}</td>
+      <td style="color:var(--green);font-weight:600">${fmt(costo)}</td>
+    </tr>`).join(''):
+    '<tr><td colspan="5"><div class="empty-state" style="padding:16px"><p>Sin herrajes</p></div></td></tr>';
+
+  // ── VIDRIO ────────────────────────────────────────────────────
+  const vidrioHTML=Object.values(mapaVidrios);
+  document.getElementById('mat-vidrio-tbody').innerHTML=vidrioHTML.length?
+    vidrioHTML.map(({nombre,totalM2,costo,precioM2})=>`<tr>
+      <td>${nombre}</td>
+      <td style="font-family:var(--mono);font-weight:600">${num(totalM2)} m²</td>
+      <td>${fmt(precioM2)}/m²</td>
+      <td style="color:var(--green);font-weight:600">${fmt(costo)}</td>
+    </tr>`).join(''):
+    '<tr><td colspan="4"><div class="empty-state" style="padding:16px"><p>Sin vidrio</p></div></td></tr>';
+}
+
+function imprimirMaterial(){
+  window.print();
+}
+
 // INIT
 // ══════════════════════════════════════════════
-renderDashboard();
+renderMatProyectos();
 updateBadges();
 </script>
 </body>
