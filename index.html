@@ -817,12 +817,14 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
 
     <!-- Grupos de cortes dinámicos -->
     <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Grupos de cortes</div>
-    <div style="background:rgba(79,142,247,.04);border:1px solid rgba(79,142,247,.15);border-radius:var(--radius);padding:10px 12px;margin-bottom:10px;font-size:12px;color:var(--text2)">
-      <strong style="color:var(--accent2)">Tipo proporcional</strong> — cantidad × alto o ancho del cancel.<br>
-      <strong style="color:var(--accent2)">Tipo longitud fija</strong> — cantidad × la medida exacta que ingreses (ej. 4 cortes de 0.04 m).
+    <div id="modal-grupos-wrapper">
+      <div style="background:rgba(79,142,247,.04);border:1px solid rgba(79,142,247,.15);border-radius:var(--radius);padding:10px 12px;margin-bottom:10px;font-size:12px;color:var(--text2)">
+        <strong style="color:var(--accent2)">Tipo proporcional</strong> — cantidad × alto o ancho del cancel.<br>
+        <strong style="color:var(--accent2)">Tipo longitud fija</strong> — cantidad × la medida exacta que ingreses (ej. 4 cortes de 0.04 m).
+      </div>
+      <div id="modal-grupos-cortes"></div>
+      <button class="btn btn-ghost btn-sm" style="margin-bottom:14px" onclick="agregarGrupoCorte()">+ Agregar grupo de cortes</button>
     </div>
-    <div id="modal-grupos-cortes"></div>
-    <button class="btn btn-ghost btn-sm" style="margin-bottom:14px" onclick="agregarGrupoCorte()">+ Agregar grupo de cortes</button>
 
     <div class="form-actions">
       <button class="btn btn-ghost" onclick="cerrarModal('modal-comp')">Cancelar</button>
@@ -1419,8 +1421,7 @@ function abrirModalComponente(tipo,scope){
   document.getElementById('modal-comp-label').textContent=esP?
     'Buscar por Clave o Nombre (el acabado se aplica al cotizar)':
     'Buscar por descripción o clave';
-  document.getElementById('modal-v-label').textContent=esP?'Cortes verticales':'Metros verticales';
-  document.getElementById('modal-h-label').textContent=esP?'Cortes horizontales':'Metros horizontales';
+  // modal-v-label / modal-h-label removed — grupos section handles this
   document.getElementById('modal-search').value='';
   document.getElementById('modal-comp-item').value='';
   document.getElementById('modal-items-list').innerHTML='';
@@ -1430,9 +1431,15 @@ function abrirModalComponente(tipo,scope){
   });
   // Solo mostrar tipo-vidrio para perfiles
   document.getElementById('modal-tipo-vidrio-wrap').style.display=tipo==='perfil'?'':'none';
-  // Inicializar grupos de cortes con uno por defecto
-  window._modalGrupos=[];
-  agregarGrupoCorte(); // primer grupo vacío
+  // Grupos de cortes: solo para perfiles
+  const gruposWrapper=document.getElementById('modal-grupos-wrapper');
+  if(gruposWrapper) gruposWrapper.style.display=esP?'':'none';
+  if(esP){
+    const gruposWrap=document.getElementById('modal-grupos-cortes');
+    if(gruposWrap) gruposWrap.innerHTML='';
+    window._modalGrupos=[];
+    agregarGrupoCorte();
+  }
 
   // Build items list — for perfiles: group by clave (unique claves only, one entry per clave)
   if(esP){
