@@ -1949,26 +1949,186 @@ function renderPartidas(){
     return;
   }
   el.innerHTML=partidas.map((p,i)=>`
-    <div class="partida-row">
-      <div class="partida-info">
-        <div class="partida-nombre">${i+1}. ${p.ubicacion||p.descripcion||""}</div>
-        <div class="partida-detalle">
-          <span class="badge badge-blue" style="margin-right:4px">${p.receta}</span>
-          <span class="badge badge-purple" style="margin-right:4px">${p.config}</span>
-          <span class="badge badge-amber" style="margin-right:4px">${p.acabado}</span>
-          ${num(p.ancho)}m × ${num(p.alto)}m — cant: ${p.cantidad}
+    <div class="partida-row" id="partida-row-${i}" style="flex-direction:column;gap:0;padding:0">
+      <!-- Header de la partida -->
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:14px 16px;width:100%">
+        <div class="partida-info" style="flex:1">
+          <div class="partida-nombre">${i+1}. ${p.ubicacion||p.descripcion||''}</div>
+          <div class="partida-detalle" style="margin-top:4px">
+            <span class="badge badge-blue" style="margin-right:4px">${p.receta}</span>
+            <span class="badge badge-purple" style="margin-right:4px">${p.config}</span>
+            <span class="badge badge-amber" style="margin-right:4px">${p.acabado}</span>
+            ${num(p.ancho)}m × ${num(p.alto)}m — cant: ${p.cantidad}
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+          <div class="partida-precio">${fmt(p.totalPartida)}</div>
+          <button class="btn btn-ghost btn-sm" onclick="toggleEditPartida(${i})" id="btn-edit-${i}" title="Editar partida">✏</button>
+          <button class="btn btn-danger btn-icon btn-sm" onclick="eliminarPartida(${i})" title="Eliminar">✕</button>
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:10px">
-        <div class="partida-precio">${fmt(p.totalPartida)}</div>
-        <button class="btn btn-danger btn-icon btn-sm" onclick="eliminarPartida(${i})">✕</button>
+      <!-- Panel de edición (oculto por defecto) -->
+      <div id="edit-panel-${i}" style="display:none;border-top:1px solid var(--border);padding:16px;width:100%;background:var(--bg2)">
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">Editar partida</div>
+        <div class="form-grid" style="margin-bottom:12px">
+          <div class="form-group col2">
+            <label>Ubicación</label>
+            <input id="ep-ubicacion-${i}" value="${p.ubicacion||p.descripcion||''}" placeholder="Ubicación">
+          </div>
+          <div class="form-group">
+            <label>Acabado / Color</label>
+            <input id="ep-acabado-${i}" value="${p.acabado||''}" placeholder="Negro, Blanco...">
+          </div>
+          <div class="form-group">
+            <label>Ancho (m)</label>
+            <input id="ep-ancho-${i}" type="number" step="0.01" value="${p.ancho||0}" oninput="recalcPartidaEdicion(${i})">
+          </div>
+          <div class="form-group">
+            <label>Alto (m)</label>
+            <input id="ep-alto-${i}" type="number" step="0.01" value="${p.alto||0}" oninput="recalcPartidaEdicion(${i})">
+          </div>
+          <div class="form-group">
+            <label>Cantidad</label>
+            <input id="ep-cant-${i}" type="number" step="1" min="1" value="${p.cantidad||1}" oninput="recalcPartidaEdicion(${i})">
+          </div>
+        </div>
+        <!-- Desglose editable -->
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Desglose (marca/desmarca para incluir)</div>
+        <div id="ep-desglose-${i}"></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+          <span style="font-size:12px;color:var(--text2)">Total partida (sin IVA)</span>
+          <span style="font-family:var(--mono);font-size:16px;font-weight:700;color:var(--green)" id="ep-total-${i}">$0.00</span>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+          <button class="btn btn-ghost btn-sm" onclick="toggleEditPartida(${i})">Cancelar</button>
+          <button class="btn btn-primary btn-sm" onclick="guardarEdicionPartida(${i})">💾 Guardar cambios</button>
+        </div>
       </div>
     </div>`).join('');
+
+  // Render desgloses de las partidas en edición que estén abiertas
+  partidas.forEach((p,i)=>{
+    if(document.getElementById('edit-panel-'+i)&&document.getElementById('edit-panel-'+i).style.display!=='none'){
+      renderDesgloseEdicion(i);
+    }
+  });
 
   const total=partidas.reduce((s,p)=>s+(p.totalPartida||0),0);
   document.getElementById('cot-total-proyecto').textContent=fmt(total);
   document.getElementById('cot-total-iva-label').textContent=`Con IVA (16%): ${fmt(total*1.16)}`;
   document.getElementById('cot-total-bar').style.display='';
+}
+
+function toggleEditPartida(idx){
+  const panel=document.getElementById('edit-panel-'+idx);
+  const btn=document.getElementById('btn-edit-'+idx);
+  const open=panel.style.display==='none';
+  panel.style.display=open?'':'none';
+  btn.style.background=open?'rgba(79,142,247,.15)':'';
+  btn.style.color=open?'var(--accent2)':'';
+  if(open) renderDesgloseEdicion(idx);
+}
+
+function renderDesgloseEdicion(idx){
+  const p=proyectoActivo.partidas[idx];
+  const lineas=p.desglose||[];
+  const cantidad=p.cantidad||1;
+  const el=document.getElementById('ep-desglose-'+idx);
+  if(!el)return;
+  el.innerHTML=lineas.map((l,li)=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);${!l.activo?'opacity:.4':''}">
+      <input type="checkbox" ${l.activo!==false?'checked':''} onchange="toggleDesgloseEdicion(${idx},${li},this.checked)"
+        style="width:15px;height:15px;cursor:pointer;accent-color:var(--accent);flex-shrink:0">
+      <span class="badge ${l.tipo==='Vidrio'?'badge-green':l.tipo==='Herraje'?'badge-amber':'badge-blue'}" style="flex-shrink:0;font-size:10px">${l.tipo}</span>
+      <span style="font-size:12px;flex:1;color:${l.activo===false?'var(--text3)':'var(--text)'}">${l.label}</span>
+      <span style="font-size:11px;color:var(--text3);white-space:nowrap">${l.detalle||''}</span>
+      <span style="font-family:var(--mono);font-size:12px;font-weight:600;color:${l.activo!==false&&l.costo>0?'var(--green)':'var(--text3)'};min-width:72px;text-align:right">${fmt(l.costo)}</span>
+    </div>`).join('');
+  recalcTotalEdicion(idx);
+}
+
+function toggleDesgloseEdicion(partidaIdx, lineaIdx, activo){
+  proyectoActivo.partidas[partidaIdx].desglose[lineaIdx].activo=activo;
+  renderDesgloseEdicion(partidaIdx);
+}
+
+function recalcTotalEdicion(idx){
+  const p=proyectoActivo.partidas[idx];
+  const ancho=parseFloat(document.getElementById('ep-ancho-'+idx).value)||p.ancho||0;
+  const alto=parseFloat(document.getElementById('ep-alto-'+idx).value)||p.alto||0;
+  const cantidad=parseInt(document.getElementById('ep-cant-'+idx).value)||1;
+  const total=(p.desglose||[]).filter(l=>l.activo!==false).reduce((s,l)=>s+l.costo,0)*cantidad;
+  const el=document.getElementById('ep-total-'+idx);
+  if(el) el.textContent=fmt(total);
+}
+
+function recalcPartidaEdicion(idx){
+  // Recalcular metros lineales de cada perfil en el desglose con nuevas medidas
+  const p=proyectoActivo.partidas[idx];
+  const ancho=parseFloat(document.getElementById('ep-ancho-'+idx).value)||0;
+  const alto=parseFloat(document.getElementById('ep-alto-'+idx).value)||0;
+  const cantidad=parseInt(document.getElementById('ep-cant-'+idx).value)||1;
+  const acabado=(document.getElementById('ep-acabado-'+idx).value||'').trim().replace(/\s+/g,'');
+  const todosPerfiles=DB.get('perfiles');
+  const todosHerrajes=DB.get('herrajes');
+
+  // Recalcular costo de cada línea del desglose original
+  // Buscamos en la receta las proporciones originales (cortesV, cortesH)
+  const receta=DB.get('recetas').find(r=>r.nombre===p.receta);
+  if(receta){
+    const cfgIdx=receta.configs?receta.configs.findIndex(c=>c.tipo===p.config):-1;
+    const cfg=cfgIdx>=0?receta.configs[cfgIdx]:null;
+    if(cfg){
+      // Re-run cost calculation for each desglose line
+      (p.desglose||[]).forEach(l=>{
+        if(l.tipo==='Perfil'){
+          // Extract clave from label (format: "AcabadoClave — Nombre")
+          const clave=Object.values(DB.get('perfiles').reduce((m,pf)=>{m[pf.idCompuesto]=pf;return m},{}))[0]
+            ? (() => {
+                const match=todosPerfiles.find(pf=>pf.idCompuesto===l.label.split(' — ')[0]);
+                return match?match.clave:null;
+              })() : null;
+          if(clave){
+            const idComp=acabado+clave;
+            const pf=todosPerfiles.find(x=>x.idCompuesto===idComp);
+            const cp=cfg.perfiles?cfg.perfiles.find(x=>x.clave===clave):null;
+            if(pf&&cp){
+              const ml=(cp.cortesV*alto)+(cp.cortesH*ancho);
+              l.costo=pf.precioML*ml;
+              l.detalle=`${num(ml)} ml × ${fmt(pf.precioML)}/ml`;
+              l.label=`${pf.idCompuesto} — ${pf.nombre}`;
+            }
+          }
+        } else if(l.tipo==='Herraje'){
+          const hj=todosHerrajes.find(x=>x.id===l.herrajeId||(l.label&&l.label.startsWith(x.descripcion)));
+          const ch=cfg.herrajes?cfg.herrajes.find(x=>todosHerrajes.find(h=>h.id===x.herrajeId&&h.descripcion&&l.label.startsWith(h.descripcion))):null;
+          if(hj&&ch){
+            const ml=(ch.metrosV*alto)+(ch.metrosH*ancho);
+            let costo=0;
+            if(ml>0) costo+=(hj.precioML||0)*ml;
+            if(ch.cantidad>0) costo+=(hj.precioUnitario||0)*ch.cantidad;
+            l.costo=costo;
+          }
+        }
+      });
+    }
+  }
+  renderDesgloseEdicion(idx);
+}
+
+function guardarEdicionPartida(idx){
+  const p=proyectoActivo.partidas[idx];
+  const ancho=parseFloat(document.getElementById('ep-ancho-'+idx).value)||p.ancho;
+  const alto=parseFloat(document.getElementById('ep-alto-'+idx).value)||p.alto;
+  const cantidad=parseInt(document.getElementById('ep-cant-'+idx).value)||p.cantidad;
+  p.ubicacion=document.getElementById('ep-ubicacion-'+idx).value.trim()||p.ubicacion;
+  p.acabado=document.getElementById('ep-acabado-'+idx).value.trim()||p.acabado;
+  p.ancho=ancho;
+  p.alto=alto;
+  p.cantidad=cantidad;
+  p.totalPartida=(p.desglose||[]).filter(l=>l.activo!==false).reduce((s,l)=>s+l.costo,0)*cantidad;
+  toast('Partida actualizada');
+  renderPartidas();
 }
 
 function eliminarPartida(idx){
