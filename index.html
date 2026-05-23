@@ -888,12 +888,28 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
       <strong style="color:var(--accent2)">Cantidad x pieza</strong> — si el herraje se cobra por pieza, ingresa cuántas piezas lleva.<br>
       <strong style="color:var(--accent2)">Metros V / H</strong> — si se cobra por metro lineal, ingresa cuántos cortes verticales u horizontales lleva (se multiplica por el alto/ancho al cotizar).
     </div>
-    <div class="form-group" style="margin-bottom:14px">
-      <label>Aplica para tipo de vidrio</label>
-      <div style="display:flex;gap:8px;margin-top:6px" id="mh-tipo-vidrio-pills">
-        <div class="pill active" data-val="AMBOS"    onclick="selMhTipoVidrio(this)">AMBOS</div>
-        <div class="pill"        data-val="SENCILLO" onclick="selMhTipoVidrio(this)">SENCILLO</div>
-        <div class="pill"        data-val="DUOVENT"  onclick="selMhTipoVidrio(this)">DUOVENT</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      <div class="form-group">
+        <label>Aplica para tipo de vidrio</label>
+        <div style="display:flex;gap:8px;margin-top:6px" id="mh-tipo-vidrio-pills">
+          <div class="pill active" data-val="AMBOS"    onclick="selMhTipoVidrio(this)">AMBOS</div>
+          <div class="pill"        data-val="SENCILLO" onclick="selMhTipoVidrio(this)">SENCILLO</div>
+          <div class="pill"        data-val="DUOVENT"  onclick="selMhTipoVidrio(this)">DUOVENT</div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Condición</label>
+        <select id="mh-condicion" style="border-color:rgba(167,139,250,.4);background:rgba(167,139,250,.06)">
+          <option value="SIEMPRE">Siempre</option>
+              <option value="SIN_ZOCLO_INF">Sin zoclo inferior</option>
+              <option value="CON_ZOCLO_INF">Con zoclo inferior</option>
+              <option value="SIN_ZOCLO_SUP">Sin zoclo superior</option>
+              <option value="CON_ZOCLO_SUP">Con zoclo superior</option>
+              <option value="SIN_MOSQUITERO">Sin mosquitero</option>
+              <option value="CON_MOSQUITERO">Con mosquitero (cualquier tipo)</option>
+              <option value="CON_MOSQUITERO_FIJO">Con mosquitero fijo</option>
+              <option value="CON_MOSQUITERO_CORREDIZO">Con mosquitero corredizo</option>
+        </select>
       </div>
     </div>
     <div class="form-grid">
@@ -1433,7 +1449,10 @@ function renderComponentesConfig(){
       <td>${ch.cantidad||0}</td>
       <td>${ch.metrosV||0}</td>
       <td>${ch.metrosH||0}</td>
-      <td><span class="badge ${(ch.tipoVidrio||'AMBOS')==='SENCILLO'?'badge-blue':(ch.tipoVidrio||'AMBOS')==='DUOVENT'?'badge-purple':'badge-green'}">${ch.tipoVidrio||'AMBOS'}</span></td>
+      <td>
+        <span class="badge ${(ch.tipoVidrio||'AMBOS')==='SENCILLO'?'badge-blue':(ch.tipoVidrio||'AMBOS')==='DUOVENT'?'badge-purple':'badge-green'}">${ch.tipoVidrio||'AMBOS'}</span>
+        ${ch.condicion&&ch.condicion!=='SIEMPRE'?`<span class="badge badge-purple" style="margin-left:3px;font-size:10px">${ch.condicion}</span>`:''}
+      </td>
       <td style="display:flex;gap:4px">
         <button class="btn btn-ghost btn-sm btn-icon" onclick="editarHerrajeConfig(${i})" title="Editar">✏</button>
         <button class="btn btn-danger btn-sm btn-icon" onclick="quitarComponenteConfig('herraje',${i})" title="Eliminar">✕</button>
@@ -1542,6 +1561,8 @@ function editarHerrajeConfig(idx){
     document.querySelectorAll('#mh-tipo-vidrio-pills .pill').forEach(p=>{
       p.classList.toggle('active',p.dataset.val===(ch.tipoVidrio||'AMBOS'));
     });
+    const mhCondEl=document.getElementById('mh-condicion');
+    if(mhCondEl) mhCondEl.value=ch.condicion||'SIEMPRE';
     // Store edit index
     window._mhEditIdx=idx;
   },50);
@@ -1925,11 +1946,13 @@ function cargarConfigsPorReceta(){
 }
 
 function detectarCondicionesReceta(r){
-  // Returns true if any config has a perfil group with a condicion != SIEMPRE
-  if(!r||!r.configs) return false;
-  return r.configs.some(cfg=>(cfg.perfiles||[]).some(cp=>
-    (cp.grupos||[]).some(g=>g.condicion&&g.condicion!=='SIEMPRE')
-  ));
+  // Show the panel whenever a receta is selected - user decides what applies
+  // Also check perfiles AND herrajes in all configs
+  if(!r) return false;
+  if(!r.configs||r.configs.length===0) return false;
+  // Always show if receta has at least one config
+  // (user may have condicion-based groups even if we can't detect them due to legacy data)
+  return true;
 }
 
 function sincronizarMosquitero(tipo){
@@ -2335,7 +2358,11 @@ function calcularPartida(){
         totalSinIVA+=res.costo;
       });
       (cfg.herrajes||[]).forEach(ch=>{
-        const res=costoHerraje(ch.herrajeId,ch.cantidad||0,ch.metrosV||0,ch.metrosH||0);
+        // Filter by condicion
+        const chCond=(ch.condicion||'SIEMPRE').toUpperCase();
+        if(chCond!=='SIEMPRE'&&!condicionesActivas.has(chCond)) return;
+        const res=costoHerraje(ch.herrajeId,ch.cantidad||0,ch.metrosV||0,ch.metrosH||0,ch.tipoVidrio);
+        if(res===null)return;
         lineasDesglose.push({...res,tipo:'Herraje'});
         totalSinIVA+=res.costo;
       });
@@ -2668,6 +2695,14 @@ function recotizarPartida(idx){
       lineas.push(res); total+=res.activo?res.costo:0;
     });
     (cfg.herrajes||[]).forEach(ch=>{
+      // condicion filter using saved partida condiciones
+      const chCond2=(ch.condicion||'SIEMPRE').toUpperCase();
+      const condSetEdit=new Set(['SIEMPRE']);
+      Object.entries(p.condiciones||{}).forEach(([k,v])=>{if(v)condSetEdit.add(k);});
+      if(!condSetEdit.has('CON_ZOCLO_INF')) condSetEdit.add('SIN_ZOCLO_INF');
+      if(!condSetEdit.has('CON_ZOCLO_SUP')) condSetEdit.add('SIN_ZOCLO_SUP');
+      if(!condSetEdit.has('CON_MOSQUITERO')) condSetEdit.add('SIN_MOSQUITERO');
+      if(chCond2!=='SIEMPRE'&&!condSetEdit.has(chCond2)) return;
       const res=costoHerraje(ch.herrajeId,ch.cantidad||0,ch.metrosV||0,ch.metrosH||0,ch.tipoVidrio);
       if(!res) return;
       res.activo=findPrev(res.label);
@@ -3011,10 +3046,12 @@ function abrirModalHerraje(scope) {
   document.getElementById('mh-cantidad').value = '0';
   document.getElementById('mh-v').value = '0';
   document.getElementById('mh-h').value = '0';
-  // Reset tipo vidrio
+  // Reset tipo vidrio y condicion
   document.querySelectorAll('#mh-tipo-vidrio-pills .pill').forEach(p=>{
     p.classList.toggle('active', p.dataset.val==='AMBOS');
   });
+  const mhCond=document.getElementById('mh-condicion');
+  if(mhCond) mhCond.value='SIEMPRE';
   mhItemsAll = DB.get('herrajes').map(h => ({
     id: h.id,
     label: h.descripcion + (h.clave ? ' [' + h.clave + ']' : ''),
@@ -3072,6 +3109,7 @@ function confirmarHerraje() {
   const hj = DB.get('herrajes').find(x => x.id === parseInt(val));
   if (!hj) return;
   const tipoVidrio=(document.querySelector('#mh-tipo-vidrio-pills .pill.active')||{}).dataset?.val||'AMBOS';
+  const condicion=document.getElementById('mh-condicion')?.value||'SIEMPRE';
   const item = {
     herrajeId: hj.id,
     nombreHerraje: hj.descripcion + (hj.clave ? ' [' + hj.clave + ']' : ''),
@@ -3080,7 +3118,8 @@ function confirmarHerraje() {
     cantidad,
     metrosV: v,
     metrosH: h,
-    tipoVidrio
+    tipoVidrio,
+    condicion
   };
   const recetas = DB.get('recetas');
   const r = recetas.find(x => x.id === recetaActual.id);
