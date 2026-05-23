@@ -376,6 +376,37 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
               </div>
             </div>
 
+            <!-- Opciones del cancel (condiciones) -->
+            <div id="cot-opciones-cancel-wrap" style="display:none;margin-top:12px">
+              <div style="background:rgba(167,139,250,.06);border:1px solid rgba(167,139,250,.2);border-radius:var(--radius);padding:12px 14px">
+                <div style="font-size:11px;color:var(--purple);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;font-weight:600">
+                  ⚙ Opciones del cancel — activa las que apliquen
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px" id="cot-condiciones-grid">
+                  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;padding:6px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius)">
+                    <input type="checkbox" id="cond-CON_ZOCLO_INF" onchange="calcularPartida()" style="accent-color:var(--purple);width:15px;height:15px">
+                    Zoclo inferior
+                  </label>
+                  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;padding:6px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius)">
+                    <input type="checkbox" id="cond-CON_ZOCLO_SUP" onchange="calcularPartida()" style="accent-color:var(--purple);width:15px;height:15px">
+                    Zoclo superior
+                  </label>
+                  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;padding:6px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius)">
+                    <input type="checkbox" id="cond-CON_MOSQUITERO" onchange="sincronizarMosquitero('CON_MOSQUITERO');calcularPartida()" style="accent-color:var(--purple);width:15px;height:15px">
+                    Mosquitero
+                  </label>
+                  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;padding:6px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius)" id="cond-wrap-MOSQUITERO_FIJO">
+                    <input type="checkbox" id="cond-CON_MOSQUITERO_FIJO" onchange="sincronizarMosquitero('FIJO');calcularPartida()" style="accent-color:var(--purple);width:15px;height:15px">
+                    Mosquitero fijo
+                  </label>
+                  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;padding:6px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius)" id="cond-wrap-MOSQUITERO_CORREDIZO">
+                    <input type="checkbox" id="cond-CON_MOSQUITERO_CORREDIZO" onchange="sincronizarMosquitero('CORREDIZO');calcularPartida()" style="accent-color:var(--purple);width:15px;height:15px">
+                    Mosquitero corredizo
+                  </label>
+                </div>
+              </div>
+            </div>
+
             <!-- Opciones adicionales de la receta -->
             <div id="cot-extras-wrap" style="margin-top:12px"></div>
 
@@ -1378,9 +1409,11 @@ function renderComponentesConfig(){
     c.perfiles.map((cp,i)=>{
       const grupos=cp.grupos||[{tipo:cp.cortesV>0?'vertical':'horizontal',cant:cp.cortesV||cp.cortesH||0,divisor:1}];
       const resGrupos=grupos.map(g=>{
-        if(g.tipo==='fijo') return `${g.cant}×${g.long}m`;
-        if(g.tipo==='vertical') return `${g.cant}×alto${g.divisor>1?'/'+g.divisor:''}`;
-        return `${g.cant}×ancho${g.divisor>1?'/'+g.divisor:''}`;
+        let base='';
+        if(g.tipo==='fijo') base=`${g.cant}×${g.long}m`;
+        else if(g.tipo==='vertical') base=`${g.cant}×alto${g.divisor>1?'/'+g.divisor:''}`;
+        else base=`${g.cant}×ancho${g.divisor>1?'/'+g.divisor:''}`;
+        return base+(g.condicion&&g.condicion!=='SIEMPRE'?` <span style="color:var(--purple);font-size:10px">[${g.condicion}]</span>`:'');
       }).join(' + ');
       return `<tr>
         <td class="td-mono">${cp.clave||''}</td>
@@ -1476,6 +1509,8 @@ function editarPerfilConfig(idx){
         if(longEl) longEl.value=g.long||0;
         const divEl=document.getElementById('gc-div-'+gid);
         if(divEl) divEl.value=g.divisor||1;
+        const condEl=document.getElementById('gc-cond-'+gid);
+        if(condEl) condEl.value=g.condicion||'SIEMPRE';
         previewGrupo(gid);
       },80);
     });
@@ -1679,11 +1714,17 @@ function agregarGrupoCorte(){
         <label>Dividir ancho/alto entre</label>
         <input id="gc-div-${id}" type="number" step="1" min="1" value="1" placeholder="Ej. 6 hojas">
       </div>
+      <div class="form-group col2">
+        <label>Condición</label>
+        <select id="gc-cond-${id}" style="border-color:rgba(167,139,250,.4);background:rgba(167,139,250,.06)">
+          <option value="SIEMPRE">Siempre</option><option value="SIN_ZOCLO_INF">Sin zoclo inferior</option><option value="CON_ZOCLO_INF">Con zoclo inferior</option><option value="SIN_ZOCLO_SUP">Sin zoclo superior</option><option value="CON_ZOCLO_SUP">Con zoclo superior</option><option value="SIN_MOSQUITERO">Sin mosquitero</option><option value="CON_MOSQUITERO">Con mosquitero (cualquier tipo)</option><option value="CON_MOSQUITERO_FIJO">Con mosquitero fijo</option><option value="CON_MOSQUITERO_CORREDIZO">Con mosquitero corredizo</option>
+        </select>
+      </div>
     </div>
     <div style="font-size:11px;color:var(--text3)" id="gc-preview-${id}"></div>`;
   document.getElementById('modal-grupos-cortes').appendChild(div);
   // Add listeners for preview
-  ['gc-tipo-'+id,'gc-cant-'+id,'gc-long-'+id,'gc-div-'+id].forEach(eid=>{
+  ['gc-tipo-'+id,'gc-cant-'+id,'gc-long-'+id,'gc-div-'+id,'gc-cond-'+id].forEach(eid=>{
     const el=document.getElementById(eid);
     if(el) el.addEventListener('input',()=>previewGrupo(id));
     if(el) el.addEventListener('change',()=>previewGrupo(id));
@@ -1702,12 +1743,15 @@ function previewGrupo(id){
   const cant=parseInt(document.getElementById('gc-cant-'+id).value)||0;
   const long=parseFloat(document.getElementById('gc-long-'+id)?.value)||0;
   const div=parseInt(document.getElementById('gc-div-'+id)?.value)||1;
+  const cond=document.getElementById('gc-cond-'+id)?.value||'SIEMPRE';
   const el=document.getElementById('gc-preview-'+id);
   if(!el)return;
-  if(tipo==='vertical') el.innerHTML=`→ ${cant} corte${cant!==1?'s':''} × (alto ÷ ${div}) m`;
-  else if(tipo==='horizontal') el.innerHTML=`→ ${cant} corte${cant!==1?'s':''} × (ancho ÷ ${div}) m`;
-  else if(tipo==='fijo'&&long>0) el.innerHTML=`→ ${cant} corte${cant!==1?'s':''} de ${long.toFixed(3)} m fijos`;
-  else el.innerHTML='';
+  let desc='';
+  if(tipo==='vertical') desc=`${cant} corte${cant!==1?'s':''} × (alto ÷ ${div}) m`;
+  else if(tipo==='horizontal') desc=`${cant} corte${cant!==1?'s':''} × (ancho ÷ ${div}) m`;
+  else if(tipo==='fijo'&&long>0) desc=`${cant} corte${cant!==1?'s':''} de ${long.toFixed(3)} m fijos`;
+  const condLabel=cond==='SIEMPRE'?'':'<span style="color:var(--purple);margin-left:6px">cuando: '+cond+'</span>';
+  el.innerHTML=desc?`→ ${desc}${condLabel}`:'';
 }
 
 function eliminarGrupoCorte(id){
@@ -1726,7 +1770,8 @@ function leerGruposCortes(){
     const cant=parseInt(document.getElementById('gc-cant-'+id).value)||0;
     const long=parseFloat(document.getElementById('gc-long-'+id)?.value)||0;
     const divisor=parseInt(document.getElementById('gc-div-'+id)?.value)||1;
-    if(cant>0) grupos.push({tipo,cant,long,divisor});
+    const condicion=document.getElementById('gc-cond-'+id)?.value||'SIEMPRE';
+    if(cant>0) grupos.push({tipo,cant,long,divisor,condicion});
   });
   return grupos;
 }
@@ -1872,6 +1917,33 @@ function cargarConfigsPorReceta(){
   mostrarOpcionesAcabado(r);
   document.getElementById('cot-opciones-wrap').style.display='';
   document.getElementById('cot-preview').style.display='none';
+  // Detect if this receta has any condicion-based grupos and show panel
+  const tieneCondiciones=detectarCondicionesReceta(r);
+  document.getElementById('cot-opciones-cancel-wrap').style.display=tieneCondiciones?'':'none';
+  // Reset all checkboxes
+  document.querySelectorAll('#cot-condiciones-grid input[type=checkbox]').forEach(c=>c.checked=false);
+}
+
+function detectarCondicionesReceta(r){
+  // Returns true if any config has a perfil group with a condicion != SIEMPRE
+  if(!r||!r.configs) return false;
+  return r.configs.some(cfg=>(cfg.perfiles||[]).some(cp=>
+    (cp.grupos||[]).some(g=>g.condicion&&g.condicion!=='SIEMPRE')
+  ));
+}
+
+function sincronizarMosquitero(tipo){
+  // When checking a specific mosquitero type, also check the generic "Con mosquitero"
+  const gen=document.getElementById('cond-CON_MOSQUITERO');
+  const fijo=document.getElementById('cond-CON_MOSQUITERO_FIJO');
+  const corredizo=document.getElementById('cond-CON_MOSQUITERO_CORREDIZO');
+  if(tipo==='FIJO'||tipo==='CORREDIZO'){
+    gen.checked=fijo.checked||corredizo.checked;
+  }
+  if(tipo==='CON_MOSQUITERO'&&!gen.checked){
+    if(fijo) fijo.checked=false;
+    if(corredizo) corredizo.checked=false;
+  }
 }
 
 function mostrarOpcionesAcabado(receta){
@@ -2155,8 +2227,24 @@ function calcularPartida(){
     }
   }
 
+  // ── Leer condiciones activas del cancel ─────────────────────
+  const condicionesActivas=new Set(['SIEMPRE']);
+  // Zoclos
+  if(document.getElementById('cond-CON_ZOCLO_INF')?.checked) condicionesActivas.add('CON_ZOCLO_INF');
+  else condicionesActivas.add('SIN_ZOCLO_INF');
+  if(document.getElementById('cond-CON_ZOCLO_SUP')?.checked) condicionesActivas.add('CON_ZOCLO_SUP');
+  else condicionesActivas.add('SIN_ZOCLO_SUP');
+  // Mosquitero
+  if(document.getElementById('cond-CON_MOSQUITERO')?.checked){
+    condicionesActivas.add('CON_MOSQUITERO');
+    if(document.getElementById('cond-CON_MOSQUITERO_FIJO')?.checked) condicionesActivas.add('CON_MOSQUITERO_FIJO');
+    if(document.getElementById('cond-CON_MOSQUITERO_CORREDIZO')?.checked) condicionesActivas.add('CON_MOSQUITERO_CORREDIZO');
+  } else {
+    condicionesActivas.add('SIN_MOSQUITERO');
+  }
+
   // ── Calcular costo de un perfil ──────────────────────────────
-  // grupos: [{tipo:'vertical'|'horizontal'|'fijo', cant, long, divisor}]
+  // grupos: [{tipo:'vertical'|'horizontal'|'fijo', cant, long, divisor, condicion}]
   // legacy: cortesV, cortesH (backwards compat)
   const costoPerfil=(clave, cortesV, cortesH, tipoVidrioPerfil, grupos)=>{
     const tvp=(tipoVidrioPerfil||'AMBOS').toUpperCase();
@@ -2166,11 +2254,14 @@ function calcularPartida(){
     const idComp=acabadoClean+clave;
     const p=acabado ? todosPerfiles.find(x=>x.idCompuesto===idComp) : null;
 
-    // Calcular metros lineales desde grupos (nueva lógica) o cortesV/H (legacy)
+    // Calcular metros lineales desde grupos filtrando por condicion
     let ml=0;
     let detalleGrupos=[];
     if(grupos&&grupos.length>0){
       grupos.forEach(g=>{
+        const cond=(g.condicion||'SIEMPRE').toUpperCase();
+        // Evaluar si el grupo aplica según las condiciones activas del cancel
+        if(!condicionesActivas.has(cond)) return; // grupo no aplica → omitir
         const divisor=g.divisor||1;
         let longCorte=0, cantCortes=g.cant||0;
         if(g.tipo==='fijo') longCorte=g.long||0;
@@ -2182,6 +2273,8 @@ function calcularPartida(){
         else if(g.tipo==='vertical') detalleGrupos.push(`${cantCortes}×${num(longCorte)}m(alt${divisor>1?'/'+divisor:''})`);
         else detalleGrupos.push(`${cantCortes}×${num(longCorte)}m(anch${divisor>1?'/'+divisor:''})`);
       });
+      // Si todos los grupos fueron omitidos por condición, retornar null (perfil no aplica)
+      if(ml===0 && detalleGrupos.length===0) return null;
     } else {
       // Legacy: cortesV × alto + cortesH × ancho
       ml=(cortesV*alto)+(cortesH*ancho);
@@ -2305,12 +2398,19 @@ function agregarPartida(){
   const cfgNombre=cfgIdx!==''?(r.configs[parseInt(cfgIdx)]||{}).tipo:'—';
   const acabado=document.getElementById('cot-acabado-custom').value.trim();
 
+  // Capture active conditions for this partida
+  const condActivas={};
+  ['CON_ZOCLO_INF','CON_ZOCLO_SUP','CON_MOSQUITERO','CON_MOSQUITERO_FIJO','CON_MOSQUITERO_CORREDIZO'].forEach(c=>{
+    const el=document.getElementById('cond-'+c);
+    if(el) condActivas[c]=el.checked;
+  });
   const partida={
     id:Date.now(),
     ubicacion:desc,
     receta:r.nombre,
     config:cfgNombre,
     acabado,
+    condiciones:condActivas,
     ancho:parseFloat(document.getElementById('cot-ancho').value)||0,
     alto:parseFloat(document.getElementById('cot-alto').value)||0,
     cantidad:proyectoActivo._temp.cantidad,
@@ -2326,6 +2426,8 @@ function agregarPartida(){
   document.getElementById('eh-item').value='';
   document.getElementById('ep-search').value='';
   document.getElementById('eh-search').value='';
+  // Reset condiciones
+  document.querySelectorAll('#cot-condiciones-grid input[type=checkbox]').forEach(c=>c.checked=false);
 
   // Limpiar form
   document.getElementById('cot-desc').value='';
@@ -3125,7 +3227,16 @@ function recopilarCortes(proyecto){
             if(cp){
               // Nueva lógica: grupos de cortes
               if(cp.grupos&&cp.grupos.length>0){
+                // Build condiciones activas from saved partida condiciones
+                const condSet=new Set(['SIEMPRE']);
+                Object.entries(partida.condiciones||{}).forEach(([k,v])=>{if(v)condSet.add(k);});
+                // Add SIN_ counterparts for unchecked conditions
+                if(!condSet.has('CON_ZOCLO_INF')) condSet.add('SIN_ZOCLO_INF');
+                if(!condSet.has('CON_ZOCLO_SUP')) condSet.add('SIN_ZOCLO_SUP');
+                if(!condSet.has('CON_MOSQUITERO')) condSet.add('SIN_MOSQUITERO');
                 cp.grupos.forEach(g=>{
+                  const cond=(g.condicion||'SIEMPRE').toUpperCase();
+                  if(!condSet.has(cond)) return; // skip grupo that doesn't apply
                   const divisor=g.divisor||1;
                   let longCorte=0;
                   if(g.tipo==='fijo') longCorte=g.long||0;
