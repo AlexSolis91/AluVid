@@ -2379,27 +2379,47 @@ function calcularPartida(){
     };
   };
 
-  // ── Calcular costo de un herraje ─────────────────────────────
-  const costoHerraje=(herrajeId, cantPiezas, metrosV, metrosH, tipoVidH)=>{
-    // Filtrar por tipo de vidrio igual que perfiles
+  // ── Calcular costo de un herraje (con condiciones por campo) ──
+  const costoHerraje=(herrajeId, cantPiezas, metrosV, metrosH, tipoVidH, condCantidad, condV, condH)=>{
     const tvh=(tipoVidH||'AMBOS').toUpperCase();
-    if(tvh!=='AMBOS' && tvh!==tipoVidrioSeleccionado) return null;
+    if(tvh!=='AMBOS'&&tvh!==tipoVidrioSeleccionado) return null;
     const h=todosHerrajes.find(x=>x.id===herrajeId);
     if(!h)return{label:'Herraje no encontrado',costo:0,detalle:''};
 
     let costo=0, detalle='';
-    // Si tiene cortes de metros lineales
-    if(metrosV>0||metrosH>0){
-      const ml=(metrosV*alto)+(metrosH*ancho);
-      costo=(h.precioML||0)*ml;
-      detalle=`${num(ml)} ml × ${fmt(h.precioML||0)}/ml`;
+
+    // Verticales: aplican si condV se cumple (default SIEMPRE)
+    const condVok=condicionesActivas.has((condV||'SIEMPRE').toUpperCase());
+    const vAplic=metrosV>0&&condVok;
+
+    // Horizontales: aplican si condH se cumple (default SIEMPRE)
+    const condHok=condicionesActivas.has((condH||'SIEMPRE').toUpperCase());
+    const hAplic=metrosH>0&&condHok;
+
+    if(vAplic||hAplic){
+      const mlV=vAplic?metrosV*alto:0;
+      const mlH=hAplic?metrosH*ancho:0;
+      const ml=mlV+mlH;
+      if(ml>0){
+        costo=(h.precioML||0)*ml;
+        if(vAplic&&hAplic)
+          detalle=`${metrosV}V×${num(alto)}m + ${metrosH}H×${num(ancho)}m = ${num(ml)} ml × ${fmt(h.precioML||0)}/ml`;
+        else if(vAplic)
+          detalle=`${metrosV}V×${num(alto)}m = ${num(ml)} ml × ${fmt(h.precioML||0)}/ml`;
+        else
+          detalle=`${metrosH}H×${num(ancho)}m = ${num(ml)} ml × ${fmt(h.precioML||0)}/ml`;
+      }
     }
-    // Si tiene piezas
-    if(cantPiezas>0){
-      const costoPiezas=(h.precioUnitario||0)*cantPiezas;
-      costo+=costoPiezas;
+
+    // Piezas: aplican si condCantidad se cumple (default SIEMPRE)
+    const condCok=condicionesActivas.has((condCantidad||'SIEMPRE').toUpperCase());
+    const cantAplic=cantPiezas>0&&condCok;
+    if(cantAplic){
+      costo+=(h.precioUnitario||0)*cantPiezas;
       detalle+=(detalle?'  +  ':'')+`${cantPiezas} pzs × ${fmt(h.precioUnitario||0)}`;
     }
+
+    if(costo===0) return null; // nada aplica — omitir completamente
     return{label:h.descripcion+(h.clave?' ['+h.clave+']':''),costo,detalle};
   };
 
