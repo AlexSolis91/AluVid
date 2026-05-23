@@ -225,7 +225,7 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
     <div class="nav-item" data-view="proyectos" onclick="nav(this)">
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 7h18M3 12h18M3 17h12"/></svg>
       Mis Proyectos
-      <span class="nav-badge" id="badge-proyectos" style="display:none">0</span>
+
     </div>
 
     <div class="nav-section">Materiales</div>
@@ -984,8 +984,6 @@ function renderDashboard(){
 function updateBadges(){
   const al=[...DB.get('perfiles'),...DB.get('herrajes'),...DB.get('vidrios')].filter(x=>dateDiff(x.fecha)>=1).length;
   const b=document.getElementById('badge-alertas');b.textContent=al;b.style.display=al?'':'none';
-  const pr=DB.get('proyectos').length;
-  const bp=document.getElementById('badge-proyectos');bp.textContent=pr;bp.style.display=pr?'':'none';
 }
 
 // ══════════════════════════════════════════════
