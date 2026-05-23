@@ -505,7 +505,8 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
           </div>
           <div style="display:flex;gap:8px">
             <button class="btn btn-ghost btn-sm" onclick="document.getElementById('mat-detalle').style.display='none';document.getElementById('mat-proyectos-lista').style.display=''">← Proyectos</button>
-            <button class="btn btn-ghost btn-sm" onclick="imprimirMaterial()">🖨 Imprimir</button>
+            <button class="btn btn-ghost btn-sm" onclick="imprimirListaMaterial()">🖨 Lista de Material</button>
+            <button class="btn btn-ghost btn-sm" onclick="imprimirCortes()">📐 Distribución de Cortes</button>
           </div>
         </div>
 
@@ -3195,42 +3196,51 @@ function recopilarCortes(proyecto){
 }
 
 // ── CUTTING STOCK PROBLEM — First Fit Decreasing ────────────────
-function cuttingStockFFD(cortes, longitudTramo, tolerancia=0.005){
-  // tolerancia: margen de corte de sierra (5mm por defecto)
+function cuttingStockFFD(cortes, longitudTramo, kerfMm=5){
+  // kerfMm: ancho del disco de sierra en milímetros (default 5mm).
+  // El kerf se cobra UNA VEZ por cada corte de sierra dentro del tramo,
+  // NO se aplica al primer corte (el tramo ya viene cortado del proveedor).
+  // Fórmula: espacio_real_del_corte = longitud + kerf (excepto el primero de cada tramo)
   if(!cortes||cortes.length===0) return {tramos:[],sobrante:0};
 
-  // Ordenar cortes de mayor a menor
+  const kerf=kerfMm/1000; // convertir mm → metros
+
+  // Ordenar cortes de mayor a menor (First Fit Decreasing)
   const cortesOrdenados=[...cortes].map((c,i)=>({...c,idx:i}))
     .sort((a,b)=>b.longitud-a.longitud);
 
-  const tramos=[]; // cada tramo: {cortes:[{longitud,ubicacion}], usado, libre}
+  const tramos=[];
 
   cortesOrdenados.forEach(corte=>{
-    const longCorte=corte.longitud+tolerancia;
-    // Buscar primer tramo donde quepa
+    // El espacio que ocupa este corte en el tramo:
+    // primer corte del tramo: solo su longitud (ya viene un extremo cortado)
+    // cortes siguientes: longitud + kerf (cada corte de sierra adicional)
     let colocado=false;
     for(let t=0;t<tramos.length;t++){
-      if(tramos[t].libre>=longCorte){
+      const esElPrimero=tramos[t].cortes.length===0;
+      const espacioNecesario=corte.longitud+(esElPrimero?0:kerf);
+      if(tramos[t].libre>=espacioNecesario){
         tramos[t].cortes.push({longitud:corte.longitud,ubicacion:corte.ubicacion});
-        tramos[t].usado+=longCorte;
-        tramos[t].libre-=longCorte;
+        tramos[t].usado+=espacioNecesario;
+        tramos[t].libre-=espacioNecesario;
         colocado=true;
         break;
       }
     }
     if(!colocado){
-      // Nuevo tramo
+      // Abrir nuevo tramo: primer corte sin kerf
+      const espacioNecesario=corte.longitud; // primer corte del tramo
       tramos.push({
         cortes:[{longitud:corte.longitud,ubicacion:corte.ubicacion}],
-        usado:longCorte,
-        libre:longitudTramo-longCorte,
+        usado:espacioNecesario,
+        libre:longitudTramo-espacioNecesario,
         total:longitudTramo
       });
     }
   });
 
   const totalSobrante=tramos.reduce((s,t)=>s+t.libre,0);
-  return {tramos,sobrante:parseFloat(totalSobrante.toFixed(3))};
+  return {tramos,sobrante:parseFloat(totalSobrante.toFixed(4))};
 }
 
 // ── RENDER LISTA DE MATERIAL ──────────────────────────────────────
@@ -3299,7 +3309,7 @@ function calcularListaMaterial(proyecto){
             return `<div style="margin-bottom:8px">
               <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:3px">
                 <span>Tramo ${ti+1}</span>
-                <span>${t.cortes.map(c=>num(c.longitud)+'m').join(' + ')} = ${num(t.usado-t.cortes.length*0.005)}m usados</span>
+                <span>${t.cortes.map(c=>num(c.longitud)+'m').join(' + ')} = ${num(t.usado)}m usados</span>
                 <span style="color:${t.libre<0.1?'var(--green)':'var(--amber)'}">sobra ${num(t.libre)}m</span>
               </div>
               <div style="height:8px;background:var(--border);border-radius:4px;overflow:hidden">
@@ -3346,8 +3356,247 @@ function calcularListaMaterial(proyecto){
     '<tr><td colspan="4"><div class="empty-state" style="padding:16px"><p>Sin vidrio</p></div></td></tr>';
 }
 
-function imprimirMaterial(){
-  window.print();
+// ══════════════════════════════════════════════════════════════════
+//  IMPRESIÓN — LISTA DE MATERIAL
+// ══════════════════════════════════════════════════════════════════
+function imprimirListaMaterial(){
+  if(!matProyectoActivo)return;
+  const p=matProyectoActivo;
+  const {mapaPerfiles,mapaHerrajes,mapaVidrios}=recopilarCortes(p);
+  const fecha=new Date().toLocaleDateString('es-MX',{year:'numeric',month:'long',day:'numeric'});
+
+  // ── Perfiles: agrupar tramos por idCompuesto
+  let perfilesRows='';
+  Object.values(mapaPerfiles).forEach(({perfil,cortes})=>{
+    if(!cortes.length)return;
+    const {tramos}=cuttingStockFFD(cortes,perfil.longitudTramo);
+    perfilesRows+=`<tr>
+      <td style="font-family:monospace;font-weight:700;color:#1a56db">${perfil.idCompuesto}</td>
+      <td>${perfil.nombre}</td>
+      <td style="font-family:monospace">${num(perfil.longitudTramo)} m</td>
+      <td style="font-weight:700;text-align:center">${tramos.length}</td>
+      <td style="font-family:monospace">${num(tramos.length*perfil.longitudTramo)} m</td>
+    </tr>`;
+  });
+
+  // ── Herrajes por ML
+  let herrajesMLRows='', herrajesPzRows='';
+  Object.values(mapaHerrajes).forEach(({herraje,totalPiezas,totalML})=>{
+    if(totalML>0.01){
+      herrajesMLRows+=`<tr>
+        <td style="font-family:monospace">${herraje.clave||'—'}</td>
+        <td>${herraje.descripcion}</td>
+        <td style="font-family:monospace;font-weight:700;text-align:right">${num(totalML)} ml</td>
+      </tr>`;
+    }
+    if(totalPiezas>0){
+      herrajesPzRows+=`<tr>
+        <td style="font-family:monospace">${herraje.clave||'—'}</td>
+        <td>${herraje.descripcion}</td>
+        <td style="font-family:monospace;font-weight:700;text-align:right">${Math.ceil(totalPiezas)} pzs</td>
+      </tr>`;
+    }
+  });
+
+  // ── Vidrio
+  let vidrioRows='';
+  Object.values(mapaVidrios).forEach(({nombre,totalM2})=>{
+    vidrioRows+=`<tr>
+      <td>${nombre}</td>
+      <td style="font-family:monospace;font-weight:700;text-align:right">${num(totalM2)} m²</td>
+    </tr>`;
+  });
+
+  const html=`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+  <title>Lista de Material — ${p.folio}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',Arial,sans-serif;font-size:12px;color:#1a1a1a;padding:20px 28px}
+    h1{font-size:18px;font-weight:700;margin-bottom:2px}
+    .sub{font-size:12px;color:#555;margin-bottom:16px}
+    .meta{display:flex;gap:32px;margin-bottom:20px;padding:10px 14px;background:#f0f4ff;border-radius:6px;border:1px solid #c7d7fd}
+    .meta div{display:flex;flex-direction:column;gap:2px}
+    .meta label{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#666}
+    .meta strong{font-size:14px;font-weight:700}
+    h2{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin:18px 0 8px;padding-bottom:4px;border-bottom:2px solid #1a56db;color:#1a56db}
+    table{width:100%;border-collapse:collapse;margin-bottom:8px}
+    th{background:#1a56db;color:#fff;font-size:10px;text-transform:uppercase;letter-spacing:.5px;padding:6px 10px;text-align:left}
+    td{padding:5px 10px;border-bottom:1px solid #e5e7eb}
+    tr:nth-child(even) td{background:#f9fafb}
+    .total-row td{font-weight:700;background:#f0f4ff!important;border-top:2px solid #1a56db}
+    .seccion{margin-bottom:4px;font-size:11px;color:#555;font-style:italic}
+    @media print{body{padding:10px 16px}@page{margin:12mm 14mm;size:A4}}
+  </style></head><body>
+  <h1>Lista de Material</h1>
+  <div class="sub">Generado el ${fecha}</div>
+  <div class="meta">
+    <div><label>Folio</label><strong>${p.folio}</strong></div>
+    <div><label>Cliente</label><strong>${p.cliente||'Sin nombre'}</strong></div>
+    <div><label>Partidas</label><strong>${(p.partidas||[]).length}</strong></div>
+    <div><label>Fecha del proyecto</label><strong>${fechaCorta(p.fecha)}</strong></div>
+  </div>
+
+  <h2>Perfiles de Aluminio</h2>
+  <table>
+    <thead><tr><th>ID / Clave</th><th>Nombre del Perfil</th><th>Long. Tramo</th><th>Tramos</th><th>Total ML</th></tr></thead>
+    <tbody>${perfilesRows||'<tr><td colspan="5" style="text-align:center;color:#999">Sin perfiles</td></tr>'}</tbody>
+  </table>
+
+  ${herrajesMLRows?`<h2>Herrajes y Accesorios — Por Metro Lineal</h2>
+  <table>
+    <thead><tr><th>Clave</th><th>Descripción</th><th style="text-align:right">Cantidad</th></tr></thead>
+    <tbody>${herrajesMLRows}</tbody>
+  </table>`:''}
+
+  ${herrajesPzRows?`<h2>Herrajes y Accesorios — Por Pieza</h2>
+  <table>
+    <thead><tr><th>Clave</th><th>Descripción</th><th style="text-align:right">Cantidad</th></tr></thead>
+    <tbody>${herrajesPzRows}</tbody>
+  </table>`:''}
+
+  ${vidrioRows?`<h2>Vidrio</h2>
+  <table>
+    <thead><tr><th>Tipo de Vidrio</th><th style="text-align:right">Total m²</th></tr></thead>
+    <tbody>${vidrioRows}</tbody>
+  </table>`:''}
+  </body></html>`;
+
+  const win=window.open('','_blank','width=900,height=700');
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(()=>win.print(),400);
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  IMPRESIÓN — DISTRIBUCIÓN DE CORTES
+// ══════════════════════════════════════════════════════════════════
+function imprimirCortes(){
+  if(!matProyectoActivo)return;
+  const p=matProyectoActivo;
+  const {mapaPerfiles}=recopilarCortes(p);
+  const fecha=new Date().toLocaleDateString('es-MX',{year:'numeric',month:'long',day:'numeric'});
+
+  let seccionesHTML='';
+
+  Object.values(mapaPerfiles).forEach(({perfil,cortes})=>{
+    if(!cortes.length)return;
+    const {tramos,sobrante}=cuttingStockFFD(cortes,perfil.longitudTramo);
+
+    // Resumen de cortes agrupados por longitud
+    const resumen={};
+    cortes.forEach(c=>{
+      const k=c.longitud.toFixed(4);
+      if(!resumen[k]){resumen[k]={longitud:c.longitud,qty:0,ubicaciones:[]};}
+      resumen[k].qty++;
+      if(c.ubicacion&&!resumen[k].ubicaciones.includes(c.ubicacion))
+        resumen[k].ubicaciones.push(c.ubicacion);
+    });
+
+    // Generar barras visuales de los tramos
+    const tramosHTML=tramos.map((t,ti)=>{
+      const pct=(t.usado/t.total*100).toFixed(1);
+      const libre=t.libre;
+      // Segmentos coloreados por corte
+      const colores=['#1a56db','#1e7e34','#6f42c1','#fd7e14','#0dcaf0','#d63384','#198754','#dc3545'];
+      let offset=0;
+      const segmentos=t.cortes.map((c,ci)=>{
+        const ancho=(c.longitud/t.total*100).toFixed(2);
+        const color=colores[ci%colores.length];
+        const seg=`<div style="width:${ancho}%;background:${color};height:100%;display:inline-block;border-right:1px solid rgba(255,255,255,.4)" title="${num(c.longitud)}m"></div>`;
+        offset+=c.longitud;
+        return seg;
+      }).join('');
+      // Sobrante visual
+      const anchoLibre=(libre/t.total*100).toFixed(2);
+      return `<div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:#555;margin-bottom:3px">
+          <strong>Tramo ${ti+1}</strong>
+          <span>${t.cortes.map(c=>num(c.longitud)+'m').join(' + ')}</span>
+          <span style="color:${libre<0.05?'#1e7e34':'#cc8400'}">sobra ${num(libre)}m</span>
+        </div>
+        <div style="height:22px;background:#e5e7eb;border-radius:4px;overflow:hidden;display:flex">
+          ${segmentos}
+          <div style="width:${anchoLibre}%;background:#e5e7eb;height:100%;border-left:2px dashed #aaa"></div>
+        </div>
+      </div>`;
+    }).join('');
+
+    const costSobrante=sobrante*perfil.precioML;
+
+    seccionesHTML+=`
+    <div style="page-break-inside:avoid;margin-bottom:24px;border:1px solid #d1d5db;border-radius:8px;overflow:hidden">
+      <div style="background:#1a56db;color:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <span style="font-family:monospace;font-size:14px;font-weight:700">${perfil.idCompuesto}</span>
+          <span style="margin-left:12px;font-size:13px">${perfil.nombre}</span>
+        </div>
+        <div style="display:flex;gap:20px;font-size:11px">
+          <span>Tramo: <strong>${num(perfil.longitudTramo)} m</strong></span>
+          <span>Precio/ml: <strong>${fmt(perfil.precioML)}</strong></span>
+          <span>Tramos necesarios: <strong>${tramos.length}</strong></span>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0">
+        <!-- Cortes requeridos -->
+        <div style="padding:12px 14px;border-right:1px solid #e5e7eb">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#666;margin-bottom:8px;font-weight:600">Cortes requeridos</div>
+          <table style="width:100%;border-collapse:collapse;font-size:11px">
+            <thead><tr>
+              <th style="text-align:left;padding:3px 6px;background:#f3f4f6;color:#374151;font-size:10px">Longitud</th>
+              <th style="text-align:center;padding:3px 6px;background:#f3f4f6;color:#374151;font-size:10px">Cant.</th>
+              <th style="text-align:left;padding:3px 6px;background:#f3f4f6;color:#374151;font-size:10px">Ubicaciones</th>
+            </tr></thead>
+            <tbody>
+              ${Object.values(resumen).sort((a,b)=>b.longitud-a.longitud).map(c=>`
+              <tr style="border-bottom:1px solid #f3f4f6">
+                <td style="padding:3px 6px;font-family:monospace;font-weight:700;color:#1a56db">${num(c.longitud)} m</td>
+                <td style="padding:3px 6px;text-align:center;font-weight:700">× ${c.qty}</td>
+                <td style="padding:3px 6px;color:#6b7280;font-size:10px">${c.ubicaciones.join(', ')}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+        <!-- Distribución visual -->
+        <div style="padding:12px 14px">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#666;margin-bottom:8px;font-weight:600">Distribución de tramos (FFD)</div>
+          ${tramosHTML}
+          ${sobrante>0.01?`<div style="margin-top:8px;padding:6px 10px;background:#fffbeb;border:1px solid #fcd34d;border-radius:4px;font-size:11px;display:flex;justify-content:space-between">
+            <span>⚠ Sobrante total: <strong>${num(sobrante)} m</strong></span>
+            <span>Costo sobrante: <strong>${fmt(costSobrante)}</strong></span>
+          </div>`:`<div style="margin-top:8px;padding:6px 10px;background:#f0fdf4;border:1px solid #86efac;border-radius:4px;font-size:11px;color:#166534">✓ Sin sobrante significativo</div>`}
+        </div>
+      </div>
+    </div>`;
+  });
+
+  const html=`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+  <title>Distribución de Cortes — ${p.folio}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',Arial,sans-serif;font-size:12px;color:#1a1a1a;padding:20px 28px}
+    h1{font-size:18px;font-weight:700;margin-bottom:2px}
+    .meta{display:flex;gap:32px;margin:12px 0 20px;padding:10px 14px;background:#f0f4ff;border-radius:6px;border:1px solid #c7d7fd}
+    .meta div{display:flex;flex-direction:column;gap:2px}
+    .meta label{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#666}
+    .meta strong{font-size:14px;font-weight:700}
+    @media print{body{padding:10px 16px}@page{margin:10mm 12mm;size:A4 landscape}}
+  </style></head><body>
+  <h1>Distribución de Cortes</h1>
+  <div style="font-size:12px;color:#555;margin-bottom:12px">Generado el ${fecha}</div>
+  <div class="meta">
+    <div><label>Folio</label><strong>${p.folio}</strong></div>
+    <div><label>Cliente</label><strong>${p.cliente||'Sin nombre'}</strong></div>
+    <div><label>Fecha</label><strong>${fechaCorta(p.fecha)}</strong></div>
+  </div>
+  ${seccionesHTML||'<p style="color:#999;text-align:center;padding:40px">Sin perfiles en este proyecto</p>'}
+  </body></html>`;
+
+  const win=window.open('','_blank','width=1100,height=750');
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(()=>win.print(),400);
 }
 
 // INIT
