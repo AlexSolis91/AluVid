@@ -350,8 +350,16 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
             <div class="form-grid">
               <div class="form-group col2">
                 <label>Acabado / Color</label>
-                <div class="option-pills" id="cot-acabados-pills"></div>
-                <input id="cot-acabado-custom" placeholder="O escribe el acabado manualmente" style="margin-top:6px" oninput="seleccionarAcabadoCustom()">
+                <select id="cot-acabado-custom" onchange="calcularPartida()" style="font-weight:500">
+                  <option value="">— Selecciona acabado —</option>
+                  <option value="Negro">Negro</option>
+                  <option value="Blanco">Blanco</option>
+                  <option value="Gris Europa">Gris Europa</option>
+                  <option value="Natural Mate">Natural Mate</option>
+                  <option value="Chocolate">Chocolate</option>
+                  <option value="Hueso">Hueso</option>
+                  <option value="Champagne">Champagne</option>
+                </select>
               </div>
               <div class="form-group">
                 <label>Tipo de vidrio del cancel</label>
@@ -402,6 +410,14 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
                   <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;padding:6px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius)" id="cond-wrap-MOSQUITERO_CORREDIZO">
                     <input type="checkbox" id="cond-CON_MOSQUITERO_CORREDIZO" onchange="sincronizarMosquitero('CORREDIZO');calcularPartida()" style="accent-color:var(--purple);width:15px;height:15px">
                     Mosquitero corredizo
+                  </label>
+                  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;padding:6px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius)">
+                    <input type="checkbox" id="cond-CON_ESCALONADO_VERT" onchange="calcularPartida()" style="accent-color:var(--purple);width:15px;height:15px">
+                    Escalonado vertical
+                  </label>
+                  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;padding:6px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius)">
+                    <input type="checkbox" id="cond-CON_ESCALONADO_SUP" onchange="calcularPartida()" style="accent-color:var(--purple);width:15px;height:15px">
+                    Escalonado superior
                   </label>
                 </div>
               </div>
@@ -909,6 +925,10 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
               <option value="CON_MOSQUITERO">Con mosquitero (cualquier tipo)</option>
               <option value="CON_MOSQUITERO_FIJO">Con mosquitero fijo</option>
               <option value="CON_MOSQUITERO_CORREDIZO">Con mosquitero corredizo</option>
+              <option value="CON_ESCALONADO_VERT">Con escalonado vertical</option>
+              <option value="SIN_ESCALONADO_VERT">Sin escalonado vertical</option>
+              <option value="CON_ESCALONADO_SUP">Con escalonado superior</option>
+              <option value="SIN_ESCALONADO_SUP">Sin escalonado superior</option><option value="CON_ESCALONADO_VERT">Con escalonado vertical</option><option value="SIN_ESCALONADO_VERT">Sin escalonado vertical</option><option value="CON_ESCALONADO_SUP">Con escalonado superior</option><option value="SIN_ESCALONADO_SUP">Sin escalonado superior</option>
         </select>
       </div>
     </div>
@@ -1970,30 +1990,15 @@ function sincronizarMosquitero(tipo){
 }
 
 function mostrarOpcionesAcabado(receta){
-  // Obtener acabados únicos de todos los perfiles usados en la receta
-  const perfilesClave=new Set();
-  (receta.perfiles||[]).forEach(p=>perfilesClave.add(p.clave));
-  (receta.configs||[]).forEach(c=>(c.perfiles||[]).forEach(p=>perfilesClave.add(p.clave)));
-  // Buscar acabados disponibles para esas claves
-  const acabadosSet=new Set();
-  const todosPerfiles=DB.get('perfiles');
-  perfilesClave.forEach(clave=>{
-    todosPerfiles.filter(p=>p.clave===clave).forEach(p=>acabadosSet.add(p.acabado));
-  });
-  const acabados=[...acabadosSet];
-  const pills=document.getElementById('cot-acabados-pills');
-  pills.innerHTML=acabados.map(a=>`<div class="pill" onclick="seleccionarAcabado(this,'${a}')">${a}</div>`).join('');
-  if(!acabados.length)pills.innerHTML='<span style="font-size:12px;color:var(--text3)">No hay acabados en catálogo para esta receta</span>';
+  // Select dropdown — no pills needed anymore, just reset selection
+  const sel=document.getElementById('cot-acabado-custom');
+  if(sel) sel.value='';
 }
 
 function seleccionarAcabado(el,acabado){
-  document.querySelectorAll('#cot-acabados-pills .pill').forEach(p=>p.classList.remove('active'));
-  el.classList.add('active');
-  document.getElementById('cot-acabado-custom').value=acabado;
-  calcularPartida();
+  // Legacy — no longer used
 }
 function seleccionarAcabadoCustom(){
-  document.querySelectorAll('#cot-acabados-pills .pill').forEach(p=>p.classList.remove('active'));
   calcularPartida();
 }
 
@@ -2265,6 +2270,11 @@ function calcularPartida(){
   } else {
     condicionesActivas.add('SIN_MOSQUITERO');
   }
+  // Escalonado
+  if(document.getElementById('cond-CON_ESCALONADO_VERT')?.checked) condicionesActivas.add('CON_ESCALONADO_VERT');
+  else condicionesActivas.add('SIN_ESCALONADO_VERT');
+  if(document.getElementById('cond-CON_ESCALONADO_SUP')?.checked) condicionesActivas.add('CON_ESCALONADO_SUP');
+  else condicionesActivas.add('SIN_ESCALONADO_SUP');
 
   // ── Calcular costo de un perfil ──────────────────────────────
   // grupos: [{tipo:'vertical'|'horizontal'|'fijo', cant, long, divisor, condicion}]
@@ -2427,7 +2437,7 @@ function agregarPartida(){
 
   // Capture active conditions for this partida
   const condActivas={};
-  ['CON_ZOCLO_INF','CON_ZOCLO_SUP','CON_MOSQUITERO','CON_MOSQUITERO_FIJO','CON_MOSQUITERO_CORREDIZO'].forEach(c=>{
+  ['CON_ZOCLO_INF','CON_ZOCLO_SUP','CON_MOSQUITERO','CON_MOSQUITERO_FIJO','CON_MOSQUITERO_CORREDIZO','CON_ESCALONADO_VERT','CON_ESCALONADO_SUP'].forEach(c=>{
     const el=document.getElementById('cond-'+c);
     if(el) condActivas[c]=el.checked;
   });
@@ -3273,6 +3283,8 @@ function recopilarCortes(proyecto){
                 if(!condSet.has('CON_ZOCLO_INF')) condSet.add('SIN_ZOCLO_INF');
                 if(!condSet.has('CON_ZOCLO_SUP')) condSet.add('SIN_ZOCLO_SUP');
                 if(!condSet.has('CON_MOSQUITERO')) condSet.add('SIN_MOSQUITERO');
+                if(!condSet.has('CON_ESCALONADO_VERT')) condSet.add('SIN_ESCALONADO_VERT');
+                if(!condSet.has('CON_ESCALONADO_SUP')) condSet.add('SIN_ESCALONADO_SUP');
                 cp.grupos.forEach(g=>{
                   const cond=(g.condicion||'SIEMPRE').toUpperCase();
                   if(!condSet.has(cond)) return; // skip grupo that doesn't apply
