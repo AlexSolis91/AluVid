@@ -999,16 +999,39 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
 
 <div id="toast-container"></div>
 
-<script type="module">
+<script>
 // ══════════════════════════════════════════════
 // FIREBASE INIT + AUTH GUARD
 // ══════════════════════════════════════════════
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, onAuthStateChanged, signOut }
-  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, doc, collection, getDoc, getDocs, setDoc,
-         updateDoc, deleteDoc, query, orderBy }
-  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+// Firebase loaded via dynamic imports to avoid module scope issues
+let _fbInitDone = false;
+let _initializeApp, _getAuth, _onAuthStateChanged, _signOut,
+    _getFirestore, _doc, _collection, _getDoc, _getDocs,
+    _setDoc, _updateDoc, _deleteDoc;
+
+async function _loadFirebase() {
+  if (_fbInitDone) return;
+  const fbApp  = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js");
+  const fbAuth = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js");
+  const fbFS   = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+  _initializeApp    = fbApp.initializeApp;
+  _getAuth          = fbAuth.getAuth;
+  _onAuthStateChanged = fbAuth.onAuthStateChanged;
+  _signOut          = fbAuth.signOut;
+  _getFirestore     = fbFS.getFirestore;
+  _doc              = fbFS.doc;
+  _collection       = fbFS.collection;
+  _getDoc           = fbFS.getDoc;
+  _getDocs          = fbFS.getDocs;
+  _setDoc           = fbFS.setDoc;
+  _updateDoc        = fbFS.updateDoc;
+  _deleteDoc        = fbFS.deleteDoc;
+  _fbInitDone = true;
+}
+
+// Initialize Firebase on page load
+(async function initFirebase() {
+  await _loadFirebase();
 
 const _fbConfig = {
   apiKey: "AIzaSyA0nSBdSlqDWgFUapwdadiLsgnXQqJsf7w",
@@ -1018,22 +1041,22 @@ const _fbConfig = {
   messagingSenderId: "893764744721",
   appId: "1:893764744721:web:9e5349317e39c29c54a3b0"
 };
-const _fbApp  = initializeApp(_fbConfig);
-const _auth   = getAuth(_fbApp);
-const _db     = getFirestore(_fbApp);
+const _fbApp  = _initializeApp(_fbConfig);
+const _auth   = _getAuth(_fbApp);
+const _db     = _getFirestore(_fbApp);
 let _uid = null;
 let _userData = null;
 
 // Auth guard — redirect to login if not authenticated or subscription expired
-onAuthStateChanged(_auth, async user => {
+_onAuthStateChanged(_auth, async user => {
   if (!user) { window.location.href = 'login.html'; return; }
   _uid = user.uid;
-  const snap = await getDoc(doc(_db, 'usuarios', user.uid));
-  if (!snap.exists()) { signOut(_auth); window.location.href = 'login.html'; return; }
+  const snap = await _getDoc(_doc(_db, 'usuarios', user.uid));
+  if (!snap.exists()) { _signOut(_auth); window.location.href = 'login.html'; return; }
   _userData = snap.data();
   const vence = _userData.vence?.toDate ? _userData.vence.toDate() : new Date(_userData.vence);
   if (!_userData.activo || vence < new Date()) {
-    _auth.signOut();
+    _auth._signOut();
     window.location.href = 'login.html';
     return;
   }
@@ -1051,8 +1074,9 @@ onAuthStateChanged(_auth, async user => {
   renderMatProyectos();
   updateBadges();
 });
+})(); // end initFirebase
 
-window.cerrarSesionApp = () => { signOut(_auth); window.location.href = 'login.html'; };
+window.cerrarSesionApp = () => { _signOut(_auth); window.location.href = 'login.html'; };
 
 // ── Local cache (mirrors Firestore) ──────────────────────────
 const _cache = {};
@@ -1060,18 +1084,18 @@ const _cache = {};
 async function sincronizarDesdeFirestore() {
   const tablas = ['perfiles','herrajes','vidrios','recetas','proyectos'];
   for (const tabla of tablas) {
-    const snap = await getDocs(collection(_db, 'usuarios', _uid, tabla));
+    const snap = await _getDocs(_collection(_db, 'usuarios', _uid, tabla));
     _cache[tabla] = snap.docs.map(d => ({ _docId: d.id, ...d.data() }));
   }
 }
 
 async function guardarEnFirestore(tabla, item) {
   const key = String(item.id || item._docId || Date.now());
-  await setDoc(doc(_db, 'usuarios', _uid, tabla, key), item);
+  await _setDoc(_doc(_db, 'usuarios', _uid, tabla, key), item);
 }
 
 async function eliminarEnFirestore(tabla, id) {
-  await deleteDoc(doc(_db, 'usuarios', _uid, tabla, String(id)));
+  await _deleteDoc(_doc(_db, 'usuarios', _uid, tabla, String(id)));
 }
 
 // ══════════════════════════════════════════════
@@ -1091,12 +1115,12 @@ const DB = {
   _sync(k, v) {
     if (!_uid) return;
     // Re-save all items in the collection
-    const col = collection(_db, 'usuarios', _uid, k);
+    const col = _collection(_db, 'usuarios', _uid, k);
     // Save each item individually
     v.forEach(item => {
       const key = String(item.id || item._docId || Math.random().toString(36).slice(2));
       item._docId = key;
-      setDoc(doc(_db, 'usuarios', _uid, k, key), JSON.parse(JSON.stringify(item)))
+      _setDoc(_doc(_db, 'usuarios', _uid, k, key), JSON.parse(JSON.stringify(item)))
         .catch(e => console.warn('Firestore sync error:', e));
     });
   },
