@@ -2247,10 +2247,14 @@ function guardarProyecto(){
 
 function cargarRecetasPorLinea(){
   const linea=document.getElementById('cot-linea').value;
-  const recetas=DB.get('recetas').filter(r=>r.linea===linea);
-  document.getElementById('cot-receta').innerHTML=recetas.length?
-    '<option value="">— Selecciona receta —</option>'+recetas.map(r=>`<option value="${r.id}">${r.nombre}</option>`).join(''):
-    '<option value="">Sin recetas en esta línea</option>';
+  const lineaL=linea.toLowerCase();
+  const userRs=DB.get('recetas').filter(r=>(r.linea||'').toLowerCase()===lineaL);
+  const adminRs=DB.getAdminRecetas().filter(r=>(r.linea||'').toLowerCase()===lineaL);
+  let opts='<option value="">— Selecciona receta —</option>';
+  if(userRs.length) opts+='<optgroup label="Mis recetas">'+userRs.map(r=>`<option value="u_${r.id}">${r.nombre}</option>`).join('')+'</optgroup>';
+  if(adminRs.length) opts+='<optgroup label="── SCAVi ──">'+adminRs.map(r=>`<option value="a_${r.id||r._docId}">${r.nombre}</option>`).join('')+'</optgroup>';
+  if(!userRs.length&&!adminRs.length) opts='<option value="">Sin recetas en esta línea</option>';
+  document.getElementById('cot-receta').innerHTML=opts;
   document.getElementById('cot-config').innerHTML='<option value="">— Elige receta primero —</option>';
   document.getElementById('cot-opciones-wrap').style.display='none';
 }
