@@ -250,10 +250,15 @@ onAuthStateChanged(_auth, async (user) => {
   const data = snap.data();
   window._userData = data;
   const vence = data.vence?.toDate ? data.vence.toDate() : new Date(data.vence);
-  if (!data.activo || vence < new Date()) {
+  if (!data.activo) {
     signOut(_auth);
-    alert('Tu suscripción ha vencido o tu cuenta está inactiva. Contacta al administrador.');
+    alert('Tu cuenta está deshabilitada. Contacta al administrador.');
     window.location.href = 'login.html';
+    return;
+  }
+  if (vence < new Date()) {
+    signOut(_auth);
+    window.location.href = 'pago.html?email=' + encodeURIComponent(user.email);
     return;
   }
 
