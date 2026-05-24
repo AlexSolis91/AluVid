@@ -3793,78 +3793,7 @@ function imprimirListaMaterial(){
     .seccion{margin-bottom:4px;font-size:11px;color:#555;font-style:italic}
     @media print{body{padding:10px 16px}@page{margin:12mm 14mm;size:A4}}
   </style>
-<!-- Firebase: loaded as module, exposes _fbReady promise to window -->
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, onAuthStateChanged, signOut }
-  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, doc, collection, getDoc, getDocs,
-         setDoc, updateDoc, deleteDoc }
-  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-const _app = initializeApp({
-  apiKey: "AIzaSyA0nSBdSlqDWgFUapwdadiLsgnXQqJsf7w",
-  authDomain: "aluvid-8af71.firebaseapp.com",
-  projectId: "aluvid-8af71",
-  storageBucket: "aluvid-8af71.firebasestorage.app",
-  messagingSenderId: "893764744721",
-  appId: "1:893764744721:web:9e5349317e39c29c54a3b0"
-});
-const _auth = getAuth(_app);
-const _db   = getFirestore(_app);
-
-// Expose to window so the regular script can use them
-window._auth = _auth;
-window._db   = _db;
-window._fsDoc        = (path, ...args) => doc(_db, path, ...args);
-window._fsCollection = (path) => collection(_db, path);
-window._fsGetDoc     = getDoc;
-window._fsGetDocs    = getDocs;
-window._fsSetDoc     = setDoc;
-window._fsUpdateDoc  = updateDoc;
-window._fsDeleteDoc  = deleteDoc;
-window._fsSignOut    = signOut;
-
-// Auth guard
-onAuthStateChanged(_auth, async (user) => {
-  if (!user) { window.location.href = 'login.html'; return; }
-  window._uid = user.uid;
-
-  // Check subscription
-  const snap = await getDoc(doc(_db, 'usuarios', user.uid));
-  if (!snap.exists()) { signOut(_auth); window.location.href = 'login.html'; return; }
-  const data = snap.data();
-  window._userData = data;
-  const vence = data.vence?.toDate ? data.vence.toDate() : new Date(data.vence);
-  if (!data.activo || vence < new Date()) {
-    signOut(_auth);
-    alert('Tu suscripción ha vencido o tu cuenta está inactiva. Contacta al administrador.');
-    window.location.href = 'login.html';
-    return;
-  }
-
-  // Show user info in sidebar footer
-  const dias = Math.ceil((vence - new Date())/(1000*60*60*24));
-  const footer = document.getElementById('version-footer');
-  if (footer) {
-    footer.innerHTML = `<span>${data.nombre || user.email}</span>
-      <span style="display:block;margin-top:2px;color:${dias<=7?'var(--amber)':'inherit'}">
-        ${dias} días restantes · <a href="#" onclick="window._fsSignOut(window._auth);window.location.href='login.html'" style="color:var(--accent2)">Salir</a>
-      </span>`;
-  }
-
-  // Load data from Firestore into local cache
-  const tablas = ['perfiles','herrajes','vidrios','recetas','proyectos'];
-  for (const tabla of tablas) {
-    const s = await getDocs(collection(_db, 'usuarios', user.uid, tabla));
-    window._cache[tabla] = s.docs.map(d => ({ _docId: d.id, ...d.data() }));
-  }
-
-  // Signal app that Firebase is ready
-  window._fbReady = true;
-  if (window._onFbReady) window._onFbReady();
-});
-</script>
 </head><body>
   <h1>Lista de Material</h1>
   <div class="sub">Generado el ${fecha}</div>
@@ -4021,78 +3950,7 @@ function imprimirCortes(){
     .meta strong{font-size:14px;font-weight:700}
     @media print{body{padding:10px 16px}@page{margin:10mm 12mm;size:A4 landscape}}
   </style>
-<!-- Firebase: loaded as module, exposes _fbReady promise to window -->
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, onAuthStateChanged, signOut }
-  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, doc, collection, getDoc, getDocs,
-         setDoc, updateDoc, deleteDoc }
-  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-const _app = initializeApp({
-  apiKey: "AIzaSyA0nSBdSlqDWgFUapwdadiLsgnXQqJsf7w",
-  authDomain: "aluvid-8af71.firebaseapp.com",
-  projectId: "aluvid-8af71",
-  storageBucket: "aluvid-8af71.firebasestorage.app",
-  messagingSenderId: "893764744721",
-  appId: "1:893764744721:web:9e5349317e39c29c54a3b0"
-});
-const _auth = getAuth(_app);
-const _db   = getFirestore(_app);
-
-// Expose to window so the regular script can use them
-window._auth = _auth;
-window._db   = _db;
-window._fsDoc        = (path, ...args) => doc(_db, path, ...args);
-window._fsCollection = (path) => collection(_db, path);
-window._fsGetDoc     = getDoc;
-window._fsGetDocs    = getDocs;
-window._fsSetDoc     = setDoc;
-window._fsUpdateDoc  = updateDoc;
-window._fsDeleteDoc  = deleteDoc;
-window._fsSignOut    = signOut;
-
-// Auth guard
-onAuthStateChanged(_auth, async (user) => {
-  if (!user) { window.location.href = 'login.html'; return; }
-  window._uid = user.uid;
-
-  // Check subscription
-  const snap = await getDoc(doc(_db, 'usuarios', user.uid));
-  if (!snap.exists()) { signOut(_auth); window.location.href = 'login.html'; return; }
-  const data = snap.data();
-  window._userData = data;
-  const vence = data.vence?.toDate ? data.vence.toDate() : new Date(data.vence);
-  if (!data.activo || vence < new Date()) {
-    signOut(_auth);
-    alert('Tu suscripción ha vencido o tu cuenta está inactiva. Contacta al administrador.');
-    window.location.href = 'login.html';
-    return;
-  }
-
-  // Show user info in sidebar footer
-  const dias = Math.ceil((vence - new Date())/(1000*60*60*24));
-  const footer = document.getElementById('version-footer');
-  if (footer) {
-    footer.innerHTML = `<span>${data.nombre || user.email}</span>
-      <span style="display:block;margin-top:2px;color:${dias<=7?'var(--amber)':'inherit'}">
-        ${dias} días restantes · <a href="#" onclick="window._fsSignOut(window._auth);window.location.href='login.html'" style="color:var(--accent2)">Salir</a>
-      </span>`;
-  }
-
-  // Load data from Firestore into local cache
-  const tablas = ['perfiles','herrajes','vidrios','recetas','proyectos'];
-  for (const tabla of tablas) {
-    const s = await getDocs(collection(_db, 'usuarios', user.uid, tabla));
-    window._cache[tabla] = s.docs.map(d => ({ _docId: d.id, ...d.data() }));
-  }
-
-  // Signal app that Firebase is ready
-  window._fbReady = true;
-  if (window._onFbReady) window._onFbReady();
-});
-</script>
 </head><body>
   <h1>Distribución de Cortes</h1>
   <div style="font-size:12px;color:#555;margin-bottom:12px">Generado el ${fecha}</div>
