@@ -154,9 +154,13 @@ onAuthStateChanged(auth, async user => {
   const snap = await getDoc(doc(db, 'usuarios', user.uid));
   if (!snap.exists()) return;
   const data = snap.data();
-  if (data.activo && new Date(data.vence.toDate ? data.vence.toDate() : data.vence) > new Date()) {
-    window.location.href = 'index.html';
+  const venceCheck = data.vence?.toDate ? data.vence.toDate() : new Date(data.vence);
+  if (!data.activo) return; // disabled, stay on login
+  if (venceCheck < new Date()) {
+    window.location.href = 'pago.html?email=' + encodeURIComponent(user.email);
+    return;
   }
+  window.location.href = 'index.html';
 });
 
 // ── Tab switch ─────────────────────────────────────────────────
