@@ -287,6 +287,14 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
             Nuevo Proyecto
           </button>
         </div>
+        <!-- Buscador de proyectos -->
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px">
+          <div class="search-wrap" style="flex:1">
+            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input id="cot-buscar" placeholder="Buscar por folio, cliente o nombre del proyecto..." oninput="renderCotizarInicio()" style="width:100%">
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('cot-buscar').value='';renderCotizarInicio()">✕ Limpiar</button>
+        </div>
         <div id="cot-proyectos-recientes"></div>
       </div>
 
@@ -1938,23 +1946,39 @@ function cerrarCotizacion(){
 }
 
 function renderCotizarInicio(){
-  const proyectos=DB.get('proyectos').slice().reverse().slice(0,5);
+  const q=(document.getElementById('cot-buscar')?.value||'').toLowerCase().trim();
+  const todos=DB.get('proyectos').slice().reverse();
+  // Filter by folio, cliente, or partida ubicacion
+  const proyectos=q ? todos.filter(p=>
+    p.folio.toLowerCase().includes(q)||
+    (p.cliente||'').toLowerCase().includes(q)||
+    (p.partidas||[]).some(pa=>(pa.ubicacion||pa.descripcion||'').toLowerCase().includes(q))
+  ) : todos.slice(0,8); // show 8 most recent when no search
   const el=document.getElementById('cot-proyectos-recientes');
-  el.innerHTML=proyectos.length?`
-    <div style="font-size:13px;font-weight:600;margin-bottom:12px;color:var(--text2)">Proyectos recientes</div>
+  const titulo=q
+    ? `<div style="font-size:13px;font-weight:600;margin-bottom:12px;color:var(--text2)">${proyectos.length} resultado${proyectos.length!==1?'s':''} para "<span style="color:var(--accent2)">${q}</span>"</div>`
+    : `<div style="font-size:13px;font-weight:600;margin-bottom:12px;color:var(--text2)">Proyectos recientes</div>`;
+  el.innerHTML=proyectos.length?titulo+`
     <div class="table-wrap"><table>
       <thead><tr><th>Folio</th><th>Cliente</th><th>Partidas</th><th>Total s/IVA</th><th>Fecha</th><th></th></tr></thead>
       <tbody>${proyectos.map(p=>`<tr>
-        <td class="td-mono">${p.folio}</td>
-        <td>${p.cliente||'<span class="td-muted">Sin nombre</span>'}</td>
-        <td>${(p.partidas||[]).length}</td>
+        <td class="td-mono" style="color:var(--purple)">${resaltarBusqueda(p.folio,q)}</td>
+        <td>${resaltarBusqueda(p.cliente||'—',q)}</td>
+        <td style="text-align:center">${(p.partidas||[]).length}</td>
         <td style="color:var(--green);font-weight:600">${fmt(totalProyecto(p))}</td>
-        <td>${fechaCorta(p.fecha)}</td>
+        <td class="td-muted">${fechaCorta(p.fecha)}</td>
         <td><button class="btn btn-ghost btn-sm" onclick="abrirProyecto(${p.id})">Abrir</button></td>
       </tr>`).join('')}
       </tbody>
     </table></div>`:
-    '<div class="empty-state"><p>No hay proyectos guardados aún</p></div>';
+    `${titulo}<div class="empty-state"><p>${q?'Sin resultados para "'+q+'"':'No hay proyectos guardados aún'}</p></div>`;
+}
+
+function resaltarBusqueda(texto, q){
+  if(!q||!texto) return texto||'—';
+  const idx=texto.toLowerCase().indexOf(q.toLowerCase());
+  if(idx<0) return texto;
+  return texto.slice(0,idx)+'<mark style="background:rgba(79,142,247,.3);color:var(--accent2);border-radius:2px;padding:0 2px">'+texto.slice(idx,idx+q.length)+'</mark>'+texto.slice(idx+q.length);
 }
 
 function abrirProyecto(id){
