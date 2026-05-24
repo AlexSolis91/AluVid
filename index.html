@@ -273,12 +273,18 @@ onAuthStateChanged(_auth, async (user) => {
     const s = await getDocs(collection(_db, 'usuarios', user.uid, tabla));
     window._cache[tabla] = s.docs.map(d => ({ _docId: d.id, ...d.data() }));
   }
-  // Load admin catalogo (visible only internally for pricing, recetas shown with SCAVi label)
+  // Load admin catalogo for pricing (perfiles/herrajes/vidrios from admin's own catalog)
   window._adminCache = {};
-  const adminTablas = ['perfiles','herrajes','vidrios','recetas'];
-  for (const tabla of adminTablas) {
+  // Load recetas from admin_catalogo collection (published SCAVi recetas)
+  try {
+    const sRec = await getDocs(collection(_db, 'admin_catalogo', 'recetas', 'items'));
+    window._adminCache['recetas'] = sRec.docs.map(d => ({ _docId: d.id, _esAdmin: true, ...d.data() }));
+  } catch(e) { window._adminCache['recetas'] = []; }
+  // Load perfiles/herrajes/vidrios from admin user's own catalog for pricing
+  const pricingTablas = ['perfiles','herrajes','vidrios'];
+  for (const tabla of pricingTablas) {
     try {
-      const s = await getDocs(collection(_db, 'admin_catalogo', tabla, 'items'));
+      const s = await getDocs(collection(_db, 'usuarios', 'z447DgJCSTW8xRDp8pkIZ5S1A8G3', tabla));
       window._adminCache[tabla] = s.docs.map(d => ({ _docId: d.id, _esAdmin: true, ...d.data() }));
     } catch(e) {
       window._adminCache[tabla] = [];
@@ -1123,11 +1129,15 @@ const DB = {
   // Get combined: user items + admin items (for pricing lookups only, not for display)
   getCombined(k) {
     const userItems = this.get(k);
+    // Also check admin_catalogo items from the dedicated admin sub-collection
     const adminItems = (window._adminCache && window._adminCache[k]) || [];
+    // Also check admin user's own catalog (stored under admin UID in Firestore)
     // User items take priority — if same idCompuesto/id exists in both, user wins
-    const userKeys = new Set(userItems.map(x => x.idCompuesto || x.id));
-    const adminOnly = adminItems.filter(x => !userKeys.has(x.idCompuesto || x.id));
-    return [...userItems, ...adminOnly];
+    const userKeys = new Set(userItems.map(x => x.idCompuesto || String(x.id)));
+    const adminOnly = adminItems.filter(x => !userKeys.has(x.idCompuesto || String(x.id)));
+    const combined = [...userItems, ...adminOnly];
+    if(combined.length === 0 && adminItems.length > 0) return adminItems;
+    return combined;
   },
   // Get admin recetas (for display in cotizar with SCAVi label)
   getAdminRecetas() {
