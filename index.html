@@ -1610,8 +1610,10 @@ function guardarReceta(){
   document.getElementById('r-btn-del').style.display='';
   document.getElementById('r-componentes').style.display='';
   document.getElementById('r-editor-title').textContent='Editar Receta';
-  renderRecetaLista();renderConfiguraciones();renderComponentesReceta();
-  if(!configActual&&obj.configs&&obj.configs.length>0) seleccionarConfig(0);
+  try{renderRecetaLista();}catch(e){}
+  try{renderConfiguraciones();}catch(e){}
+  try{renderComponentesReceta();}catch(e){}
+  try{if(!configActual&&obj.configs&&obj.configs.length>0) seleccionarConfig(0);}catch(e){}
   // If published to SCAVi, auto-update the admin catalog
   const publicar=document.getElementById('r-publicar-scavi')?.checked;
   if(publicar && window._uid==='z447DgJCSTW8xRDp8pkIZ5S1A8G3'){
@@ -1632,6 +1634,7 @@ function eliminarReceta(){
 function renderComponentesReceta(){
   if(!recetaActual)return;
   const r=DB.get('recetas').find(x=>x.id===recetaActual.id)||recetaActual;
+  if(!document.getElementById('r-perfiles-tabla'))return; // editor not visible
   // Perfiles — mostrar CLAVE + NOMBRE (no ID compuesto)
   document.getElementById('r-perfiles-tabla').innerHTML=(r.perfiles||[]).length?
     r.perfiles.map((cp,i)=>`<tr>
