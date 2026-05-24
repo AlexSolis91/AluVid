@@ -2267,7 +2267,7 @@ function cargarConfigsPorReceta(){
   const rid=isAdminReceta ? ridRaw.slice(2) : isUserReceta ? parseInt(ridRaw.slice(2)) : parseInt(ridRaw);
   if(!rid){document.getElementById('cot-opciones-wrap').style.display='none';return;}
   const r=isAdminReceta
-    ? DB.getAdminRecetas().find(x=>(x.id||x._docId)===String(rid)||x.id===rid)
+    ? DB.getAdminRecetas().find(x=>String(x.id||x._docId)===String(rid))
     : DB.get('recetas').find(x=>x.id===rid);
   if(!r)return;
   const configs=r.configs||[];
@@ -3005,7 +3005,7 @@ function recotizarPartida(idx){
   if(!rid||!ancho||!alto) return;
 
   const r=isAdminReceta
-    ? DB.getAdminRecetas().find(x=>(x.id||x._docId)===String(rid)||x.id===rid||String(x._docId)===rid)
+    ? DB.getAdminRecetas().find(x=>String(x.id||x._docId)===String(rid))
     : DB.get('recetas').find(x=>x.id===rid);
   if(!r) return;
 
