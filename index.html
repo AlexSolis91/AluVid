@@ -267,11 +267,22 @@ onAuthStateChanged(_auth, async (user) => {
       </span>`;
   }
 
-  // Load data from Firestore into local cache
+  // Load user's own data
   const tablas = ['perfiles','herrajes','vidrios','recetas','proyectos'];
   for (const tabla of tablas) {
     const s = await getDocs(collection(_db, 'usuarios', user.uid, tabla));
     window._cache[tabla] = s.docs.map(d => ({ _docId: d.id, ...d.data() }));
+  }
+  // Load admin catalogo (visible only internally for pricing, recetas shown with SCAVi label)
+  window._adminCache = {};
+  const adminTablas = ['perfiles','herrajes','vidrios','recetas'];
+  for (const tabla of adminTablas) {
+    try {
+      const s = await getDocs(collection(_db, 'admin_catalogo', tabla, 'items'));
+      window._adminCache[tabla] = s.docs.map(d => ({ _docId: d.id, _esAdmin: true, ...d.data() }));
+    } catch(e) {
+      window._adminCache[tabla] = [];
+    }
   }
 
   // Signal app that Firebase is ready
@@ -816,8 +827,15 @@ onAuthStateChanged(_auth, async (user) => {
                 <input id="r-separador-precio" type="number" step="0.01" placeholder="86.00">
               </div>
             </div>
-            <div class="form-actions" style="margin-top:0;padding-top:12px">
+            <div class="form-actions" style="margin-top:0;padding-top:12px;flex-wrap:wrap;gap:8px">
               <button class="btn btn-danger btn-sm" id="r-btn-del" onclick="eliminarReceta()" style="display:none">Eliminar</button>
+              <!-- Publicar en SCAVi: solo visible para admin -->
+              <div id="r-admin-publish" style="display:none;align-items:center;gap:6px;margin-right:auto">
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--purple)">
+                  <input type="checkbox" id="r-publicar-scavi" onchange="togglePublicarSCAVi()" style="accent-color:var(--purple);width:14px;height:14px">
+                  <span>📢 Publicar en SCAVi</span>
+                </label>
+              </div>
               <button class="btn btn-ghost" onclick="cerrarReceta()">Cancelar</button>
               <button class="btn btn-primary" onclick="guardarReceta()">Guardar receta</button>
             </div>
@@ -1065,6 +1083,29 @@ onAuthStateChanged(_auth, async (user) => {
 // ══════════════════════════════════════════════
 // STORAGE — Firestore con caché local
 // ══════════════════════════════════════════════
+
+// ── FIRESTORE RULES NEEDED ────────────────────────────────────
+// rules_version = '2';
+// service cloud.firestore {
+//   match /databases/{database}/documents {
+//     // Admin full access
+//     match /{document=**} {
+//       allow read, write: if request.auth != null && request.auth.uid == 'z447DgJCSTW8xRDp8pkIZ5S1A8G3';
+//     }
+//     // Users read admin_catalogo (but can't write)
+//     match /admin_catalogo/{col}/items/{docId} {
+//       allow read: if request.auth != null;
+//     }
+//     // Users access own data only
+//     match /usuarios/{uid} {
+//       allow read, write: if request.auth != null && request.auth.uid == uid;
+//       match /{coleccion}/{docId} {
+//         allow read, write: if request.auth != null && request.auth.uid == uid;
+//       }
+//     }
+//   }
+// }
+
 window._cache = {};
 
 window.cerrarSesionApp = function() {
@@ -1079,8 +1120,62 @@ const DB = {
       return window._cache[k];
     try { return JSON.parse(localStorage.getItem('av_'+k)) || []; } catch(e) { return []; }
   },
+  // Get combined: user items + admin items (for pricing lookups only, not for display)
+  getCombined(k) {
+    const userItems = this.get(k);
+    const adminItems = (window._adminCache && window._adminCache[k]) || [];
+    // User items take priority — if same idCompuesto/id exists in both, user wins
+    const userKeys = new Set(userItems.map(x => x.idCompuesto || x.id));
+    const adminOnly = adminItems.filter(x => !userKeys.has(x.idCompuesto || x.id));
+    return [...userItems, ...adminOnly];
+  },
+  // Get admin recetas (for display in cotizar with SCAVi label)
+  getAdminRecetas() {
+    return ((window._adminCache && window._adminCache['recetas']) || [])
+      .map(r => ({ ...r, _esAdmin: true, _adminLabel: 'SCAVi' }));
+  },
+  // Publish item to admin_catalogo (only works for admin user)
+  publishToAdmin(k, item) {
+    if (!window._uid || window._uid !==  + ADMIN_UID + ) return;
+    if (!window._fsSetDoc || !window._fsDoc) return;
+    const key = String(item.id || item._docId);
+    const clean = JSON.parse(JSON.stringify({ ...item, _esAdmin: true }));
+    window._fsSetDoc(
+      window._fsDoc('admin_catalogo/' + k + '/items/' + key), clean
+    ).catch(e => console.warn('Admin publish error:', e.message));
+  },
+  // Remove from admin_catalogo
+  unpublishFromAdmin(k, id) {
+    if (!window._uid || window._uid !==  + ADMIN_UID + ) return;
+    if (!window._fsDeleteDoc || !window._fsDoc) return;
+    window._fsDeleteDoc(window._fsDoc('admin_catalogo/' + k + '/items/' + String(id)))
+      .catch(e => console.warn('Admin unpublish error:', e.message));
+  },
   set(k, v) {
-    if (!window._cache) window._cache = {};
+    if (!window._cache) 
+// ── FIRESTORE RULES NEEDED ────────────────────────────────────
+// rules_version = '2';
+// service cloud.firestore {
+//   match /databases/{database}/documents {
+//     // Admin full access
+//     match /{document=**} {
+//       allow read, write: if request.auth != null && request.auth.uid == 'z447DgJCSTW8xRDp8pkIZ5S1A8G3';
+//     }
+//     // Users read admin_catalogo (but can't write)
+//     match /admin_catalogo/{col}/items/{docId} {
+//       allow read: if request.auth != null;
+//     }
+//     // Users access own data only
+//     match /usuarios/{uid} {
+//       allow read, write: if request.auth != null && request.auth.uid == uid;
+//       match /{coleccion}/{docId} {
+//         allow read, write: if request.auth != null && request.auth.uid == uid;
+//       }
+//     }
+//   }
+// }
+
+window._cache = {};
     window._cache[k] = v;
     this._syncToFirestore(k, v);
   },
@@ -1439,6 +1534,17 @@ function mostrarEditorReceta(){
   document.getElementById('r-id').value=recetaActual.id;
   document.getElementById('r-nombre').value=recetaActual.nombre;
   document.getElementById('r-linea').value=recetaActual.linea||'Panorama';
+  // Show publish toggle only for admin
+  const isAdmin=window._uid==='z447DgJCSTW8xRDp8pkIZ5S1A8G3';
+  const publishWrap=document.getElementById('r-admin-publish');
+  if(publishWrap) publishWrap.style.display=isAdmin?'flex':'none';
+  if(isAdmin){
+    // Check if already published
+    const published=(window._adminCache?.recetas||[]).some(x=>
+      (x.id||x._docId)===String(recetaActual.id));
+    const cb=document.getElementById('r-publicar-scavi');
+    if(cb) cb.checked=published;
+  }
   // Load separador
   document.getElementById('r-separador').value=recetaActual.separador||'';
   document.getElementById('r-separador-precio').value=recetaActual.separadorPrecio||'';
@@ -1460,6 +1566,27 @@ function mostrarEditorReceta(){
 function toggleSeparadorPrecio(){
   const val=document.getElementById('r-separador').value;
   document.getElementById('r-separador-precio-wrap').style.display=val?'':'none';
+}
+
+function togglePublicarSCAVi(){
+  const publicar=document.getElementById('r-publicar-scavi')?.checked;
+  if(!recetaActual) return;
+  if(publicar){
+    // Publish to admin_catalogo
+    DB.publishToAdmin('recetas', recetaActual);
+    if(!window._adminCache) window._adminCache={};
+    if(!window._adminCache.recetas) window._adminCache.recetas=[];
+    const existing=window._adminCache.recetas.findIndex(x=>(x.id||x._docId)===String(recetaActual.id));
+    if(existing>=0) window._adminCache.recetas[existing]={...recetaActual,_esAdmin:true};
+    else window._adminCache.recetas.push({...recetaActual,_esAdmin:true});
+    toast('Receta publicada en SCAVi ✓','success');
+  } else {
+    // Unpublish
+    DB.unpublishFromAdmin('recetas', recetaActual.id);
+    if(window._adminCache?.recetas)
+      window._adminCache.recetas=window._adminCache.recetas.filter(x=>(x.id||x._docId)!==String(recetaActual.id));
+    toast('Receta removida de SCAVi');
+  }
 }
 
 function guardarReceta(){
@@ -1484,8 +1611,16 @@ function guardarReceta(){
   document.getElementById('r-componentes').style.display='';
   document.getElementById('r-editor-title').textContent='Editar Receta';
   renderRecetaLista();renderConfiguraciones();renderComponentesReceta();
-  // Auto-open first config
   if(!configActual&&obj.configs&&obj.configs.length>0) seleccionarConfig(0);
+  // If published to SCAVi, auto-update the admin catalog
+  const publicar=document.getElementById('r-publicar-scavi')?.checked;
+  if(publicar && window._uid==='z447DgJCSTW8xRDp8pkIZ5S1A8G3'){
+    DB.publishToAdmin('recetas', obj);
+    if(window._adminCache?.recetas){
+      const idx2=window._adminCache.recetas.findIndex(x=>(x.id||x._docId)===String(obj.id));
+      if(idx2>=0) window._adminCache.recetas[idx2]={...obj,_esAdmin:true};
+    }
+  }
 }
 
 function eliminarReceta(){
@@ -2118,16 +2253,20 @@ function cargarRecetasPorLinea(){
 }
 
 function cargarConfigsPorReceta(){
-  const rid=parseInt(document.getElementById('cot-receta').value);
+  const ridRaw=document.getElementById('cot-receta').value;
+  const isAdminReceta=ridRaw.startsWith('a_');
+  const rid=isAdminReceta ? ridRaw.slice(2) : parseInt(ridRaw);
   if(!rid){document.getElementById('cot-opciones-wrap').style.display='none';return;}
-  const r=DB.get('recetas').find(x=>x.id===rid);
+  const r=isAdminReceta
+    ? DB.getAdminRecetas().find(x=>(x.id||x._docId)===rid)
+    : DB.get('recetas').find(x=>x.id===rid);
   if(!r)return;
   const configs=r.configs||[];
   document.getElementById('cot-config').innerHTML=configs.length?
     '<option value="">— Sin configuración —</option>'+configs.map((c,i)=>`<option value="${i}">${c.tipo}</option>`).join(''):
     '<option value="">Sin configuraciones</option>';
   // Mostrar acabados disponibles
-  mostrarOpcionesAcabado(r);
+  if(r) mostrarOpcionesAcabado(r);
   document.getElementById('cot-opciones-wrap').style.display='';
   document.getElementById('cot-preview').style.display='none';
   // Detect if this receta has any condicion-based grupos and show panel
@@ -2390,7 +2529,9 @@ function alCambiarVidrio(){
 }
 
 function calcularPartida(){
-  const rid=parseInt(document.getElementById('cot-receta').value);
+  const ridRaw=document.getElementById('cot-receta').value;
+  const isAdminReceta=ridRaw.startsWith('a_');
+  const rid=isAdminReceta ? ridRaw.slice(2) : parseInt(ridRaw);
   const acabado=document.getElementById('cot-acabado-custom').value.trim();
   const ancho=parseFloat(document.getElementById('cot-ancho').value)||0;
   const alto=parseFloat(document.getElementById('cot-alto').value)||0;
@@ -2405,8 +2546,9 @@ function calcularPartida(){
   const r=DB.get('recetas').find(x=>x.id===rid);
   if(!r)return;
 
-  const todosPerfiles=DB.get('perfiles');
-  const todosHerrajes=DB.get('herrajes');
+  // Use combined catalog (user + admin) for pricing — user prices take priority
+  const todosPerfiles=DB.getCombined('perfiles');
+  const todosHerrajes=DB.getCombined('herrajes');
   let lineasDesglose=[];
   let totalSinIVA=0;
 
@@ -2619,7 +2761,9 @@ function calcularPartida(){
 
 function agregarPartida(){
   const desc=document.getElementById('cot-desc').value.trim();
-  const rid=parseInt(document.getElementById('cot-receta').value);
+  const ridRaw=document.getElementById('cot-receta').value;
+  const isAdminReceta=ridRaw.startsWith('a_');
+  const rid=isAdminReceta ? ridRaw.slice(2) : parseInt(ridRaw);
   if(!desc){toast('Ingresa la ubicación','error');return;}
   if(!rid){toast('Selecciona una receta','error');return;}
   if(!proyectoActivo._temp){toast('Configura las medidas primero','error');return;}
@@ -2849,11 +2993,14 @@ function recotizarPartida(idx){
 
   if(!rid||!ancho||!alto) return;
 
-  const r=DB.get('recetas').find(x=>x.id===rid);
+  const r=isAdminReceta
+    ? DB.getAdminRecetas().find(x=>(x.id||x._docId)===rid)
+    : DB.get('recetas').find(x=>x.id===rid);
   if(!r) return;
 
-  const todosPerfiles=DB.get('perfiles');
-  const todosHerrajes=DB.get('herrajes');
+  // Use combined catalog (user + admin) for pricing — user prices take priority
+  const todosPerfiles=DB.getCombined('perfiles');
+  const todosHerrajes=DB.getCombined('herrajes');
   let lineas=[];
   let total=0;
 
@@ -3438,8 +3585,9 @@ function abrirMatProyecto(id){
 
 // ── RECOPILAR CORTES DE TODAS LAS PARTIDAS ──────────────────────
 function recopilarCortes(proyecto){
-  const todosPerfiles=DB.get('perfiles');
-  const todosHerrajes=DB.get('herrajes');
+  // Use combined catalog (user + admin) for pricing — user prices take priority
+  const todosPerfiles=DB.getCombined('perfiles');
+  const todosHerrajes=DB.getCombined('herrajes');
 
   // Map: clave+acabado → {perfil, cortes:[{longitud, qty, ubicacion}]}
   const mapaPerfiles={};
