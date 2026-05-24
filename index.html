@@ -207,15 +207,77 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
 .pill.active{background:rgba(79,142,247,.15);border-color:var(--accent);color:var(--accent2);font-weight:500}
 </style>
 
-<!-- Firebase SDKs -->
-<script type="importmap">
-{
-  "imports": {
-    "firebase/app": "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js",
-    "firebase/auth": "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js",
-    "firebase/firestore": "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+<!-- Firebase: loaded as module, exposes _fbReady promise to window -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, signOut }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, doc, collection, getDoc, getDocs,
+         setDoc, updateDoc, deleteDoc }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const _app = initializeApp({
+  apiKey: "AIzaSyA0nSBdSlqDWgFUapwdadiLsgnXQqJsf7w",
+  authDomain: "aluvid-8af71.firebaseapp.com",
+  projectId: "aluvid-8af71",
+  storageBucket: "aluvid-8af71.firebasestorage.app",
+  messagingSenderId: "893764744721",
+  appId: "1:893764744721:web:9e5349317e39c29c54a3b0"
+});
+const _auth = getAuth(_app);
+const _db   = getFirestore(_app);
+
+// Expose to window so the regular script can use them
+window._auth = _auth;
+window._db   = _db;
+window._fsDoc        = (path, ...args) => doc(_db, path, ...args);
+window._fsCollection = (path) => collection(_db, path);
+window._fsGetDoc     = getDoc;
+window._fsGetDocs    = getDocs;
+window._fsSetDoc     = setDoc;
+window._fsUpdateDoc  = updateDoc;
+window._fsDeleteDoc  = deleteDoc;
+window._fsSignOut    = signOut;
+
+// Auth guard
+onAuthStateChanged(_auth, async (user) => {
+  if (!user) { window.location.href = 'login.html'; return; }
+  window._uid = user.uid;
+
+  // Check subscription
+  const snap = await getDoc(doc(_db, 'usuarios', user.uid));
+  if (!snap.exists()) { signOut(_auth); window.location.href = 'login.html'; return; }
+  const data = snap.data();
+  window._userData = data;
+  const vence = data.vence?.toDate ? data.vence.toDate() : new Date(data.vence);
+  if (!data.activo || vence < new Date()) {
+    signOut(_auth);
+    alert('Tu suscripción ha vencido o tu cuenta está inactiva. Contacta al administrador.');
+    window.location.href = 'login.html';
+    return;
   }
-}
+
+  // Show user info in sidebar footer
+  const dias = Math.ceil((vence - new Date())/(1000*60*60*24));
+  const footer = document.getElementById('version-footer');
+  if (footer) {
+    footer.innerHTML = `<span>${data.nombre || user.email}</span>
+      <span style="display:block;margin-top:2px;color:${dias<=7?'var(--amber)':'inherit'}">
+        ${dias} días restantes · <a href="#" onclick="window._fsSignOut(window._auth);window.location.href='login.html'" style="color:var(--accent2)">Salir</a>
+      </span>`;
+  }
+
+  // Load data from Firestore into local cache
+  const tablas = ['perfiles','herrajes','vidrios','recetas','proyectos'];
+  for (const tabla of tablas) {
+    const s = await getDocs(collection(_db, 'usuarios', user.uid, tabla));
+    window._cache[tabla] = s.docs.map(d => ({ _docId: d.id, ...d.data() }));
+  }
+
+  // Signal app that Firebase is ready
+  window._fbReady = true;
+  if (window._onFbReady) window._onFbReady();
+});
 </script>
 </head>
 <body>
@@ -1001,150 +1063,44 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
 
 <script>
 // ══════════════════════════════════════════════
-// FIREBASE INIT + AUTH GUARD
+// STORAGE — Firestore con caché local
 // ══════════════════════════════════════════════
-// Firebase loaded via dynamic imports to avoid module scope issues
-let _fbInitDone = false;
-let _initializeApp, _getAuth, _onAuthStateChanged, _signOut,
-    _getFirestore, _doc, _collection, _getDoc, _getDocs,
-    _setDoc, _updateDoc, _deleteDoc;
+window._cache = {};
 
-async function _loadFirebase() {
-  if (_fbInitDone) return;
-  const fbApp  = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js");
-  const fbAuth = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js");
-  const fbFS   = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-  _initializeApp    = fbApp.initializeApp;
-  _getAuth          = fbAuth.getAuth;
-  _onAuthStateChanged = fbAuth.onAuthStateChanged;
-  _signOut          = fbAuth.signOut;
-  _getFirestore     = fbFS.getFirestore;
-  _doc              = fbFS.doc;
-  _collection       = fbFS.collection;
-  _getDoc           = fbFS.getDoc;
-  _getDocs          = fbFS.getDocs;
-  _setDoc           = fbFS.setDoc;
-  _updateDoc        = fbFS.updateDoc;
-  _deleteDoc        = fbFS.deleteDoc;
-  _fbInitDone = true;
-}
-
-// Initialize Firebase on page load
-(async function initFirebase() {
-  await _loadFirebase();
-
-const _fbConfig = {
-  apiKey: "AIzaSyA0nSBdSlqDWgFUapwdadiLsgnXQqJsf7w",
-  authDomain: "aluvid-8af71.firebaseapp.com",
-  projectId: "aluvid-8af71",
-  storageBucket: "aluvid-8af71.firebasestorage.app",
-  messagingSenderId: "893764744721",
-  appId: "1:893764744721:web:9e5349317e39c29c54a3b0"
+window.cerrarSesionApp = function() {
+  if (window._fsSignOut && window._auth) {
+    window._fsSignOut(window._auth).then(() => { window.location.href = 'login.html'; });
+  }
 };
-const _fbApp  = _initializeApp(_fbConfig);
-const _auth   = _getAuth(_fbApp);
-const _db     = _getFirestore(_fbApp);
-let _uid = null;
-let _userData = null;
 
-// Auth guard — redirect to login if not authenticated or subscription expired
-_onAuthStateChanged(_auth, async user => {
-  if (!user) { window.location.href = 'login.html'; return; }
-  _uid = user.uid;
-  const snap = await _getDoc(_doc(_db, 'usuarios', user.uid));
-  if (!snap.exists()) { _signOut(_auth); window.location.href = 'login.html'; return; }
-  _userData = snap.data();
-  const vence = _userData.vence?.toDate ? _userData.vence.toDate() : new Date(_userData.vence);
-  if (!_userData.activo || vence < new Date()) {
-    _auth._signOut();
-    window.location.href = 'login.html';
-    return;
-  }
-  // Show subscription info in sidebar footer
-  const dias = Math.ceil((vence - new Date())/(1000*60*60*24));
-  const footerEl = document.querySelector('.sidebar-footer');
-  if (footerEl) {
-    footerEl.innerHTML = `<div>${_userData.nombre||user.email}</div>
-      <div style="margin-top:3px;font-size:10px;color:${dias<=7?'var(--amber)':'var(--text3)'}">
-        ${dias} días restantes · <span style="cursor:pointer;color:var(--accent2)" onclick="cerrarSesionApp()">Salir</span>
-      </div>`;
-  }
-  // Load all data from Firestore into local cache then init app
-  await sincronizarDesdeFirestore();
-  renderMatProyectos();
-  updateBadges();
-});
-})(); // end initFirebase
-
-window.cerrarSesionApp = () => { _signOut(_auth); window.location.href = 'login.html'; };
-
-// ── Local cache (mirrors Firestore) ──────────────────────────
-const _cache = {};
-
-async function sincronizarDesdeFirestore() {
-  const tablas = ['perfiles','herrajes','vidrios','recetas','proyectos'];
-  for (const tabla of tablas) {
-    const snap = await _getDocs(_collection(_db, 'usuarios', _uid, tabla));
-    _cache[tabla] = snap.docs.map(d => ({ _docId: d.id, ...d.data() }));
-  }
-}
-
-async function guardarEnFirestore(tabla, item) {
-  const key = String(item.id || item._docId || Date.now());
-  await _setDoc(_doc(_db, 'usuarios', _uid, tabla, key), item);
-}
-
-async function eliminarEnFirestore(tabla, id) {
-  await _deleteDoc(_doc(_db, 'usuarios', _uid, tabla, String(id)));
-}
-
-// ══════════════════════════════════════════════
-// STORAGE — ahora usa Firestore con caché local
-// ══════════════════════════════════════════════
 const DB = {
   get(k) {
-    // También revisar localStorage para migración si hay datos viejos
-    if (_cache[k]) return _cache[k];
+    if (window._cache && window._cache[k] && window._cache[k].length >= 0)
+      return window._cache[k];
     try { return JSON.parse(localStorage.getItem('av_'+k)) || []; } catch(e) { return []; }
   },
   set(k, v) {
-    _cache[k] = v;
-    // Sincronizar con Firestore en background
-    this._sync(k, v);
+    if (!window._cache) window._cache = {};
+    window._cache[k] = v;
+    this._syncToFirestore(k, v);
   },
-  _sync(k, v) {
-    if (!_uid) return;
-    // Re-save all items in the collection
-    const col = _collection(_db, 'usuarios', _uid, k);
-    // Save each item individually
+  _syncToFirestore(k, v) {
+    if (!window._uid || !window._fsSetDoc || !window._fsDoc) return;
+    const uid = window._uid;
+    // Delete removed items and upsert existing ones
     v.forEach(item => {
-      const key = String(item.id || item._docId || Math.random().toString(36).slice(2));
+      const key = String(item.id || item._docId || Date.now());
       item._docId = key;
-      _setDoc(_doc(_db, 'usuarios', _uid, k, key), JSON.parse(JSON.stringify(item)))
-        .catch(e => console.warn('Firestore sync error:', e));
+      const clean = JSON.parse(JSON.stringify(item));
+      window._fsSetDoc(window._fsDoc('usuarios/' + uid + '/' + k + '/' + key), clean)
+        .catch(e => console.warn('Sync error:', k, e.message));
     });
   },
   nextId(k) {
-    const ids = this.get(k).map(x => x.id||0);
-    return ids.length ? Math.max(...ids)+1 : 1;
+    const ids = this.get(k).map(x => x.id || 0);
+    return ids.length ? Math.max(...ids) + 1 : 1;
   }
 };
-
-// Migración: si hay datos en localStorage, subirlos a Firestore y limpiar
-async function migrarLocalStorageAFirestore() {
-  const tablas = ['perfiles','herrajes','vidrios','recetas','proyectos'];
-  let migrado = 0;
-  for (const k of tablas) {
-    const local = JSON.parse(localStorage.getItem('av_'+k)||'null');
-    if (local && local.length > 0 && (!_cache[k] || _cache[k].length === 0)) {
-      _cache[k] = local;
-      DB._sync(k, local);
-      localStorage.removeItem('av_'+k);
-      migrado++;
-    }
-  }
-  if (migrado > 0) console.log('Migrados', migrado, 'catálogos de localStorage a Firestore');
-}
 
 // ══════════════════════════════════════════════
 // UTILS
@@ -3837,15 +3793,77 @@ function imprimirListaMaterial(){
     .seccion{margin-bottom:4px;font-size:11px;color:#555;font-style:italic}
     @media print{body{padding:10px 16px}@page{margin:12mm 14mm;size:A4}}
   </style>
-<!-- Firebase SDKs -->
-<script type="importmap">
-{
-  "imports": {
-    "firebase/app": "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js",
-    "firebase/auth": "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js",
-    "firebase/firestore": "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+<!-- Firebase: loaded as module, exposes _fbReady promise to window -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, signOut }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, doc, collection, getDoc, getDocs,
+         setDoc, updateDoc, deleteDoc }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const _app = initializeApp({
+  apiKey: "AIzaSyA0nSBdSlqDWgFUapwdadiLsgnXQqJsf7w",
+  authDomain: "aluvid-8af71.firebaseapp.com",
+  projectId: "aluvid-8af71",
+  storageBucket: "aluvid-8af71.firebasestorage.app",
+  messagingSenderId: "893764744721",
+  appId: "1:893764744721:web:9e5349317e39c29c54a3b0"
+});
+const _auth = getAuth(_app);
+const _db   = getFirestore(_app);
+
+// Expose to window so the regular script can use them
+window._auth = _auth;
+window._db   = _db;
+window._fsDoc        = (path, ...args) => doc(_db, path, ...args);
+window._fsCollection = (path) => collection(_db, path);
+window._fsGetDoc     = getDoc;
+window._fsGetDocs    = getDocs;
+window._fsSetDoc     = setDoc;
+window._fsUpdateDoc  = updateDoc;
+window._fsDeleteDoc  = deleteDoc;
+window._fsSignOut    = signOut;
+
+// Auth guard
+onAuthStateChanged(_auth, async (user) => {
+  if (!user) { window.location.href = 'login.html'; return; }
+  window._uid = user.uid;
+
+  // Check subscription
+  const snap = await getDoc(doc(_db, 'usuarios', user.uid));
+  if (!snap.exists()) { signOut(_auth); window.location.href = 'login.html'; return; }
+  const data = snap.data();
+  window._userData = data;
+  const vence = data.vence?.toDate ? data.vence.toDate() : new Date(data.vence);
+  if (!data.activo || vence < new Date()) {
+    signOut(_auth);
+    alert('Tu suscripción ha vencido o tu cuenta está inactiva. Contacta al administrador.');
+    window.location.href = 'login.html';
+    return;
   }
-}
+
+  // Show user info in sidebar footer
+  const dias = Math.ceil((vence - new Date())/(1000*60*60*24));
+  const footer = document.getElementById('version-footer');
+  if (footer) {
+    footer.innerHTML = `<span>${data.nombre || user.email}</span>
+      <span style="display:block;margin-top:2px;color:${dias<=7?'var(--amber)':'inherit'}">
+        ${dias} días restantes · <a href="#" onclick="window._fsSignOut(window._auth);window.location.href='login.html'" style="color:var(--accent2)">Salir</a>
+      </span>`;
+  }
+
+  // Load data from Firestore into local cache
+  const tablas = ['perfiles','herrajes','vidrios','recetas','proyectos'];
+  for (const tabla of tablas) {
+    const s = await getDocs(collection(_db, 'usuarios', user.uid, tabla));
+    window._cache[tabla] = s.docs.map(d => ({ _docId: d.id, ...d.data() }));
+  }
+
+  // Signal app that Firebase is ready
+  window._fbReady = true;
+  if (window._onFbReady) window._onFbReady();
+});
 </script>
 </head><body>
   <h1>Lista de Material</h1>
@@ -4003,15 +4021,77 @@ function imprimirCortes(){
     .meta strong{font-size:14px;font-weight:700}
     @media print{body{padding:10px 16px}@page{margin:10mm 12mm;size:A4 landscape}}
   </style>
-<!-- Firebase SDKs -->
-<script type="importmap">
-{
-  "imports": {
-    "firebase/app": "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js",
-    "firebase/auth": "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js",
-    "firebase/firestore": "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+<!-- Firebase: loaded as module, exposes _fbReady promise to window -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, signOut }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, doc, collection, getDoc, getDocs,
+         setDoc, updateDoc, deleteDoc }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const _app = initializeApp({
+  apiKey: "AIzaSyA0nSBdSlqDWgFUapwdadiLsgnXQqJsf7w",
+  authDomain: "aluvid-8af71.firebaseapp.com",
+  projectId: "aluvid-8af71",
+  storageBucket: "aluvid-8af71.firebasestorage.app",
+  messagingSenderId: "893764744721",
+  appId: "1:893764744721:web:9e5349317e39c29c54a3b0"
+});
+const _auth = getAuth(_app);
+const _db   = getFirestore(_app);
+
+// Expose to window so the regular script can use them
+window._auth = _auth;
+window._db   = _db;
+window._fsDoc        = (path, ...args) => doc(_db, path, ...args);
+window._fsCollection = (path) => collection(_db, path);
+window._fsGetDoc     = getDoc;
+window._fsGetDocs    = getDocs;
+window._fsSetDoc     = setDoc;
+window._fsUpdateDoc  = updateDoc;
+window._fsDeleteDoc  = deleteDoc;
+window._fsSignOut    = signOut;
+
+// Auth guard
+onAuthStateChanged(_auth, async (user) => {
+  if (!user) { window.location.href = 'login.html'; return; }
+  window._uid = user.uid;
+
+  // Check subscription
+  const snap = await getDoc(doc(_db, 'usuarios', user.uid));
+  if (!snap.exists()) { signOut(_auth); window.location.href = 'login.html'; return; }
+  const data = snap.data();
+  window._userData = data;
+  const vence = data.vence?.toDate ? data.vence.toDate() : new Date(data.vence);
+  if (!data.activo || vence < new Date()) {
+    signOut(_auth);
+    alert('Tu suscripción ha vencido o tu cuenta está inactiva. Contacta al administrador.');
+    window.location.href = 'login.html';
+    return;
   }
-}
+
+  // Show user info in sidebar footer
+  const dias = Math.ceil((vence - new Date())/(1000*60*60*24));
+  const footer = document.getElementById('version-footer');
+  if (footer) {
+    footer.innerHTML = `<span>${data.nombre || user.email}</span>
+      <span style="display:block;margin-top:2px;color:${dias<=7?'var(--amber)':'inherit'}">
+        ${dias} días restantes · <a href="#" onclick="window._fsSignOut(window._auth);window.location.href='login.html'" style="color:var(--accent2)">Salir</a>
+      </span>`;
+  }
+
+  // Load data from Firestore into local cache
+  const tablas = ['perfiles','herrajes','vidrios','recetas','proyectos'];
+  for (const tabla of tablas) {
+    const s = await getDocs(collection(_db, 'usuarios', user.uid, tabla));
+    window._cache[tabla] = s.docs.map(d => ({ _docId: d.id, ...d.data() }));
+  }
+
+  // Signal app that Firebase is ready
+  window._fbReady = true;
+  if (window._onFbReady) window._onFbReady();
+});
 </script>
 </head><body>
   <h1>Distribución de Cortes</h1>
@@ -4031,9 +4111,34 @@ function imprimirCortes(){
   setTimeout(()=>win.print(),400);
 }
 
-// INIT — delayed until Firebase auth resolves (onAuthStateChanged handles it)
+// INIT — wait for Firebase auth to complete
 // ══════════════════════════════════════════════
-// renderMatProyectos() and updateBadges() are called after auth + data load above
+function _appInit() {
+  // Migrate any existing localStorage data to Firestore
+  const tablas = ['perfiles','herrajes','vidrios','recetas','proyectos'];
+  let migrado = 0;
+  tablas.forEach(k => {
+    const local = JSON.parse(localStorage.getItem('av_'+k)||'null');
+    if (local && local.length > 0 && (!window._cache[k] || window._cache[k].length === 0)) {
+      window._cache[k] = local;
+      DB._syncToFirestore(k, local);
+      localStorage.removeItem('av_'+k);
+      migrado++;
+    }
+  });
+  if (migrado > 0) {
+    toast('✅ ' + migrado + ' catálogos migrados a la nube');
+  }
+  renderMatProyectos();
+  updateBadges();
+}
+
+// If Firebase already ready (fast load), run now; otherwise wait
+if (window._fbReady) {
+  _appInit();
+} else {
+  window._onFbReady = _appInit;
+}
 </script>
 </body>
 </html>
