@@ -1136,7 +1136,7 @@ const DB = {
   },
   // Publish item to admin_catalogo (only works for admin user)
   publishToAdmin(k, item) {
-    if (!window._uid || window._uid !==  + ADMIN_UID + ) return;
+    if (!window._uid || window._uid !== 'z447DgJCSTW8xRDp8pkIZ5S1A8G3') return;
     if (!window._fsSetDoc || !window._fsDoc) return;
     const key = String(item.id || item._docId);
     const clean = JSON.parse(JSON.stringify({ ...item, _esAdmin: true }));
@@ -1146,7 +1146,7 @@ const DB = {
   },
   // Remove from admin_catalogo
   unpublishFromAdmin(k, id) {
-    if (!window._uid || window._uid !==  + ADMIN_UID + ) return;
+    if (!window._uid || window._uid !== 'z447DgJCSTW8xRDp8pkIZ5S1A8G3') return;
     if (!window._fsDeleteDoc || !window._fsDoc) return;
     window._fsDeleteDoc(window._fsDoc('admin_catalogo/' + k + '/items/' + String(id)))
       .catch(e => console.warn('Admin unpublish error:', e.message));
