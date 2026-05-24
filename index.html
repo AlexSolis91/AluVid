@@ -2563,7 +2563,9 @@ function calcularPartida(){
   // Mostrar desglose aunque no haya acabado, para ver los perfiles pendientes
   if(!rid||!ancho||!alto){document.getElementById('cot-preview').style.display='none';return;}
 
-  const r=DB.get('recetas').find(x=>x.id===rid);
+  const r=isAdminReceta
+    ? DB.getAdminRecetas().find(x=>String(x.id||x._docId)===String(rid))
+    : DB.get('recetas').find(x=>x.id===rid);
   if(!r)return;
 
   // Use combined catalog (user + admin) for pricing — user prices take priority
@@ -2740,7 +2742,7 @@ function calcularPartida(){
 
   // ── Vidrio + Separador ───────────────────────────────────────
   if(vidrioId){
-    const v=DB.get('vidrios').find(x=>x.id===vidrioId);
+    const v=DB.getCombined('vidrios').find(x=>x.id===vidrioId);
     if(v){
       const m2=ancho*alto;
       let costoVidrio=v.precioM2*m2;
