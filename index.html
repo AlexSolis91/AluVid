@@ -2262,10 +2262,12 @@ function cargarRecetasPorLinea(){
 function cargarConfigsPorReceta(){
   const ridRaw=document.getElementById('cot-receta').value;
   const isAdminReceta=ridRaw.startsWith('a_');
-  const rid=isAdminReceta ? ridRaw.slice(2) : parseInt(ridRaw);
+  const isUserReceta=ridRaw.startsWith('u_');
+  // Handle u_ prefix (user recetas) and a_ prefix (admin recetas)
+  const rid=isAdminReceta ? ridRaw.slice(2) : isUserReceta ? parseInt(ridRaw.slice(2)) : parseInt(ridRaw);
   if(!rid){document.getElementById('cot-opciones-wrap').style.display='none';return;}
   const r=isAdminReceta
-    ? DB.getAdminRecetas().find(x=>(x.id||x._docId)===rid)
+    ? DB.getAdminRecetas().find(x=>(x.id||x._docId)===String(rid)||x.id===rid)
     : DB.get('recetas').find(x=>x.id===rid);
   if(!r)return;
   const configs=r.configs||[];
@@ -2538,7 +2540,8 @@ function alCambiarVidrio(){
 function calcularPartida(){
   const ridRaw=document.getElementById('cot-receta').value;
   const isAdminReceta=ridRaw.startsWith('a_');
-  const rid=isAdminReceta ? ridRaw.slice(2) : parseInt(ridRaw);
+  const isUserReceta2=ridRaw.startsWith('u_');
+  const rid=isAdminReceta ? ridRaw.slice(2) : isUserReceta2 ? parseInt(ridRaw.slice(2)) : parseInt(ridRaw);
   const acabado=document.getElementById('cot-acabado-custom').value.trim();
   const ancho=parseFloat(document.getElementById('cot-ancho').value)||0;
   const alto=parseFloat(document.getElementById('cot-alto').value)||0;
@@ -2770,7 +2773,8 @@ function agregarPartida(){
   const desc=document.getElementById('cot-desc').value.trim();
   const ridRaw=document.getElementById('cot-receta').value;
   const isAdminReceta=ridRaw.startsWith('a_');
-  const rid=isAdminReceta ? ridRaw.slice(2) : parseInt(ridRaw);
+  const isUserReceta2=ridRaw.startsWith('u_');
+  const rid=isAdminReceta ? ridRaw.slice(2) : isUserReceta2 ? parseInt(ridRaw.slice(2)) : parseInt(ridRaw);
   if(!desc){toast('Ingresa la ubicación','error');return;}
   if(!rid){toast('Selecciona una receta','error');return;}
   if(!proyectoActivo._temp){toast('Configura las medidas primero','error');return;}
@@ -3001,7 +3005,7 @@ function recotizarPartida(idx){
   if(!rid||!ancho||!alto) return;
 
   const r=isAdminReceta
-    ? DB.getAdminRecetas().find(x=>(x.id||x._docId)===rid)
+    ? DB.getAdminRecetas().find(x=>(x.id||x._docId)===String(rid)||x.id===rid||String(x._docId)===rid)
     : DB.get('recetas').find(x=>x.id===rid);
   if(!r) return;
 
