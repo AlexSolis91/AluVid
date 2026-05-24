@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AluVid — Panel Admin</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0f14;--bg2:#13161e;--bg3:#1a1d28;--surface:#1f2333;
+  --border:#2e3348;--accent:#4f8ef7;--accent2:#6ba3ff;
+  --accent-g:linear-gradient(135deg,#4f8ef7,#7b5ea7);
+  --green:#34d399;--red:#f87171;--amber:#fbbf24;--purple:#a78bfa;
+  --text:#e8eaf0;--text2:#9ba3bf;--text3:#6b7394;
+  --radius:10px;--radius-lg:16px;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:14px}
+#auth-wall{display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:16px}
+#auth-wall .card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:32px;width:360px;text-align:center}
+#app{display:none}
+
+/* LAYOUT */
+.layout{display:grid;grid-template-columns:220px 1fr;height:100vh;overflow:hidden}
+.sidebar{background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:0}
+.sidebar-header{padding:20px;border-bottom:1px solid var(--border)}
+.sidebar-logo{display:flex;align-items:center;gap:10px}
+.logo-icon{width:36px;height:36px;background:var(--accent-g);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px}
+.logo-name{font-weight:700;font-size:15px}
+.logo-sub{font-size:10px;color:var(--red);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.sidebar-nav{flex:1;padding:12px 10px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--radius);cursor:pointer;color:var(--text2);font-size:13px;margin-bottom:2px;transition:all .15s}
+.nav-item:hover{background:var(--surface);color:var(--text)}
+.nav-item.active{background:rgba(79,142,247,.12);color:var(--accent2);font-weight:500}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{height:60px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;justify-content:space-between}
+.topbar h1{font-size:16px;font-weight:600}
+.content{flex:1;overflow-y:auto;padding:24px}
+
+/* CARDS */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;margin-bottom:20px}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px;margin-bottom:24px}
+.stat{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;position:relative;overflow:hidden}
+.stat::before{content:'';position:absolute;left:0;top:0;width:3px;height:100%;background:var(--accent-g)}
+.stat-label{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.stat-value{font-size:28px;font-weight:700;letter-spacing:-1px}
+.stat-sub{font-size:11px;color:var(--text3);margin-top:2px}
+
+/* TABLE */
+.table-wrap{overflow-x:auto;border-radius:var(--radius-lg);border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{background:var(--bg3);color:var(--text3);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;padding:10px 14px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
+tbody tr{border-bottom:1px solid var(--border);transition:background .1s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:var(--surface)}
+tbody td{padding:10px 14px;vertical-align:middle}
+.td-mono{font-family:monospace;font-size:12px;color:var(--accent2)}
+
+/* BADGES */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:500}
+.badge-green{background:rgba(52,211,153,.15);color:var(--green)}
+.badge-red{background:rgba(248,113,113,.15);color:var(--red)}
+.badge-amber{background:rgba(251,191,36,.15);color:var(--amber)}
+.badge-blue{background:rgba(79,142,247,.15);color:var(--accent2)}
+.badge-purple{background:rgba(167,139,250,.15);color:var(--purple)}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--radius);border:none;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent2)}
+.btn-success{background:rgba(52,211,153,.15);color:var(--green);border:1px solid rgba(52,211,153,.3)}
+.btn-success:hover{background:rgba(52,211,153,.25)}
+.btn-danger{background:rgba(248,113,113,.15);color:var(--red);border:1px solid rgba(248,113,113,.3)}
+.btn-danger:hover{background:rgba(248,113,113,.25)}
+.btn-ghost{background:var(--surface);color:var(--text2);border:1px solid var(--border)}
+.btn-ghost:hover{background:var(--bg3);color:var(--text)}
+.btn-sm{padding:4px 10px;font-size:11px}
+
+/* FORM */
+.form-group{margin-bottom:14px}
+label{display:block;font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+input,select{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:13px;padding:8px 12px;outline:none;font-family:inherit}
+input:focus,select:focus{border-color:var(--accent)}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:1000;opacity:0;pointer-events:none;transition:opacity .2s}
+.modal-overlay.open{opacity:1;pointer-events:all}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;width:480px;max-width:95vw;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.5);transform:scale(.96);transition:transform .2s}
+.modal-overlay.open .modal{transform:scale(1)}
+.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.modal-title{font-size:15px;font-weight:600}
+.form-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
+
+/* SECTION */
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.section-title{font-size:15px;font-weight:600}
+
+/* VIEWS */
+.view{display:none}.view.active{display:block}
+
+/* TOAST */
+#toast-container{position:fixed;bottom:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:8px}
+.toast{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;font-size:13px;display:flex;align-items:center;gap:10px;box-shadow:0 4px 24px rgba(0,0,0,.4);animation:slideIn .25s ease;min-width:220px}
+.toast.success{border-left:3px solid var(--green)}.toast.error{border-left:3px solid var(--red)}
+@keyframes slideIn{from{transform:translateX(30px);opacity:0}to{transform:none;opacity:1}}
+
+/* EXPIRY BAR */
+.expiry-bar{height:4px;border-radius:2px;background:var(--border);overflow:hidden;margin-top:4px}
+.expiry-fill{height:100%;border-radius:2px;transition:width .3s}
+</style>
+</head>
+<body>
+
+<!-- Auth wall -->
+<div id="auth-wall">
+  <div class="card">
+    <div style="font-size:32px;margin-bottom:12px">🔐</div>
+    <h2 style="font-size:18px;margin-bottom:8px">Panel de Administración</h2>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:20px">Solo accesible para el administrador de AluVid</p>
+    <div class="form-group"><label>Email</label><input type="email" id="admin-email" placeholder="admin@aluvid.com"></div>
+    <div class="form-group"><label>Contraseña</label><input type="password" id="admin-pass"></div>
+    <button class="btn btn-primary" style="width:100%;padding:10px;margin-top:4px;justify-content:center" onclick="adminLogin()">Entrar</button>
+    <div id="admin-error" style="color:var(--red);font-size:12px;margin-top:10px;display:none"></div>
+  </div>
+</div>
+
+<!-- App -->
+<div id="app" class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <div class="logo-icon">🔩</div>
+        <div>
+          <div class="logo-name">AluVid</div>
+          <div class="logo-sub">Admin</div>
+        </div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-item active" onclick="navTo(this,'usuarios')">👥 Usuarios</div>
+      <div class="nav-item" onclick="navTo(this,'nuevo-usuario')">➕ Nuevo usuario</div>
+      <div class="nav-item" onclick="navTo(this,'vencimientos')">⏰ Vencimientos</div>
+      <div class="nav-item" onclick="navTo(this,'logs')">📋 Historial de pagos</div>
+    </nav>
+    <div style="padding:14px;border-top:1px solid var(--border)">
+      <button class="btn btn-ghost" style="width:100%;justify-content:center" onclick="cerrarSesion()">Cerrar sesión</button>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <h1 id="page-title">Usuarios</h1>
+      <div style="font-size:12px;color:var(--text3)" id="admin-email-display"></div>
+    </div>
+    <div class="content">
+
+      <!-- STATS -->
+      <div class="stats-grid" id="stats-grid"></div>
+
+      <!-- VIEW: USUARIOS -->
+      <div class="view active" id="view-usuarios">
+        <div class="section-header">
+          <span class="section-title">Todos los usuarios</span>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input placeholder="Buscar..." id="buscar-usuario" oninput="renderUsuarios()" style="width:200px;padding:6px 12px">
+            <button class="btn btn-primary" onclick="navTo(document.querySelector('[onclick*=nuevo-usuario]'),'nuevo-usuario')">+ Nuevo</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Empresa</th><th>Email</th><th>Plan</th><th>Estado</th>
+              <th>Vence</th><th>Días restantes</th><th>Acciones</th>
+            </tr></thead>
+            <tbody id="tabla-usuarios"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- VIEW: NUEVO USUARIO -->
+      <div class="view" id="view-nuevo-usuario">
+        <div class="card">
+          <div class="card-title" style="font-size:15px;font-weight:600;margin-bottom:20px">Crear nuevo usuario</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+            <div class="form-group">
+              <label>Nombre de la empresa *</label>
+              <input id="nu-nombre" placeholder="Aluminios García">
+            </div>
+            <div class="form-group">
+              <label>Email *</label>
+              <input id="nu-email" type="email" placeholder="cliente@empresa.com">
+            </div>
+            <div class="form-group">
+              <label>Contraseña temporal *</label>
+              <input id="nu-pass" type="password" placeholder="Mínimo 8 caracteres">
+            </div>
+            <div class="form-group">
+              <label>Plan</label>
+              <select id="nu-plan">
+                <option value="mensual">Mensual (30 días)</option>
+                <option value="trimestral">Trimestral (90 días)</option>
+                <option value="anual">Anual (365 días)</option>
+                <option value="prueba">Prueba (7 días)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Monto cobrado (MXN)</label>
+              <input id="nu-monto" type="number" placeholder="499">
+            </div>
+            <div class="form-group">
+              <label>Método de pago</label>
+              <select id="nu-metodo">
+                <option value="efectivo">Efectivo</option>
+                <option value="transferencia">Transferencia</option>
+                <option value="stripe">Stripe (en línea)</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-ghost" onclick="navTo(document.querySelector('[onclick*=usuarios]'),'usuarios')">Cancelar</button>
+            <button class="btn btn-primary" onclick="crearUsuario()">Crear usuario</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW: VENCIMIENTOS -->
+      <div class="view" id="view-vencimientos">
+        <div class="card" style="border-color:rgba(251,191,36,.2);background:rgba(251,191,36,.04);margin-bottom:16px">
+          <div style="font-size:13px;color:var(--amber)">⚠ Usuarios que vencen en los próximos 7 días — considera notificarles</div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Empresa</th><th>Email</th><th>Vence</th><th>Días restantes</th><th>Acciones</th></tr></thead>
+            <tbody id="tabla-vencimientos"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- VIEW: LOGS -->
+      <div class="view" id="view-logs">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Plan</th><th>Monto</th><th>Método</th></tr></thead>
+            <tbody id="tabla-logs"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Editar usuario -->
+<div class="modal-overlay" id="modal-usuario">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Gestionar usuario</span>
+      <button class="btn btn-ghost btn-sm" onclick="cerrarModal()">✕</button>
+    </div>
+    <input type="hidden" id="modal-uid">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Empresa</label>
+        <input id="modal-nombre" readonly style="background:var(--bg3)">
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Email</label>
+        <input id="modal-email" readonly style="background:var(--bg3)">
+      </div>
+      <div class="form-group">
+        <label>Estado</label>
+        <select id="modal-activo">
+          <option value="true">✅ Activo</option>
+          <option value="false">🚫 Deshabilitado</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Plan</label>
+        <select id="modal-plan">
+          <option value="mensual">Mensual</option>
+          <option value="trimestral">Trimestral</option>
+          <option value="anual">Anual</option>
+          <option value="prueba">Prueba</option>
+        </select>
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Nueva fecha de vencimiento</label>
+        <input id="modal-vence" type="date">
+        <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" onclick="extenderDias(30)">+30 días</button>
+          <button class="btn btn-ghost btn-sm" onclick="extenderDias(90)">+90 días</button>
+          <button class="btn btn-ghost btn-sm" onclick="extenderDias(365)">+1 año</button>
+          <button class="btn btn-ghost btn-sm" onclick="extenderDias(7)">+7 días</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Registrar pago (MXN)</label>
+        <input id="modal-monto" type="number" placeholder="499">
+      </div>
+      <div class="form-group">
+        <label>Método</label>
+        <select id="modal-metodo">
+          <option value="efectivo">Efectivo</option>
+          <option value="transferencia">Transferencia</option>
+          <option value="stripe">Stripe</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-danger" onclick="confirmarEliminar()">Eliminar cuenta</button>
+      <button class="btn btn-ghost" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarUsuario()">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, createUserWithEmailAndPassword }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, getDocs, doc, getDoc, setDoc, updateDoc,
+         deleteDoc, serverTimestamp, addDoc, query, orderBy }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyA0nSBdSlqDWgFUapwdadiLsgnXQqJsf7w",
+  authDomain: "aluvid-8af71.firebaseapp.com",
+  projectId: "aluvid-8af71",
+  storageBucket: "aluvid-8af71.firebasestorage.app",
+  messagingSenderId: "893764744721",
+  appId: "1:893764744721:web:9e5349317e39c29c54a3b0"
+};
+
+// UID del admin — lo defines aquí después de crear tu cuenta
+const ADMIN_UID = 'REEMPLAZA_CON_TU_UID';
+
+const app  = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+let usuarios = [];
+let currentUser = null;
+
+// ── AUTH ───────────────────────────────────────────────────────
+onAuthStateChanged(auth, async user => {
+  if (user && (user.uid === ADMIN_UID || ADMIN_UID === 'REEMPLAZA_CON_TU_UID')) {
+    currentUser = user;
+    document.getElementById('auth-wall').style.display = 'none';
+    document.getElementById('app').style.display = 'grid';
+    document.getElementById('admin-email-display').textContent = user.email;
+    await cargarDatos();
+  }
+});
+
+window.adminLogin = async () => {
+  const email = document.getElementById('admin-email').value.trim();
+  const pass  = document.getElementById('admin-pass').value;
+  const errEl = document.getElementById('admin-error');
+  errEl.style.display = 'none';
+  try {
+    await signInWithEmailAndPassword(auth, email, pass);
+  } catch(e) {
+    errEl.textContent = 'Credenciales incorrectas';
+    errEl.style.display = '';
+  }
+};
+
+window.cerrarSesion = () => { signOut(auth); location.reload(); };
+
+// ── DATOS ──────────────────────────────────────────────────────
+async function cargarDatos() {
+  const snap = await getDocs(collection(db, 'usuarios'));
+  usuarios = snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+  renderStats();
+  renderUsuarios();
+  renderVencimientos();
+  renderLogs();
+}
+
+function diasRestantes(vence) {
+  if (!vence) return -999;
+  const v = vence.toDate ? vence.toDate() : new Date(vence);
+  return Math.ceil((v - new Date()) / (1000*60*60*24));
+}
+
+function fechaStr(vence) {
+  if (!vence) return '—';
+  const v = vence.toDate ? vence.toDate() : new Date(vence);
+  return v.toLocaleDateString('es-MX');
+}
+
+function toDateInput(vence) {
+  if (!vence) return '';
+  const v = vence.toDate ? vence.toDate() : new Date(vence);
+  return v.toISOString().slice(0,10);
+}
+
+// ── STATS ──────────────────────────────────────────────────────
+function renderStats() {
+  const activos = usuarios.filter(u => u.activo && diasRestantes(u.vence) > 0).length;
+  const inactivos = usuarios.filter(u => !u.activo).length;
+  const vencidos = usuarios.filter(u => u.activo && diasRestantes(u.vence) <= 0).length;
+  const porVencer = usuarios.filter(u => u.activo && diasRestantes(u.vence) > 0 && diasRestantes(u.vence) <= 7).length;
+  document.getElementById('stats-grid').innerHTML = [
+    {l:'Total usuarios', v:usuarios.length, s:'registrados', c:''},
+    {l:'Activos', v:activos, s:'con acceso', c:'color:var(--green)'},
+    {l:'Deshabilitados', v:inactivos, s:'sin acceso', c:'color:var(--red)'},
+    {l:'Vencidos', v:vencidos, s:'requieren renovación', c:'color:var(--amber)'},
+    {l:'Por vencer', v:porVencer, s:'en los próximos 7 días', c:'color:var(--amber)'},
+  ].map(s=>`<div class="stat"><div class="stat-label">${s.l}</div>
+    <div class="stat-value" style="${s.c}">${s.v}</div>
+    <div class="stat-sub">${s.s}</div></div>`).join('');
+}
+
+// ── USUARIOS ───────────────────────────────────────────────────
+window.renderUsuarios = () => {
+  const q = (document.getElementById('buscar-usuario')?.value||'').toLowerCase();
+  const lista = q ? usuarios.filter(u=>
+    (u.nombre||'').toLowerCase().includes(q)||(u.email||'').toLowerCase().includes(q)
+  ) : usuarios;
+  document.getElementById('tabla-usuarios').innerHTML = lista.length ? lista.map(u => {
+    const dias = diasRestantes(u.vence);
+    const estadoBadge = !u.activo
+      ? '<span class="badge badge-red">Deshabilitado</span>'
+      : dias <= 0 ? '<span class="badge badge-amber">Vencido</span>'
+      : '<span class="badge badge-green">Activo</span>';
+    const diasColor = dias <= 3 ? 'var(--red)' : dias <= 7 ? 'var(--amber)' : 'var(--green)';
+    const planBadge = {mensual:'badge-blue',trimestral:'badge-purple',anual:'badge-green',prueba:'badge-amber'}[u.plan]||'badge-blue';
+    return `<tr>
+      <td style="font-weight:500">${u.nombre||'—'}</td>
+      <td class="td-mono">${u.email}</td>
+      <td><span class="badge ${planBadge}">${u.plan||'mensual'}</span></td>
+      <td>${estadoBadge}</td>
+      <td>${fechaStr(u.vence)}</td>
+      <td><span style="font-weight:600;color:${diasColor}">${dias > 0 ? dias+' días' : 'Vencido'}</span></td>
+      <td><button class="btn btn-ghost btn-sm" onclick="abrirModal('${u.uid}')">Gestionar</button></td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:24px">Sin usuarios</td></tr>';
+};
+
+// ── VENCIMIENTOS ───────────────────────────────────────────────
+function renderVencimientos() {
+  const proximos = usuarios.filter(u => u.activo && diasRestantes(u.vence) > 0 && diasRestantes(u.vence) <= 7)
+    .sort((a,b) => diasRestantes(a.vence) - diasRestantes(b.vence));
+  document.getElementById('tabla-vencimientos').innerHTML = proximos.length ? proximos.map(u => {
+    const dias = diasRestantes(u.vence);
+    return `<tr>
+      <td style="font-weight:500">${u.nombre||'—'}</td>
+      <td class="td-mono">${u.email}</td>
+      <td>${fechaStr(u.vence)}</td>
+      <td><span style="font-weight:700;color:${dias<=3?'var(--red)':'var(--amber)'}">${dias} días</span></td>
+      <td><button class="btn btn-success btn-sm" onclick="abrirModal('${u.uid}')">Renovar</button></td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--green);padding:24px">✓ Sin vencimientos próximos</td></tr>';
+}
+
+// ── LOGS ───────────────────────────────────────────────────────
+async function renderLogs() {
+  const logs = [];
+  for (const u of usuarios) {
+    (u.pagos||[]).forEach(p => logs.push({...p, nombre:u.nombre, email:u.email}));
+  }
+  logs.sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+  document.getElementById('tabla-logs').innerHTML = logs.length ? logs.map(l => `<tr>
+    <td class="td-mono">${l.fecha ? new Date(l.fecha).toLocaleDateString('es-MX') : '—'}</td>
+    <td>${l.nombre||'—'}</td>
+    <td class="td-mono">${l.email||'—'}</td>
+    <td><span class="badge badge-blue">${l.plan||'—'}</span></td>
+    <td style="color:var(--green);font-weight:600">$${l.monto||0}</td>
+    <td>${l.metodo||'—'}</td>
+  </tr>`).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px">Sin pagos registrados</td></tr>';
+}
+
+// ── CREAR USUARIO ──────────────────────────────────────────────
+window.crearUsuario = async () => {
+  const nombre = document.getElementById('nu-nombre').value.trim();
+  const email  = document.getElementById('nu-email').value.trim();
+  const pass   = document.getElementById('nu-pass').value;
+  const plan   = document.getElementById('nu-plan').value;
+  const monto  = parseFloat(document.getElementById('nu-monto').value)||0;
+  const metodo = document.getElementById('nu-metodo').value;
+  if (!nombre||!email||!pass) { toast('Completa nombre, email y contraseña','error'); return; }
+  const dias = {mensual:30,trimestral:90,anual:365,prueba:7}[plan]||30;
+  const vence = new Date(); vence.setDate(vence.getDate()+dias);
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, email, pass);
+    await setDoc(doc(db,'usuarios',cred.user.uid), {
+      nombre, email, activo:true, plan, vence,
+      creadoEn: serverTimestamp(),
+      pagos: monto > 0 ? [{fecha: new Date().toISOString(), plan, monto, metodo}] : []
+    });
+    toast('Usuario creado correctamente');
+    await cargarDatos();
+    navTo(document.querySelector('.nav-item'), 'usuarios');
+  } catch(e) {
+    toast('Error: '+(e.code==='auth/email-already-in-use'?'Ya existe una cuenta con ese email':e.message),'error');
+  }
+};
+
+// ── MODAL ──────────────────────────────────────────────────────
+window.abrirModal = (uid) => {
+  const u = usuarios.find(x=>x.uid===uid);
+  if (!u) return;
+  document.getElementById('modal-uid').value = uid;
+  document.getElementById('modal-nombre').value = u.nombre||'';
+  document.getElementById('modal-email').value = u.email||'';
+  document.getElementById('modal-activo').value = String(u.activo);
+  document.getElementById('modal-plan').value = u.plan||'mensual';
+  document.getElementById('modal-vence').value = toDateInput(u.vence);
+  document.getElementById('modal-monto').value = '';
+  document.getElementById('modal-metodo').value = 'efectivo';
+  document.getElementById('modal-usuario').classList.add('open');
+};
+
+window.cerrarModal = () => document.getElementById('modal-usuario').classList.remove('open');
+
+window.extenderDias = (dias) => {
+  const input = document.getElementById('modal-vence');
+  const base = input.value ? new Date(input.value+'T12:00:00') : new Date();
+  base.setDate(base.getDate()+dias);
+  input.value = base.toISOString().slice(0,10);
+};
+
+window.guardarUsuario = async () => {
+  const uid    = document.getElementById('modal-uid').value;
+  const activo = document.getElementById('modal-activo').value === 'true';
+  const plan   = document.getElementById('modal-plan').value;
+  const vence  = new Date(document.getElementById('modal-vence').value+'T12:00:00');
+  const monto  = parseFloat(document.getElementById('modal-monto').value)||0;
+  const metodo = document.getElementById('modal-metodo').value;
+  const u = usuarios.find(x=>x.uid===uid);
+  const pagos = u ? [...(u.pagos||[])] : [];
+  if (monto > 0) pagos.push({fecha:new Date().toISOString(), plan, monto, metodo});
+  try {
+    await updateDoc(doc(db,'usuarios',uid), {activo, plan, vence, pagos});
+    toast(activo ? 'Usuario actualizado y activado' : 'Usuario deshabilitado');
+    cerrarModal();
+    await cargarDatos();
+  } catch(e) { toast('Error al guardar: '+e.message,'error'); }
+};
+
+window.confirmarEliminar = async () => {
+  if (!confirm('¿Eliminar esta cuenta permanentemente? Esta acción no se puede deshacer.')) return;
+  const uid = document.getElementById('modal-uid').value;
+  try {
+    await deleteDoc(doc(db,'usuarios',uid));
+    toast('Cuenta eliminada','error');
+    cerrarModal();
+    await cargarDatos();
+  } catch(e) { toast('Error: '+e.message,'error'); }
+};
+
+// ── NAV ────────────────────────────────────────────────────────
+const titulos = {usuarios:'Usuarios',vencimientos:'Vencimientos próximos','nuevo-usuario':'Nuevo usuario',logs:'Historial de pagos'};
+window.navTo = (el, view) => {
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+view).classList.add('active');
+  document.getElementById('page-title').textContent = titulos[view]||view;
+};
+
+// ── UTILS ──────────────────────────────────────────────────────
+function toast(msg, type='success') {
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  document.getElementById('toast-container').appendChild(t);
+  setTimeout(()=>t.remove(), 3500);
+}
+
+document.querySelectorAll('.modal-overlay').forEach(o=>{
+  o.addEventListener('click', e=>{ if(e.target===o) o.classList.remove('open'); });
+});
+</script>
+</body>
+</html>
