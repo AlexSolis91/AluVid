@@ -2791,9 +2791,14 @@ function agregarPartida(){
   if(!rid){toast('Selecciona una receta','error');return;}
   if(!proyectoActivo._temp){toast('Configura las medidas primero','error');return;}
 
-  const r=DB.get('recetas').find(x=>x.id===rid);
+  const ridRawA=document.getElementById('cot-receta').value;
+  const isAdminRA=ridRawA.startsWith('a_');
+  const r=isAdminRA
+    ? DB.getAdminRecetas().find(x=>String(x.id||x._docId)===String(rid))
+    : DB.get('recetas').find(x=>x.id===rid);
+  if(!r){toast('Error: receta no encontrada','error');return;}
   const cfgIdx=document.getElementById('cot-config').value;
-  const cfgNombre=cfgIdx!==''?(r.configs[parseInt(cfgIdx)]||{}).tipo:'—';
+  const cfgNombre=cfgIdx!==''?((r.configs||[])[parseInt(cfgIdx)]||{}).tipo:'—';
   const acabado=document.getElementById('cot-acabado-custom').value.trim();
 
   // Capture active conditions for this partida
@@ -2806,6 +2811,7 @@ function agregarPartida(){
     id:Date.now(),
     ubicacion:desc,
     receta:r.nombre,
+    recetaEsAdmin:isAdminRA,
     config:cfgNombre,
     acabado,
     condiciones:condActivas,
