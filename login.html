@@ -210,10 +210,8 @@ window.login = async () => {
     if (!data.activo) { showError('Tu cuenta está deshabilitada. Contacta al administrador.'); auth.signOut(); return; }
     const vence = data.vence?.toDate ? data.vence.toDate() : new Date(data.vence);
     if (vence < new Date()) {
-      showError('Tu suscripción ha vencido. Por favor renueva para continuar.');
       auth.signOut();
-      // Redirigir a página de pago (cuando esté lista)
-      // window.location.href = 'pago.html';
+      window.location.href = 'pago.html?email=' + encodeURIComponent(user.email);
       return;
     }
     window.location.href = 'index.html';
