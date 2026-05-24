@@ -206,6 +206,17 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
 .pill:hover{border-color:var(--accent2);color:var(--accent2)}
 .pill.active{background:rgba(79,142,247,.15);border-color:var(--accent);color:var(--accent2);font-weight:500}
 </style>
+
+<!-- Firebase SDKs -->
+<script type="importmap">
+{
+  "imports": {
+    "firebase/app": "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js",
+    "firebase/auth": "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js",
+    "firebase/firestore": "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+  }
+}
+</script>
 </head>
 <body>
 <div id="app">
@@ -988,15 +999,128 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
 
 <div id="toast-container"></div>
 
-<script>
+<script type="module">
 // ══════════════════════════════════════════════
-// STORAGE
+// FIREBASE INIT + AUTH GUARD
 // ══════════════════════════════════════════════
-const DB={
-  get(k){try{return JSON.parse(localStorage.getItem('av_'+k))||[];}catch(e){return [];}},
-  set(k,v){localStorage.setItem('av_'+k,JSON.stringify(v));},
-  nextId(k){const ids=DB.get(k).map(x=>x.id||0);return ids.length?Math.max(...ids)+1:1;}
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, signOut }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, doc, collection, getDoc, getDocs, setDoc,
+         updateDoc, deleteDoc, query, orderBy }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const _fbConfig = {
+  apiKey: "AIzaSyA0nSBdSlqDWgFUapwdadiLsgnXQqJsf7w",
+  authDomain: "aluvid-8af71.firebaseapp.com",
+  projectId: "aluvid-8af71",
+  storageBucket: "aluvid-8af71.firebasestorage.app",
+  messagingSenderId: "893764744721",
+  appId: "1:893764744721:web:9e5349317e39c29c54a3b0"
 };
+const _fbApp  = initializeApp(_fbConfig);
+const _auth   = getAuth(_fbApp);
+const _db     = getFirestore(_fbApp);
+let _uid = null;
+let _userData = null;
+
+// Auth guard — redirect to login if not authenticated or subscription expired
+onAuthStateChanged(_auth, async user => {
+  if (!user) { window.location.href = 'login.html'; return; }
+  _uid = user.uid;
+  const snap = await getDoc(doc(_db, 'usuarios', user.uid));
+  if (!snap.exists()) { signOut(_auth); window.location.href = 'login.html'; return; }
+  _userData = snap.data();
+  const vence = _userData.vence?.toDate ? _userData.vence.toDate() : new Date(_userData.vence);
+  if (!_userData.activo || vence < new Date()) {
+    _auth.signOut();
+    window.location.href = 'login.html';
+    return;
+  }
+  // Show subscription info in sidebar footer
+  const dias = Math.ceil((vence - new Date())/(1000*60*60*24));
+  const footerEl = document.querySelector('.sidebar-footer');
+  if (footerEl) {
+    footerEl.innerHTML = `<div>${_userData.nombre||user.email}</div>
+      <div style="margin-top:3px;font-size:10px;color:${dias<=7?'var(--amber)':'var(--text3)'}">
+        ${dias} días restantes · <span style="cursor:pointer;color:var(--accent2)" onclick="cerrarSesionApp()">Salir</span>
+      </div>`;
+  }
+  // Load all data from Firestore into local cache then init app
+  await sincronizarDesdeFirestore();
+  renderMatProyectos();
+  updateBadges();
+});
+
+window.cerrarSesionApp = () => { signOut(_auth); window.location.href = 'login.html'; };
+
+// ── Local cache (mirrors Firestore) ──────────────────────────
+const _cache = {};
+
+async function sincronizarDesdeFirestore() {
+  const tablas = ['perfiles','herrajes','vidrios','recetas','proyectos'];
+  for (const tabla of tablas) {
+    const snap = await getDocs(collection(_db, 'usuarios', _uid, tabla));
+    _cache[tabla] = snap.docs.map(d => ({ _docId: d.id, ...d.data() }));
+  }
+}
+
+async function guardarEnFirestore(tabla, item) {
+  const key = String(item.id || item._docId || Date.now());
+  await setDoc(doc(_db, 'usuarios', _uid, tabla, key), item);
+}
+
+async function eliminarEnFirestore(tabla, id) {
+  await deleteDoc(doc(_db, 'usuarios', _uid, tabla, String(id)));
+}
+
+// ══════════════════════════════════════════════
+// STORAGE — ahora usa Firestore con caché local
+// ══════════════════════════════════════════════
+const DB = {
+  get(k) {
+    // También revisar localStorage para migración si hay datos viejos
+    if (_cache[k]) return _cache[k];
+    try { return JSON.parse(localStorage.getItem('av_'+k)) || []; } catch(e) { return []; }
+  },
+  set(k, v) {
+    _cache[k] = v;
+    // Sincronizar con Firestore en background
+    this._sync(k, v);
+  },
+  _sync(k, v) {
+    if (!_uid) return;
+    // Re-save all items in the collection
+    const col = collection(_db, 'usuarios', _uid, k);
+    // Save each item individually
+    v.forEach(item => {
+      const key = String(item.id || item._docId || Math.random().toString(36).slice(2));
+      item._docId = key;
+      setDoc(doc(_db, 'usuarios', _uid, k, key), JSON.parse(JSON.stringify(item)))
+        .catch(e => console.warn('Firestore sync error:', e));
+    });
+  },
+  nextId(k) {
+    const ids = this.get(k).map(x => x.id||0);
+    return ids.length ? Math.max(...ids)+1 : 1;
+  }
+};
+
+// Migración: si hay datos en localStorage, subirlos a Firestore y limpiar
+async function migrarLocalStorageAFirestore() {
+  const tablas = ['perfiles','herrajes','vidrios','recetas','proyectos'];
+  let migrado = 0;
+  for (const k of tablas) {
+    const local = JSON.parse(localStorage.getItem('av_'+k)||'null');
+    if (local && local.length > 0 && (!_cache[k] || _cache[k].length === 0)) {
+      _cache[k] = local;
+      DB._sync(k, local);
+      localStorage.removeItem('av_'+k);
+      migrado++;
+    }
+  }
+  if (migrado > 0) console.log('Migrados', migrado, 'catálogos de localStorage a Firestore');
+}
 
 // ══════════════════════════════════════════════
 // UTILS
@@ -3688,7 +3812,18 @@ function imprimirListaMaterial(){
     .total-row td{font-weight:700;background:#f0f4ff!important;border-top:2px solid #1a56db}
     .seccion{margin-bottom:4px;font-size:11px;color:#555;font-style:italic}
     @media print{body{padding:10px 16px}@page{margin:12mm 14mm;size:A4}}
-  </style></head><body>
+  </style>
+<!-- Firebase SDKs -->
+<script type="importmap">
+{
+  "imports": {
+    "firebase/app": "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js",
+    "firebase/auth": "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js",
+    "firebase/firestore": "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+  }
+}
+</script>
+</head><body>
   <h1>Lista de Material</h1>
   <div class="sub">Generado el ${fecha}</div>
   <div class="meta">
@@ -3843,7 +3978,18 @@ function imprimirCortes(){
     .meta label{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#666}
     .meta strong{font-size:14px;font-weight:700}
     @media print{body{padding:10px 16px}@page{margin:10mm 12mm;size:A4 landscape}}
-  </style></head><body>
+  </style>
+<!-- Firebase SDKs -->
+<script type="importmap">
+{
+  "imports": {
+    "firebase/app": "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js",
+    "firebase/auth": "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js",
+    "firebase/firestore": "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+  }
+}
+</script>
+</head><body>
   <h1>Distribución de Cortes</h1>
   <div style="font-size:12px;color:#555;margin-bottom:12px">Generado el ${fecha}</div>
   <div class="meta">
@@ -3861,10 +4007,9 @@ function imprimirCortes(){
   setTimeout(()=>win.print(),400);
 }
 
-// INIT
+// INIT — delayed until Firebase auth resolves (onAuthStateChanged handles it)
 // ══════════════════════════════════════════════
-renderMatProyectos();
-updateBadges();
+// renderMatProyectos() and updateBadges() are called after auth + data load above
 </script>
 </body>
 </html>
