@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AluVid — Acceso</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0f14;--bg2:#13161e;--bg3:#1a1d28;
+  --border:#2e3348;--accent:#4f8ef7;--accent2:#6ba3ff;
+  --accent-g:linear-gradient(135deg,#4f8ef7,#7b5ea7);
+  --green:#34d399;--red:#f87171;--text:#e8eaf0;--text2:#9ba3bf;--text3:#6b7394;
+  --purple:#a78bfa;--radius:10px;--radius-lg:16px;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:14px}
+.page{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;
+  background:radial-gradient(ellipse at 20% 50%,rgba(79,142,247,.08) 0%,transparent 60%),
+             radial-gradient(ellipse at 80% 20%,rgba(167,139,250,.06) 0%,transparent 60%)}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);
+  padding:40px 36px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.logo{display:flex;align-items:center;gap:12px;margin-bottom:32px}
+.logo-icon{width:44px;height:44px;background:var(--accent-g);border-radius:12px;
+  display:flex;align-items:center;justify-content:center;font-size:22px}
+.logo-name{font-size:22px;font-weight:700;letter-spacing:-.5px}
+.logo-sub{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
+h1{font-size:20px;font-weight:600;margin-bottom:6px}
+.subtitle{font-size:13px;color:var(--text2);margin-bottom:28px}
+.tabs{display:flex;background:var(--bg3);border-radius:var(--radius);padding:3px;margin-bottom:24px}
+.tab{flex:1;text-align:center;padding:8px;border-radius:8px;font-size:13px;font-weight:500;
+  cursor:pointer;color:var(--text3);transition:all .15s}
+.tab.active{background:var(--bg2);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.form-group{margin-bottom:16px}
+label{display:block;font-size:11px;font-weight:500;color:var(--text3);
+  text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);
+  color:var(--text);font-size:14px;padding:10px 14px;outline:none;transition:border-color .15s}
+input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,142,247,.15)}
+.btn{width:100%;padding:12px;border:none;border-radius:var(--radius);font-size:14px;
+  font-weight:600;cursor:pointer;transition:all .2s;margin-top:8px}
+.btn-primary{background:var(--accent-g);color:#fff}
+.btn-primary:hover{opacity:.9;transform:translateY(-1px);box-shadow:0 4px 16px rgba(79,142,247,.4)}
+.btn-primary:disabled{opacity:.5;transform:none;cursor:not-allowed}
+.error-box{background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);
+  border-radius:var(--radius);padding:10px 14px;font-size:13px;color:var(--red);margin-bottom:16px;display:none}
+.success-box{background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.3);
+  border-radius:var(--radius);padding:10px 14px;font-size:13px;color:var(--green);margin-bottom:16px;display:none}
+.divider{height:1px;background:var(--border);margin:20px 0;position:relative}
+.divider span{position:absolute;top:-9px;left:50%;transform:translateX(-50%);
+  background:var(--bg2);padding:0 10px;font-size:11px;color:var(--text3)}
+.link{color:var(--accent2);cursor:pointer;font-size:12px;text-align:center;margin-top:16px;display:block}
+.link:hover{text-decoration:underline}
+.trial-note{background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.2);
+  border-radius:var(--radius);padding:10px 14px;font-size:12px;color:var(--purple);margin-top:16px;text-align:center}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);
+  border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(max-width:480px){.card{padding:28px 20px}}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="card">
+    <div class="logo">
+      <div class="logo-icon">🔩</div>
+      <div>
+        <div class="logo-name">AluVid</div>
+        <div class="logo-sub">Sistema de Cotización</div>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active" id="tab-login" onclick="switchTab('login')">Iniciar sesión</div>
+      <div class="tab" id="tab-registro" onclick="switchTab('registro')">Crear cuenta</div>
+    </div>
+
+    <div id="error-box" class="error-box"></div>
+    <div id="success-box" class="success-box"></div>
+
+    <!-- LOGIN -->
+    <div id="form-login">
+      <div class="form-group">
+        <label>Correo electrónico</label>
+        <input type="email" id="login-email" placeholder="tu@empresa.com" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label>Contraseña</label>
+        <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password">
+      </div>
+      <button class="btn btn-primary" id="btn-login" onclick="login()">Iniciar sesión</button>
+      <a class="link" onclick="mostrarRecuperar()">¿Olvidaste tu contraseña?</a>
+    </div>
+
+    <!-- REGISTRO -->
+    <div id="form-registro" style="display:none">
+      <div class="form-group">
+        <label>Nombre de la empresa</label>
+        <input type="text" id="reg-nombre" placeholder="Aluminios García S.A.">
+      </div>
+      <div class="form-group">
+        <label>Correo electrónico</label>
+        <input type="email" id="reg-email" placeholder="tu@empresa.com" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label>Contraseña</label>
+        <input type="password" id="reg-pass" placeholder="Mínimo 8 caracteres" autocomplete="new-password">
+      </div>
+      <div class="form-group">
+        <label>Confirmar contraseña</label>
+        <input type="password" id="reg-pass2" placeholder="Repite la contraseña">
+      </div>
+      <button class="btn btn-primary" id="btn-registro" onclick="registro()">Crear cuenta</button>
+      <div class="trial-note">🎁 Prueba gratuita de <strong>7 días</strong> al registrarte</div>
+    </div>
+
+    <!-- RECUPERAR -->
+    <div id="form-recuperar" style="display:none">
+      <p style="font-size:13px;color:var(--text2);margin-bottom:16px">Ingresa tu correo y te enviaremos un enlace para restablecer tu contraseña.</p>
+      <div class="form-group">
+        <label>Correo electrónico</label>
+        <input type="email" id="rec-email" placeholder="tu@empresa.com">
+      </div>
+      <button class="btn btn-primary" onclick="recuperar()">Enviar enlace</button>
+      <a class="link" onclick="switchTab('login')">← Volver al login</a>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase SDKs -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
+         sendPasswordResetEmail, onAuthStateChanged }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyA0nSBdSlqDWgFUapwdadiLsgnXQqJsf7w",
+  authDomain: "aluvid-8af71.firebaseapp.com",
+  projectId: "aluvid-8af71",
+  storageBucket: "aluvid-8af71.firebasestorage.app",
+  messagingSenderId: "893764744721",
+  appId: "1:893764744721:web:9e5349317e39c29c54a3b0"
+};
+
+const app  = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+// Si ya está logueado, verificar suscripción y redirigir
+onAuthStateChanged(auth, async user => {
+  if (!user) return;
+  const snap = await getDoc(doc(db, 'usuarios', user.uid));
+  if (!snap.exists()) return;
+  const data = snap.data();
+  if (data.activo && new Date(data.vence.toDate ? data.vence.toDate() : data.vence) > new Date()) {
+    window.location.href = 'index.html';
+  }
+});
+
+// ── Tab switch ─────────────────────────────────────────────────
+window.switchTab = (tab) => {
+  ['login','registro','recuperar'].forEach(t => {
+    document.getElementById('form-'+t).style.display = t===tab ? '' : 'none';
+    const el = document.getElementById('tab-'+t);
+    if (el) el.classList.toggle('active', t===tab);
+  });
+  clearMsgs();
+};
+
+window.mostrarRecuperar = () => {
+  document.getElementById('form-login').style.display = 'none';
+  document.getElementById('form-recuperar').style.display = '';
+  document.getElementById('tab-login').classList.remove('active');
+};
+
+function setLoading(btnId, loading) {
+  const btn = document.getElementById(btnId);
+  btn.disabled = loading;
+  btn.innerHTML = loading ? '<span class="spinner"></span>Espera...' : btn.dataset.label;
+}
+function showError(msg) {
+  const el = document.getElementById('error-box');
+  el.textContent = msg; el.style.display = '';
+  document.getElementById('success-box').style.display = 'none';
+}
+function showSuccess(msg) {
+  const el = document.getElementById('success-box');
+  el.textContent = msg; el.style.display = '';
+  document.getElementById('error-box').style.display = 'none';
+}
+function clearMsgs() {
+  document.getElementById('error-box').style.display = 'none';
+  document.getElementById('success-box').style.display = 'none';
+}
+
+// ── LOGIN ──────────────────────────────────────────────────────
+document.getElementById('btn-login').dataset.label = 'Iniciar sesión';
+window.login = async () => {
+  const email = document.getElementById('login-email').value.trim();
+  const pass  = document.getElementById('login-pass').value;
+  if (!email || !pass) { showError('Completa todos los campos.'); return; }
+  setLoading('btn-login', true);
+  try {
+    const cred = await signInWithEmailAndPassword(auth, email, pass);
+    const snap = await getDoc(doc(db, 'usuarios', cred.user.uid));
+    if (!snap.exists()) { showError('Cuenta no encontrada. Contacta al administrador.'); auth.signOut(); return; }
+    const data = snap.data();
+    if (!data.activo) { showError('Tu cuenta está deshabilitada. Contacta al administrador.'); auth.signOut(); return; }
+    const vence = data.vence?.toDate ? data.vence.toDate() : new Date(data.vence);
+    if (vence < new Date()) {
+      showError('Tu suscripción ha vencido. Por favor renueva para continuar.');
+      auth.signOut();
+      // Redirigir a página de pago (cuando esté lista)
+      // window.location.href = 'pago.html';
+      return;
+    }
+    window.location.href = 'index.html';
+  } catch(e) {
+    const msgs = {
+      'auth/user-not-found':'No existe una cuenta con ese correo.',
+      'auth/wrong-password':'Contraseña incorrecta.',
+      'auth/invalid-email':'Correo inválido.',
+      'auth/too-many-requests':'Demasiados intentos. Espera unos minutos.',
+      'auth/invalid-credential':'Correo o contraseña incorrectos.'
+    };
+    showError(msgs[e.code] || 'Error: ' + e.message);
+  } finally { setLoading('btn-login', false); }
+};
+
+// Permitir Enter para login
+document.getElementById('login-pass').addEventListener('keydown', e => { if(e.key==='Enter') window.login(); });
+
+// ── REGISTRO ───────────────────────────────────────────────────
+document.getElementById('btn-registro').dataset.label = 'Crear cuenta';
+window.registro = async () => {
+  const nombre = document.getElementById('reg-nombre').value.trim();
+  const email  = document.getElementById('reg-email').value.trim();
+  const pass   = document.getElementById('reg-pass').value;
+  const pass2  = document.getElementById('reg-pass2').value;
+  if (!nombre||!email||!pass||!pass2) { showError('Completa todos los campos.'); return; }
+  if (pass.length < 8) { showError('La contraseña debe tener al menos 8 caracteres.'); return; }
+  if (pass !== pass2) { showError('Las contraseñas no coinciden.'); return; }
+  setLoading('btn-registro', true);
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, email, pass);
+    // Calcular vencimiento: 7 días de prueba
+    const vence = new Date();
+    vence.setDate(vence.getDate() + 7);
+    await setDoc(doc(db, 'usuarios', cred.user.uid), {
+      nombre, email,
+      activo: true,
+      plan: 'prueba',
+      vence: vence,
+      creadoEn: serverTimestamp(),
+      pagos: []
+    });
+    window.location.href = 'index.html';
+  } catch(e) {
+    const msgs = {
+      'auth/email-already-in-use':'Ya existe una cuenta con ese correo.',
+      'auth/invalid-email':'Correo inválido.',
+      'auth/weak-password':'La contraseña es muy débil.'
+    };
+    showError(msgs[e.code] || 'Error: ' + e.message);
+  } finally { setLoading('btn-registro', false); }
+};
+
+// ── RECUPERAR ──────────────────────────────────────────────────
+window.recuperar = async () => {
+  const email = document.getElementById('rec-email').value.trim();
+  if (!email) { showError('Ingresa tu correo.'); return; }
+  try {
+    await sendPasswordResetEmail(auth, email);
+    showSuccess('Enlace enviado. Revisa tu correo (incluyendo spam).');
+  } catch(e) {
+    showError('No se pudo enviar el enlace. Verifica el correo.');
+  }
+};
+</script>
+</body>
+</html>
