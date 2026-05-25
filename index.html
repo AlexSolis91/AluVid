@@ -1082,6 +1082,25 @@ onAuthStateChanged(_auth, async (user) => {
         </div>
       </div>
     </div>
+    <div style="background:var(--bg3);border:1px solid rgba(52,211,153,.2);border-radius:var(--radius);padding:10px 12px;margin-bottom:12px">
+      <div style="font-size:11px;color:var(--green);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Superficie m² (tela mosquitero, etc.)</div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Fórmula: (ancho ÷ div.ancho) × (alto ÷ div.alto) × precio/m²</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Dividir ancho entre</label>
+          <input id="mh-m2-div-ancho" type="number" step="1" value="1" min="1" placeholder="1=ancho completo, 2=media hoja">
+        </div>
+        <div class="form-group">
+          <label>Dividir alto entre</label>
+          <input id="mh-m2-div-alto" type="number" step="1" value="1" min="1" placeholder="1=alto completo">
+        </div>
+        <div class="form-group">
+          <label>Condición</label>
+          <select id="mh-cond-m2" style="border-color:rgba(52,211,153,.3);background:rgba(52,211,153,.04)"><option value="SIEMPRE">Siempre</option><option value="SIN_ZOCLO_INF">Sin zoclo inferior</option><option value="CON_ZOCLO_INF">Con zoclo inferior</option><option value="SIN_ZOCLO_SUP">Sin zoclo superior</option><option value="CON_ZOCLO_SUP">Con zoclo superior</option><option value="SIN_MOSQUITERO">Sin mosquitero</option><option value="CON_MOSQUITERO">Con mosquitero (cualquier tipo)</option><option value="CON_MOSQUITERO_FIJO">Con mosquitero fijo</option><option value="CON_MOSQUITERO_CORREDIZO">Con mosquitero corredizo</option><option value="CON_ESCALONADO_VERT">Con escalonado vertical</option><option value="SIN_ESCALONADO_VERT">Sin escalonado vertical</option><option value="CON_ESCALONADO_SUP">Con escalonado superior</option><option value="SIN_ESCALONADO_SUP">Sin escalonado superior</option></select>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:6px" id="mh-m2-preview"></div>
+    </div>
     <div class="form-actions">
       <button class="btn btn-ghost" onclick="cerrarModal('modal-herraje')">Cancelar</button>
       <button class="btn btn-primary" onclick="confirmarHerraje()">Agregar</button>
@@ -1885,6 +1904,12 @@ function editarHerrajeConfig(idx){
     if(mhCondV) mhCondV.value=ch.condV||'SIEMPRE';
     const mhCondH=document.getElementById('mh-cond-h');
     if(mhCondH) mhCondH.value=ch.condH||'SIEMPRE';
+    const mhCondM2=document.getElementById('mh-cond-m2');
+    if(mhCondM2) mhCondM2.value=ch.condM2||'SIEMPRE';
+    const mhM2da=document.getElementById('mh-m2-div-ancho');
+    if(mhM2da) mhM2da.value=ch.m2DivAncho||1;
+    const mhM2dh=document.getElementById('mh-m2-div-alto');
+    if(mhM2dh) mhM2dh.value=ch.m2DivAlto||1;
     // Store edit index
     window._mhEditIdx=idx;
   },50);
@@ -2694,7 +2719,7 @@ function calcularPartida(){
   };
 
   // ── Calcular costo de un herraje (con condiciones por campo) ──
-  const costoHerraje=(herrajeId, cantPiezas, metrosV, metrosH, tipoVidH, condCantidad, condV, condH)=>{
+  const costoHerraje=(herrajeId, cantPiezas, metrosV, metrosH, tipoVidH, condCantidad, condV, condH, condM2, m2DivAncho, m2DivAlto)=>{
     const tvh=(tipoVidH||'AMBOS').toUpperCase();
     if(tvh!=='AMBOS'&&tvh!==tipoVidrioSeleccionado) return null;
     const h=todosHerrajes.find(x=>x.id===herrajeId);
@@ -2733,6 +2758,15 @@ function calcularPartida(){
       detalle+=(detalle?'  +  ':'')+`${cantPiezas} pzs × ${fmt(h.precioUnitario||0)}`;
     }
 
+    // M2 superficie (tela mosquitero etc.) — aplica si condM2 se cumple
+    const condM2ok=condicionesActivas.has((condM2||'SIEMPRE').toUpperCase());
+    const m2Aplic=(h.precioM2||0)>0&&condM2ok;
+    if(m2Aplic){
+      const m2=(ancho/(m2DivAncho||1))*(alto/(m2DivAlto||1));
+      const costoM2=(h.precioM2||0)*m2;
+      costo+=costoM2;
+      detalle+=(detalle?'  +  ':'')+`${num(ancho)}÷${m2DivAncho||1}×${num(alto)}÷${m2DivAlto||1}=${num(m2)}m² × ${fmt(h.precioM2||0)}/m²`;
+    }
     if(costo===0) return null; // nada aplica — omitir completamente
     return{label:h.descripcion+(h.clave?' ['+h.clave+']':''),costo,detalle};
   };
@@ -2751,7 +2785,7 @@ function calcularPartida(){
         // Filter by general condicion (header-level)
         const chCond=(ch.condicion||'SIEMPRE').toUpperCase();
         if(chCond!=='SIEMPRE'&&!condicionesActivas.has(chCond)) return;
-        const res=costoHerraje(ch.herrajeId,ch.cantidad||0,ch.metrosV||0,ch.metrosH||0,ch.tipoVidrio,ch.condCantidad,ch.condV,ch.condH);
+        const res=costoHerraje(ch.herrajeId,ch.cantidad||0,ch.metrosV||0,ch.metrosH||0,ch.tipoVidrio,ch.condCantidad,ch.condV,ch.condH,ch.condM2,ch.m2DivAncho,ch.m2DivAlto);
         if(res===null)return;
         lineasDesglose.push({...res,tipo:'Herraje'});
         totalSinIVA+=res.costo;
@@ -3454,10 +3488,13 @@ function abrirModalHerraje(scope) {
   });
   const mhCond=document.getElementById('mh-condicion');
   if(mhCond) mhCond.value='SIEMPRE';
-  ['mh-cond-cantidad','mh-cond-v','mh-cond-h'].forEach(id=>{
+  ['mh-cond-cantidad','mh-cond-v','mh-cond-h','mh-cond-m2'].forEach(id=>{
     const el=document.getElementById(id);
     if(el) el.value='SIEMPRE';
   });
+  const m2da=document.getElementById('mh-m2-div-ancho');if(m2da)m2da.value='1';
+  const m2da2=document.getElementById('mh-m2-div-alto');if(m2da2)m2da2.value='1';
+  const m2prev=document.getElementById('mh-m2-preview');if(m2prev)m2prev.textContent='';
   mhItemsAll = DB.get('herrajes').map(h => ({
     id: h.id,
     label: h.descripcion + (h.clave ? ' [' + h.clave + ']' : ''),
@@ -3519,19 +3556,26 @@ function confirmarHerraje() {
   const condCantidad=document.getElementById('mh-cond-cantidad')?.value||'SIEMPRE';
   const condV=document.getElementById('mh-cond-v')?.value||'SIEMPRE';
   const condH=document.getElementById('mh-cond-h')?.value||'SIEMPRE';
+  const condM2=document.getElementById('mh-cond-m2')?.value||'SIEMPRE';
+  const m2DivAncho=parseFloat(document.getElementById('mh-m2-div-ancho')?.value)||1;
+  const m2DivAlto=parseFloat(document.getElementById('mh-m2-div-alto')?.value)||1;
   const item = {
     herrajeId: hj.id,
     nombreHerraje: hj.descripcion + (hj.clave ? ' [' + hj.clave + ']' : ''),
     precioUnitario: hj.precioUnitario || 0,
     precioML: hj.precioML || 0,
+    precioM2: hj.precioM2 || 0,
     cantidad,
     metrosV: v,
     metrosH: h,
+    m2DivAncho,
+    m2DivAlto,
     tipoVidrio,
     condicion,
     condCantidad,
     condV,
-    condH
+    condH,
+    condM2
   };
   const recetas = DB.get('recetas');
   const r = recetas.find(x => x.id === recetaActual.id);
