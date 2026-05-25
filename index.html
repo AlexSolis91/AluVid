@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AluVid — Sistema de Cotización</title>
+<title>SCAVi — Sistema de Cotización</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -309,7 +309,7 @@ onAuthStateChanged(_auth, async (user) => {
 <aside id="sidebar">
   <div class="sidebar-logo">
     <div class="logo-icon">🔩</div>
-    <div><div class="logo-text">AluVid</div><div class="logo-sub">Cotizaciones</div></div>
+    <div><div class="logo-text">SCAVi</div><div class="logo-sub">Cotizaciones</div></div>
   </div>
   <nav>
     <div class="nav-section">Cotizar</div>
@@ -2245,6 +2245,19 @@ function abrirProyecto(id){
 
 function totalProyecto(p){return(p.partidas||[]).reduce((s,x)=>s+(x.totalPartida||0),0);}
 
+function sobranteProyecto(p){
+  // Calculate total waste cost across all perfiles in project
+  if(!p||!p.partidas) return 0;
+  const {mapaPerfiles}=recopilarCortes(p);
+  let totalSobrante=0;
+  Object.values(mapaPerfiles).forEach(({perfil,cortes})=>{
+    if(!cortes.length) return;
+    const {sobrante}=cuttingStockFFD(cortes,perfil.longitudTramo);
+    totalSobrante+=sobrante*(perfil.precioML||0);
+  });
+  return totalSobrante;
+}
+
 function actualizarProyecto(){
   if(!proyectoActivo)return;
   proyectoActivo.cliente=document.getElementById('cot-cliente').value;
@@ -3593,15 +3606,19 @@ function filtrarMatProyectos(q){
   el.innerHTML=filtrados.length?`
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Folio</th><th>Cliente</th><th>Partidas</th><th>Total s/IVA</th><th>Fecha</th><th></th></tr></thead>
-        <tbody>${filtrados.map(p=>`<tr>
+        <thead><tr><th>Folio</th><th>Cliente</th><th>Partidas</th><th>Total s/IVA</th><th style="color:var(--amber)">Sobrante</th><th>Fecha</th><th></th></tr></thead>
+        <tbody>${filtrados.map(p=>{
+          const total=(p.partidas||[]).reduce((s,x)=>s+(x.totalPartida||0),0);
+          const sobrante=sobranteProyecto(p);
+          return`<tr>
           <td class="td-mono">${p.folio}</td>
           <td>${p.cliente||'<span class="td-muted">Sin nombre</span>'}</td>
-          <td>${(p.partidas||[]).length}</td>
-          <td style="color:var(--green);font-weight:600">${fmt((p.partidas||[]).reduce((s,x)=>s+(x.totalPartida||0),0))}</td>
-          <td>${fechaCorta(p.fecha)}</td>
+          <td style="text-align:center">${(p.partidas||[]).length}</td>
+          <td style="color:var(--green);font-weight:600">${fmt(total)}</td>
+          <td style="color:var(--amber);font-weight:600">${sobrante>0?fmt(sobrante):'—'}</td>
+          <td class="td-muted">${fechaCorta(p.fecha)}</td>
           <td><button class="btn btn-primary btn-sm" onclick="abrirMatProyecto(${p.id})">Ver Material</button></td>
-        </tr>`).join('')}</tbody>
+        </tr>`;}).join('')}</tbody>
       </table>
     </div>`:
     '<div class="empty-state"><p>No hay proyectos guardados</p></div>';
