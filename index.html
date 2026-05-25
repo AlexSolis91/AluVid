@@ -3038,20 +3038,25 @@ function toggleEditPartida(idx){
 // Populate recetas by linea for edit panel
 function epCargarRecetas(idx){
   const linea=document.getElementById('ep-linea-'+idx).value;
-  const recetas=DB.get('recetas').filter(r=>r.linea===linea);
+  const lineaL=linea.toLowerCase();
+  const userRs=DB.get('recetas').filter(r=>(r.linea||'').toLowerCase()===lineaL);
+  const adminRs=DB.getAdminRecetas().filter(r=>(r.linea||'').toLowerCase()===lineaL);
   const p=proyectoActivo.partidas[idx];
   const sel=document.getElementById('ep-receta-'+idx);
-  sel.innerHTML=recetas.length
-    ? recetas.map(r=>`<option value="${r.id}" ${r.nombre===p.receta?'selected':''}>${r.nombre}</option>`).join('')
-    : '<option value="">Sin recetas en esta línea</option>';
+  let opts='';
+  if(userRs.length) opts+='<optgroup label="Mis recetas">'+userRs.map(r=>`<option value="${r.id}" ${r.nombre===p.receta?'selected':''}>${r.nombre}</option>`).join('')+'</optgroup>';
+  if(adminRs.length) opts+='<optgroup label="── SCAVi ──">'+adminRs.map(r=>`<option value="${r.id||r._docId}" ${r.nombre===p.receta?'selected':''}>${r.nombre}</option>`).join('')+'</optgroup>';
+  sel.innerHTML=opts||'<option value="">Sin recetas en esta línea</option>';
   epCargarConfigs(idx);
 }
 
 // Populate configs for selected receta
 function epCargarConfigs(idx){
-  const rid=parseInt(document.getElementById('ep-receta-'+idx).value);
+  const ridRaw=document.getElementById('ep-receta-'+idx).value;
+  const rid=parseInt(ridRaw)||ridRaw;
   const p=proyectoActivo.partidas[idx];
-  const r=DB.get('recetas').find(x=>x.id===rid);
+  let r=DB.get('recetas').find(x=>x.id===rid||x.id===parseInt(rid));
+  if(!r) r=DB.getAdminRecetas().find(x=>String(x.id||x._docId)===String(rid));
   const sel=document.getElementById('ep-config-'+idx);
   if(r&&r.configs&&r.configs.length){
     sel.innerHTML='<option value="">— Sin config —</option>'+
@@ -3078,9 +3083,9 @@ function recotizarPartida(idx){
 
   if(!rid||!ancho||!alto) return;
 
-  const r=isAdminReceta
-    ? DB.getAdminRecetas().find(x=>String(x.id||x._docId)===String(rid))
-    : DB.get('recetas').find(x=>x.id===rid);
+  // Look in user recetas first, then admin recetas
+  let r = DB.get('recetas').find(x=>x.id===rid);
+  if(!r) r = DB.getAdminRecetas().find(x=>String(x.id||x._docId)===String(rid));
   if(!r) return;
 
   // Use combined catalog (user + admin) for pricing — user prices take priority
