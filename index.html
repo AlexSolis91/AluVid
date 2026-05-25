@@ -741,6 +741,7 @@ onAuthStateChanged(_auth, async (user) => {
           <div class="form-group"><label>Clave (opcional)</label><input id="h-clave" placeholder="RS-200"></div>
           <div class="form-group"><label>Precio unitario s/IVA</label><input id="h-precio-unit" type="number" step="0.01" placeholder="opcional"></div>
           <div class="form-group"><label>Precio por metro lineal</label><input id="h-precio-ml" type="number" step="0.01" placeholder="opcional"></div>
+          <div class="form-group"><label>Precio por m²</label><input id="h-precio-m2" type="number" step="0.01" placeholder="opcional"></div>
           <div class="form-group"><label>Proveedor</label><input id="h-proveedor" placeholder="Nombre del proveedor"></div>
         </div>
         <div class="form-actions">
@@ -758,7 +759,7 @@ onAuthStateChanged(_auth, async (user) => {
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Descripción</th><th>Clave</th><th>Precio Unitario</th><th>Precio/ml</th><th>Proveedor</th><th>Actualizado</th></tr></thead>
+          <thead><tr><th>Descripción</th><th>Clave</th><th>Precio Unitario</th><th>Precio/ml</th><th>Precio/m²</th><th>Proveedor</th><th>Actualizado</th></tr></thead>
           <tbody id="h-tabla"></tbody>
         </table>
       </div>
@@ -1390,13 +1391,14 @@ function guardarHerraje(){
     clave:document.getElementById('h-clave').value.trim(),
     precioUnitario:parseFloat(document.getElementById('h-precio-unit').value)||null,
     precioML:parseFloat(document.getElementById('h-precio-ml').value)||null,
+    precioM2:parseFloat(document.getElementById('h-precio-m2').value)||null,
     proveedor:document.getElementById('h-proveedor').value.trim(),fecha:now()};
   if(id){herrajes[herrajes.findIndex(h=>h.id===id)]=obj;toast('Herraje actualizado');}
   else{herrajes.push(obj);toast('Herraje guardado');}
   DB.set('herrajes',herrajes);limpiarHerraje();renderHerrajes();updateBadges();
 }
 function limpiarHerraje(){
-  ['h-id','h-desc','h-clave','h-precio-unit','h-precio-ml','h-proveedor'].forEach(i=>document.getElementById(i).value='');
+  ['h-id','h-desc','h-clave','h-precio-unit','h-precio-ml','h-precio-m2','h-proveedor'].forEach(i=>document.getElementById(i).value='');
   document.getElementById('h-btn-del').style.display='none';
   document.getElementById('h-form-title').textContent='Nuevo Herraje / Accesorio';
 }
@@ -1413,6 +1415,7 @@ function editarHerraje(id){
   document.getElementById('h-clave').value=h.clave||'';
   document.getElementById('h-precio-unit').value=h.precioUnitario||'';
   document.getElementById('h-precio-ml').value=h.precioML||'';
+  document.getElementById('h-precio-m2').value=h.precioM2||'';
   document.getElementById('h-proveedor').value=h.proveedor||'';
   document.getElementById('h-btn-del').style.display='';
   document.getElementById('h-form-title').textContent='Editar Herraje';
@@ -1427,10 +1430,11 @@ function renderHerrajesTabla(){
       <td>${h.descripcion}</td><td class="td-mono">${h.clave||'-'}</td>
       <td>${h.precioUnitario!=null?fmt(h.precioUnitario):'-'}</td>
       <td>${h.precioML!=null?fmt(h.precioML):'-'}</td>
+      <td>${h.precioM2!=null?fmt(h.precioM2)+'/m²':'-'}</td>
       <td class="td-muted">${h.proveedor||'-'}</td>
       <td><span class="badge ${ageClass(h.fecha)}">${fechaCorta(h.fecha)}</span></td>
     </tr>`).join(''):
-    '<tr><td colspan="6"><div class="empty-state"><p>No hay herrajes registrados</p></div></td></tr>';
+    '<tr><td colspan="7"><div class="empty-state"><p>No hay herrajes registrados</p></div></td></tr>';
 }
 
 // ══════════════════════════════════════════════
