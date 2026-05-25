@@ -429,7 +429,7 @@ onAuthStateChanged(_auth, async (user) => {
               <select id="cot-linea" onchange="cargarRecetasPorLinea()">
                 <option value="">— Selecciona línea —</option>
                 <option>Panorama</option><option>Eurovent Classic</option>
-                <option>Eurovent Premium</option><option>Fachada</option>
+                <option>Eurovent Premium</option><option>Fachada</option><option>Canceles Templados</option>
                 <option>Domo</option><option>Barandales</option><option>Canceles de Baño</option>
               </select>
             </div>
@@ -823,7 +823,7 @@ onAuthStateChanged(_auth, async (user) => {
                 <label>Línea de producto *</label>
                 <select id="r-linea">
                   <option>Panorama</option><option>Eurovent Classic</option><option>Eurovent Premium</option>
-                  <option>Fachada</option><option>Domo</option><option>Barandales</option><option>Canceles de Baño</option>
+                  <option>Fachada</option><option>Domo</option><option>Barandales</option><option>Canceles de Baño</option><option>Canceles Templados</option>
                 </select>
               </div>
               <div class="form-group">
@@ -2957,7 +2957,7 @@ function renderPartidas(){
           <div class="form-group">
             <label>Línea</label>
             <select id="ep-linea-${i}" onchange="epCargarRecetas(${i})">
-              ${['Panorama','Eurovent Classic','Eurovent Premium','Fachada','Domo','Barandales','Canceles de Baño'].map(l=>`<option value="${l}" ${p.linea===l?'selected':''}>${l}</option>`).join('')}
+              ${['Panorama','Eurovent Classic','Eurovent Premium','Fachada','Domo','Barandales','Canceles de Baño','Canceles Templados'].map(l=>`<option value="${l}" ${p.linea===l?'selected':''}>${l}</option>`).join('')}
             </select>
           </div>
           <div class="form-group">
