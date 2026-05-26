@@ -435,7 +435,7 @@ onAuthStateChanged(_auth, async (user) => {
             </div>
             <div class="form-group">
               <label>Receta / Tipo de cancel</label>
-              <select id="cot-receta" onchange="cargarConfigsPorReceta()">
+              <select id="cot-receta" onchange="setTimeout(cargarConfigsPorReceta,50)">
                 <option value="">— Primero elige línea —</option>
               </select>
             </div>
@@ -2376,6 +2376,16 @@ function cargarConfigsPorReceta(){
     : DB.get('recetas').find(x=>x.id===rid);
   if(!r)return;
   const configs=r.configs||[];
+  // If configs empty but receta exists, retry once after delay (timing issue)
+  if(!configs.length && r.id) {
+    setTimeout(()=>{
+      const r2=DB.get('recetas').find(x=>x.id===rid)||DB.getAdminRecetas().find(x=>String(x.id||x._docId)===String(rid));
+      if(r2?.configs?.length) {
+        document.getElementById('cot-config').innerHTML=
+          '<option value="">— Sin configuración —</option>'+r2.configs.map((c,i)=>`<option value="${i}">${c.tipo}</option>`).join('');
+      }
+    }, 500);
+  }
   document.getElementById('cot-config').innerHTML=configs.length?
     '<option value="">— Sin configuración —</option>'+configs.map((c,i)=>`<option value="${i}">${c.tipo}</option>`).join(''):
     '<option value="">Sin configuraciones</option>';
