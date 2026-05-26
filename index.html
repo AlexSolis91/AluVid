@@ -3101,12 +3101,38 @@ function recotizarPartida(idx){
     if(v&&v.tipo) tipoVidrio=v.tipo.toUpperCase();
   }
 
-  const costoPerfil=(clave,cortesV,cortesH,tvp)=>{
+  // Build condicionesActivas for edit panel using saved partida condiciones
+  const condSetEditP=new Set(['SIEMPRE']);
+  Object.entries(p.condiciones||{}).forEach(([k,v])=>{if(v)condSetEditP.add(k);});
+  if(!condSetEditP.has('CON_ZOCLO_INF'))  condSetEditP.add('SIN_ZOCLO_INF');
+  if(!condSetEditP.has('CON_ZOCLO_SUP'))  condSetEditP.add('SIN_ZOCLO_SUP');
+  if(!condSetEditP.has('CON_MOSQUITERO')) condSetEditP.add('SIN_MOSQUITERO');
+  if(!condSetEditP.has('CON_ESCALONADO_VERT')) condSetEditP.add('SIN_ESCALONADO_VERT');
+  if(!condSetEditP.has('CON_ESCALONADO_SUP'))  condSetEditP.add('SIN_ESCALONADO_SUP');
+  if(condSetEditP.has('CON_MOSQUITERO_FIJO')||condSetEditP.has('CON_MOSQUITERO_CORREDIZO'))
+    condSetEditP.add('CON_MOSQUITERO');
+
+  const costoPerfil=(clave,cortesV,cortesH,tvp,grupos)=>{
     const tv=(tvp||'AMBOS').toUpperCase();
     if(tv!=='AMBOS'&&tv!==tipoVidrio) return null;
     const idComp=acabado.replace(/\s+/g,'')+clave;
     const pf=acabado?todosPerfiles.find(x=>x.idCompuesto===idComp):null;
-    const ml=(cortesV*alto)+(cortesH*ancho); // legacy fallback
+    let ml=0;
+    if(grupos&&grupos.length){
+      // Process grupos with conditions (same logic as calcularPartida)
+      grupos.forEach(g=>{
+        const cond=(g.condicion||'SIEMPRE').toUpperCase();
+        const cond2=(g.condicion2||'SIEMPRE').toUpperCase();
+        if(!condSetEditP.has(cond)) return;
+        if(cond2!=='SIEMPRE'&&!condSetEditP.has(cond2)) return;
+        const div=g.divisor||1;
+        if(g.tipo==='vertical')   ml+=g.cant*(alto/div);
+        else if(g.tipo==='horizontal') ml+=g.cant*(ancho/div);
+        else if(g.tipo==='fijo')  ml+=g.cant*(g.longitud||0);
+      });
+    } else {
+      ml=(cortesV*alto)+(cortesH*ancho); // legacy fallback
+    }
     if(!pf) return{label:clave+(acabado?` (acabado "${acabado}" no encontrado)`:''),costo:0,encontrado:false,detalle:ml>0?num(ml)+' ml':'',activo:true,tipo:'Perfil'};
     return{label:`${pf.idCompuesto} — ${pf.nombre}`,costo:pf.precioML*ml,encontrado:true,detalle:`${num(ml)} ml × ${fmt(pf.precioML)}/ml`,activo:true,tipo:'Perfil'};
   };
