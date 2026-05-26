@@ -2717,6 +2717,20 @@ function calcularPartida(){
   else condicionesActivas.add('SIN_ESCALONADO_VERT');
   if(document.getElementById('cond-CON_ESCALONADO_SUP')?.checked) condicionesActivas.add('CON_ESCALONADO_SUP');
   else condicionesActivas.add('SIN_ESCALONADO_SUP');
+  // Opciones cancel (Comercial, Residencial, Duelas, Louver, Intermedios)
+  const _opcionesCancelIds=[
+    'CON_COMERCIAL','CON_RESIDENCIAL','CON_RESIDENCIAL_Z6','CON_RESIDENCIAL_Z10',
+    'CON_DUELA_50','CON_DUELA_50_2C','CON_DUELA_1C','CON_DUELA_2C',
+    'CON_LOUVER',
+    'CON_INTERMEDIO_1H','CON_INTERMEDIO_2H','CON_INTERMEDIO_4_1H','CON_INTERMEDIO_4_2H'
+  ];
+  _opcionesCancelIds.forEach(id=>{
+    if(document.getElementById('cond-'+id)?.checked){
+      condicionesActivas.add(id);
+    } else {
+      condicionesActivas.add(id.replace('CON_','SIN_'));
+    }
+  });
 
   // ── Calcular costo de un perfil ──────────────────────────────
   // grupos: [{tipo:'vertical'|'horizontal'|'fijo', cant, long, divisor, condicion}]
