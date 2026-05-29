@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es"><!-- SCAVi-FIX-v4-OR-LOGIC -->
+<html lang="es"><!-- SCAVi-FIX-v5-COND3 -->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1737,7 +1737,11 @@ function renderComponentesConfig(){
         if(g.tipo==='fijo') base=`${g.cant}×${g.long}m`;
         else if(g.tipo==='vertical') base=`${g.cant}×alto${g.divisor>1?'/'+g.divisor:''}`;
         else base=`${g.cant}×ancho${g.divisor>1?'/'+g.divisor:''}`;
-        return base+(g.condicion&&g.condicion!=='SIEMPRE'?` <span style="color:var(--purple);font-size:10px">[${g.condicion}]</span>`:'');
+        const c1=g.condicion&&g.condicion!=='SIEMPRE'?g.condicion:'';
+        const c2=g.condicion2&&g.condicion2!=='SIEMPRE'?g.condicion2:'';
+        const c3=g.condicion3&&g.condicion3!=='SIEMPRE'?g.condicion3:'';
+        const ctxt=[c1,c2,c3].filter(Boolean).join(' OR ');
+        return base+(ctxt?` <span style="color:var(--purple);font-size:10px">[${ctxt}]</span>`:'');
       }).join(' + ');
       return `<tr>
         <td class="td-mono">${cp.clave||''}</td>
@@ -1840,6 +1844,8 @@ function editarPerfilConfig(idx){
         if(condEl) condEl.value=g.condicion||'SIEMPRE';
         const cond2El=document.getElementById('gc-cond2-'+gid);
         if(cond2El) cond2El.value=g.condicion2||'SIEMPRE';
+        const cond3El=document.getElementById('gc-cond3-'+gid);
+        if(cond3El) cond3El.value=g.condicion3||'SIEMPRE';
         previewGrupo(gid);
       },80);
     });
@@ -2066,8 +2072,16 @@ function agregarGrupoCorte(){
         </select>
       </div>
       <div class="form-group">
-        <label>Condición 2 (AND)</label>
+        <label>Condición 2 (OR)</label>
         <select id="gc-cond2-${id}" style="border-color:rgba(167,139,250,.2);background:rgba(167,139,250,.04)">
+          <option value="SIEMPRE">Siempre</option><option value="SIN_ZOCLO_INF">Sin zoclo inferior</option><option value="CON_ZOCLO_INF">Con zoclo inferior</option><option value="SIN_ZOCLO_SUP">Sin zoclo superior</option><option value="CON_ZOCLO_SUP">Con zoclo superior</option><option value="SIN_MOSQUITERO">Sin mosquitero</option><option value="CON_MOSQUITERO">Con mosquitero (cualquier tipo)</option><option value="CON_MOSQUITERO_FIJO">Con mosquitero fijo</option><option value="CON_MOSQUITERO_CORREDIZO">Con mosquitero corredizo</option><option value="CON_ESCALONADO_VERT">Con escalonado vertical</option><option value="SIN_ESCALONADO_VERT">Sin escalonado vertical</option><option value="CON_ESCALONADO_SUP">Con escalonado superior</option><option value="SIN_ESCALONADO_SUP">Sin escalonado superior</option>
+        <option value="CON_COMERCIAL">Comercial</option><option value="CON_RESIDENCIAL">Residencial</option><option value="CON_RESIDENCIAL_Z6">Residencial Z6</option><option value="CON_RESIDENCIAL_Z10">Residencial Z10</option><option value="CON_DUELA_50">Duela 50%</option><option value="CON_DUELA_50_2C">Duela 50% 2 caras</option><option value="CON_DUELA_1C">Duela 1 Cara</option><option value="CON_DUELA_2C">Duela 2 caras</option><option value="CON_LOUVER">Louver</option><option value="CON_INTERMEDIO_1H">Intermedio 1H</option><option value="CON_INTERMEDIO_2H">Intermedio 2H</option><option value="CON_INTERMEDIO_4_1H">Intermedio 4" 1H</option><option value="CON_INTERMEDIO_4_2H">Intermedio 4" 2H</option>
+        <option value="SIN_COMERCIAL">Sin Comercial</option><option value="SIN_RESIDENCIAL">Sin Residencial</option><option value="SIN_RESIDENCIAL_Z6">Sin Residencial Z6</option><option value="SIN_RESIDENCIAL_Z10">Sin Residencial Z10</option><option value="SIN_DUELA_50">Sin Duela 50%</option><option value="SIN_DUELA_50_2C">Sin Duela 50% 2 caras</option><option value="SIN_DUELA_1C">Sin Duela 1 Cara</option><option value="SIN_DUELA_2C">Sin Duela 2 caras</option><option value="SIN_LOUVER">Sin Louver</option><option value="SIN_INTERMEDIO_1H">Sin Intermedio 1H</option><option value="SIN_INTERMEDIO_2H">Sin Intermedio 2H</option><option value="SIN_INTERMEDIO_4_1H">Sin Intermedio 4" 1H</option><option value="SIN_INTERMEDIO_4_2H">Sin Intermedio 4" 2H</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Condición 3 (OR)</label>
+        <select id="gc-cond3-${id}" style="border-color:rgba(167,139,250,.1);background:rgba(167,139,250,.02)">
           <option value="SIEMPRE">Siempre</option><option value="SIN_ZOCLO_INF">Sin zoclo inferior</option><option value="CON_ZOCLO_INF">Con zoclo inferior</option><option value="SIN_ZOCLO_SUP">Sin zoclo superior</option><option value="CON_ZOCLO_SUP">Con zoclo superior</option><option value="SIN_MOSQUITERO">Sin mosquitero</option><option value="CON_MOSQUITERO">Con mosquitero (cualquier tipo)</option><option value="CON_MOSQUITERO_FIJO">Con mosquitero fijo</option><option value="CON_MOSQUITERO_CORREDIZO">Con mosquitero corredizo</option><option value="CON_ESCALONADO_VERT">Con escalonado vertical</option><option value="SIN_ESCALONADO_VERT">Sin escalonado vertical</option><option value="CON_ESCALONADO_SUP">Con escalonado superior</option><option value="SIN_ESCALONADO_SUP">Sin escalonado superior</option>
         <option value="CON_COMERCIAL">Comercial</option><option value="CON_RESIDENCIAL">Residencial</option><option value="CON_RESIDENCIAL_Z6">Residencial Z6</option><option value="CON_RESIDENCIAL_Z10">Residencial Z10</option><option value="CON_DUELA_50">Duela 50%</option><option value="CON_DUELA_50_2C">Duela 50% 2 caras</option><option value="CON_DUELA_1C">Duela 1 Cara</option><option value="CON_DUELA_2C">Duela 2 caras</option><option value="CON_LOUVER">Louver</option><option value="CON_INTERMEDIO_1H">Intermedio 1H</option><option value="CON_INTERMEDIO_2H">Intermedio 2H</option><option value="CON_INTERMEDIO_4_1H">Intermedio 4" 1H</option><option value="CON_INTERMEDIO_4_2H">Intermedio 4" 2H</option>
         <option value="SIN_COMERCIAL">Sin Comercial</option><option value="SIN_RESIDENCIAL">Sin Residencial</option><option value="SIN_RESIDENCIAL_Z6">Sin Residencial Z6</option><option value="SIN_RESIDENCIAL_Z10">Sin Residencial Z10</option><option value="SIN_DUELA_50">Sin Duela 50%</option><option value="SIN_DUELA_50_2C">Sin Duela 50% 2 caras</option><option value="SIN_DUELA_1C">Sin Duela 1 Cara</option><option value="SIN_DUELA_2C">Sin Duela 2 caras</option><option value="SIN_LOUVER">Sin Louver</option><option value="SIN_INTERMEDIO_1H">Sin Intermedio 1H</option><option value="SIN_INTERMEDIO_2H">Sin Intermedio 2H</option><option value="SIN_INTERMEDIO_4_1H">Sin Intermedio 4" 1H</option><option value="SIN_INTERMEDIO_4_2H">Sin Intermedio 4" 2H</option>
@@ -2077,7 +2091,7 @@ function agregarGrupoCorte(){
     <div style="font-size:11px;color:var(--text3)" id="gc-preview-${id}"></div>`;
   document.getElementById('modal-grupos-cortes').appendChild(div);
   // Add listeners for preview
-  ['gc-tipo-'+id,'gc-cant-'+id,'gc-long-'+id,'gc-div-'+id,'gc-cond-'+id,'gc-cond2-'+id].forEach(eid=>{
+  ['gc-tipo-'+id,'gc-cant-'+id,'gc-long-'+id,'gc-div-'+id,'gc-cond-'+id,'gc-cond2-'+id,'gc-cond3-'+id].forEach(eid=>{
     const el=document.getElementById(eid);
     if(el) el.addEventListener('input',()=>previewGrupo(id));
     if(el) el.addEventListener('change',()=>previewGrupo(id));
@@ -2098,6 +2112,7 @@ function previewGrupo(id){
   const div=parseInt(document.getElementById('gc-div-'+id)?.value)||1;
   const cond=document.getElementById('gc-cond-'+id)?.value||'SIEMPRE';
   const cond2=document.getElementById('gc-cond2-'+id)?.value||'SIEMPRE';
+  const cond3=document.getElementById('gc-cond3-'+id)?.value||'SIEMPRE';
   const el=document.getElementById('gc-preview-'+id);
   if(!el)return;
   let desc='';
@@ -2106,7 +2121,8 @@ function previewGrupo(id){
   else if(tipo==='fijo'&&long>0) desc=`${cant} corte${cant!==1?'s':''} de ${long.toFixed(3)} m fijos`;
   let condTxt='';
   if(cond!=='SIEMPRE') condTxt+=cond;
-  if(cond2!=='SIEMPRE') condTxt+=(condTxt?' AND ':'')+cond2;
+  if(cond2!=='SIEMPRE') condTxt+=(condTxt?' OR ':'')+cond2;
+  if(cond3!=='SIEMPRE') condTxt+=(condTxt?' OR ':'')+cond3;
   const condLabel=condTxt?`<span style="color:var(--purple);margin-left:6px">cuando: ${condTxt}</span>`:'';
   el.innerHTML=desc?`→ ${desc}${condLabel}`:'';
 }
@@ -2129,7 +2145,8 @@ function leerGruposCortes(){
     const divisor=parseInt(document.getElementById('gc-div-'+id)?.value)||1;
     const condicion=document.getElementById('gc-cond-'+id)?.value||'SIEMPRE';
     const condicion2=document.getElementById('gc-cond2-'+id)?.value||'SIEMPRE';
-    if(cant>0) grupos.push({tipo,cant,long,divisor,condicion,condicion2});
+    const condicion3=document.getElementById('gc-cond3-'+id)?.value||'SIEMPRE';
+    if(cant>0) grupos.push({tipo,cant,long,divisor,condicion,condicion2,condicion3});
   });
   return grupos;
 }
@@ -2725,15 +2742,6 @@ function calcularPartida(){
     if(document.getElementById('cond-'+id)?.checked) condicionesActivas.add(id);
     else condicionesActivas.add(id.replace('CON_','SIN_'));
   });
-  // Herencia: Z6 y Z10 implican Residencial base; Duela 50% 2C implica Duela 50%
-  if(condicionesActivas.has('CON_RESIDENCIAL_Z6')||condicionesActivas.has('CON_RESIDENCIAL_Z10')){
-    condicionesActivas.add('CON_RESIDENCIAL');
-    condicionesActivas.delete('SIN_RESIDENCIAL');
-  }
-  if(condicionesActivas.has('CON_DUELA_50_2C')){
-    condicionesActivas.add('CON_DUELA_50');
-    condicionesActivas.delete('SIN_DUELA_50');
-  }
 
   // ── Calcular costo de un perfil ──────────────────────────────
   // grupos: [{tipo:'vertical'|'horizontal'|'fijo', cant, long, divisor, condicion}]
@@ -2753,11 +2761,10 @@ function calcularPartida(){
       grupos.forEach(g=>{
         const cond=(g.condicion||'SIEMPRE').toUpperCase();
         const cond2=(g.condicion2||'SIEMPRE').toUpperCase();
-        // Evaluar si el grupo aplica: condicion1 OR condicion2 (al menos una activa)
-        const cond1ok=condicionesActivas.has(cond);
-        const cond2ok=cond2==='SIEMPRE'||condicionesActivas.has(cond2);
-        if(cond2==='SIEMPRE'){ if(!cond1ok) return; }
-        else { if(!cond1ok&&!cond2ok) return; }
+        const cond3=(g.condicion3||'SIEMPRE').toUpperCase();
+        // OR logic: aplica si AL MENOS UNA condición activa coincide
+        const activas=[cond,cond2,cond3].filter(c=>c!=='SIEMPRE');
+        if(activas.length>0&&!activas.some(c=>condicionesActivas.has(c))) return;
         const divisor=g.divisor||1;
         let longCorte=0, cantCortes=g.cant||0;
         if(g.tipo==='fijo') longCorte=g.long||0;
@@ -3206,10 +3213,9 @@ function recotizarPartida(idx){
       grupos.forEach(g=>{
         const cond=(g.condicion||'SIEMPRE').toUpperCase();
         const cond2=(g.condicion2||'SIEMPRE').toUpperCase();
-        const c1ok=condSetEditP.has(cond);
-        const c2ok=cond2==='SIEMPRE'||condSetEditP.has(cond2);
-        if(cond2==='SIEMPRE'){ if(!c1ok) return; }
-        else { if(!c1ok&&!c2ok) return; }
+        const cond3=(g.condicion3||'SIEMPRE').toUpperCase();
+        const activasE=[cond,cond2,cond3].filter(c=>c!=='SIEMPRE');
+        if(activasE.length>0&&!activasE.some(c=>condSetEditP.has(c))) return;
         const div=g.divisor||1;
         if(g.tipo==='vertical')   ml+=g.cant*(alto/div);
         else if(g.tipo==='horizontal') ml+=g.cant*(ancho/div);
@@ -3860,10 +3866,9 @@ function recopilarCortes(proyecto){
                 cp.grupos.forEach(g=>{
                   const cond=(g.condicion||'SIEMPRE').toUpperCase();
                   const cond2g=(g.condicion2||'SIEMPRE').toUpperCase();
-                  const cs1ok=condSet.has(cond);
-                  const cs2ok=cond2g==='SIEMPRE'||condSet.has(cond2g);
-                  if(cond2g==='SIEMPRE'){ if(!cs1ok) return; }
-                  else { if(!cs1ok&&!cs2ok) return; }
+                  const cond3g=(g.condicion3||'SIEMPRE').toUpperCase();
+                  const activasX=[cond,cond2g,cond3g].filter(c=>c!=='SIEMPRE');
+                  if(activasX.length>0&&!activasX.some(c=>condSet.has(c))) return;
                   const divisor=g.divisor||1;
                   let longCorte=0;
                   if(g.tipo==='fijo') longCorte=g.long||0;
