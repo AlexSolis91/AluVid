@@ -2718,18 +2718,12 @@ function calcularPartida(){
   if(document.getElementById('cond-CON_ESCALONADO_SUP')?.checked) condicionesActivas.add('CON_ESCALONADO_SUP');
   else condicionesActivas.add('SIN_ESCALONADO_SUP');
   // Opciones cancel (Comercial, Residencial, Duelas, Louver, Intermedios)
-  const _opcionesCancelIds=[
-    'CON_COMERCIAL','CON_RESIDENCIAL','CON_RESIDENCIAL_Z6','CON_RESIDENCIAL_Z10',
-    'CON_DUELA_50','CON_DUELA_50_2C','CON_DUELA_1C','CON_DUELA_2C',
-    'CON_LOUVER',
-    'CON_INTERMEDIO_1H','CON_INTERMEDIO_2H','CON_INTERMEDIO_4_1H','CON_INTERMEDIO_4_2H'
-  ];
-  _opcionesCancelIds.forEach(id=>{
-    if(document.getElementById('cond-'+id)?.checked){
-      condicionesActivas.add(id);
-    } else {
-      condicionesActivas.add(id.replace('CON_','SIN_'));
-    }
+  ['CON_COMERCIAL','CON_RESIDENCIAL','CON_RESIDENCIAL_Z6','CON_RESIDENCIAL_Z10',
+   'CON_DUELA_50','CON_DUELA_50_2C','CON_DUELA_1C','CON_DUELA_2C',
+   'CON_LOUVER','CON_INTERMEDIO_1H','CON_INTERMEDIO_2H','CON_INTERMEDIO_4_1H','CON_INTERMEDIO_4_2H'
+  ].forEach(id=>{
+    if(document.getElementById('cond-'+id)?.checked) condicionesActivas.add(id);
+    else condicionesActivas.add(id.replace('CON_','SIN_'));
   });
 
   // ── Calcular costo de un perfil ──────────────────────────────
@@ -3184,6 +3178,11 @@ function recotizarPartida(idx){
   if(!condSetEditP.has('CON_ESCALONADO_SUP'))  condSetEditP.add('SIN_ESCALONADO_SUP');
   if(condSetEditP.has('CON_MOSQUITERO_FIJO')||condSetEditP.has('CON_MOSQUITERO_CORREDIZO'))
     condSetEditP.add('CON_MOSQUITERO');
+  // Opciones cancel
+  ['CON_COMERCIAL','CON_RESIDENCIAL','CON_RESIDENCIAL_Z6','CON_RESIDENCIAL_Z10',
+   'CON_DUELA_50','CON_DUELA_50_2C','CON_DUELA_1C','CON_DUELA_2C',
+   'CON_LOUVER','CON_INTERMEDIO_1H','CON_INTERMEDIO_2H','CON_INTERMEDIO_4_1H','CON_INTERMEDIO_4_2H'
+  ].forEach(id=>{ if(!condSetEditP.has(id)) condSetEditP.add(id.replace('CON_','SIN_')); });
 
   const costoPerfil=(clave,cortesV,cortesH,tvp,grupos)=>{
     const tv=(tvp||'AMBOS').toUpperCase();
@@ -3840,6 +3839,11 @@ function recopilarCortes(proyecto){
                 if(!condSet.has('CON_MOSQUITERO')) condSet.add('SIN_MOSQUITERO');
                 if(!condSet.has('CON_ESCALONADO_VERT')) condSet.add('SIN_ESCALONADO_VERT');
                 if(!condSet.has('CON_ESCALONADO_SUP')) condSet.add('SIN_ESCALONADO_SUP');
+                // Opciones cancel
+                ['CON_COMERCIAL','CON_RESIDENCIAL','CON_RESIDENCIAL_Z6','CON_RESIDENCIAL_Z10',
+                 'CON_DUELA_50','CON_DUELA_50_2C','CON_DUELA_1C','CON_DUELA_2C',
+                 'CON_LOUVER','CON_INTERMEDIO_1H','CON_INTERMEDIO_2H','CON_INTERMEDIO_4_1H','CON_INTERMEDIO_4_2H'
+                ].forEach(id=>{ if(!condSet.has(id)) condSet.add(id.replace('CON_','SIN_')); });
                 cp.grupos.forEach(g=>{
                   const cond=(g.condicion||'SIEMPRE').toUpperCase();
                   const cond2g=(g.condicion2||'SIEMPRE').toUpperCase();
