@@ -2725,6 +2725,15 @@ function calcularPartida(){
     if(document.getElementById('cond-'+id)?.checked) condicionesActivas.add(id);
     else condicionesActivas.add(id.replace('CON_','SIN_'));
   });
+  // Herencia: Z6 y Z10 implican Residencial base; Duela 50% 2C implica Duela 50%
+  if(condicionesActivas.has('CON_RESIDENCIAL_Z6')||condicionesActivas.has('CON_RESIDENCIAL_Z10')){
+    condicionesActivas.add('CON_RESIDENCIAL');
+    condicionesActivas.delete('SIN_RESIDENCIAL');
+  }
+  if(condicionesActivas.has('CON_DUELA_50_2C')){
+    condicionesActivas.add('CON_DUELA_50');
+    condicionesActivas.delete('SIN_DUELA_50');
+  }
 
   // ── Calcular costo de un perfil ──────────────────────────────
   // grupos: [{tipo:'vertical'|'horizontal'|'fijo', cant, long, divisor, condicion}]
