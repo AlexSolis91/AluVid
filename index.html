@@ -2394,9 +2394,9 @@ function cargarConfigsPorReceta(){
   renderOpcionesCancel(r ? r.nombre : ''); // show relevant opciones
   document.getElementById('cot-opciones-wrap').style.display='';
   document.getElementById('cot-preview').style.display='none';
-  // Detect if this receta has any condicion-based grupos and show panel
-  const tieneCondiciones=detectarCondicionesReceta(r);
-  document.getElementById('cot-opciones-cancel-wrap').style.display=tieneCondiciones?'':'none';
+  // Mostrar panel de opciones si el tipo de cancel tiene condiciones propias
+  const tipoCancel=tipoCancelFromNombre(r ? r.nombre : '');
+  document.getElementById('cot-opciones-cancel-wrap').style.display=(tipoCancel!=='NINGUNO')?'':'none';
   // Reset all checkboxes
   document.querySelectorAll('#cot-condiciones-grid input[type=checkbox]').forEach(c=>c.checked=false);
 }
