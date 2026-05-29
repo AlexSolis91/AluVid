@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es"><!-- SCAVi-FIX-v3-CONDICIONES -->
+<html lang="es"><!-- SCAVi-FIX-v4-OR-LOGIC -->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -2753,9 +2753,11 @@ function calcularPartida(){
       grupos.forEach(g=>{
         const cond=(g.condicion||'SIEMPRE').toUpperCase();
         const cond2=(g.condicion2||'SIEMPRE').toUpperCase();
-        // Evaluar si el grupo aplica: AMBAS condiciones deben cumplirse (AND)
-        if(!condicionesActivas.has(cond)) return;
-        if(cond2!=='SIEMPRE'&&!condicionesActivas.has(cond2)) return;
+        // Evaluar si el grupo aplica: condicion1 OR condicion2 (al menos una activa)
+        const cond1ok=condicionesActivas.has(cond);
+        const cond2ok=cond2==='SIEMPRE'||condicionesActivas.has(cond2);
+        if(cond2==='SIEMPRE'){ if(!cond1ok) return; }
+        else { if(!cond1ok&&!cond2ok) return; }
         const divisor=g.divisor||1;
         let longCorte=0, cantCortes=g.cant||0;
         if(g.tipo==='fijo') longCorte=g.long||0;
@@ -3204,8 +3206,10 @@ function recotizarPartida(idx){
       grupos.forEach(g=>{
         const cond=(g.condicion||'SIEMPRE').toUpperCase();
         const cond2=(g.condicion2||'SIEMPRE').toUpperCase();
-        if(!condSetEditP.has(cond)) return;
-        if(cond2!=='SIEMPRE'&&!condSetEditP.has(cond2)) return;
+        const c1ok=condSetEditP.has(cond);
+        const c2ok=cond2==='SIEMPRE'||condSetEditP.has(cond2);
+        if(cond2==='SIEMPRE'){ if(!c1ok) return; }
+        else { if(!c1ok&&!c2ok) return; }
         const div=g.divisor||1;
         if(g.tipo==='vertical')   ml+=g.cant*(alto/div);
         else if(g.tipo==='horizontal') ml+=g.cant*(ancho/div);
@@ -3856,8 +3860,10 @@ function recopilarCortes(proyecto){
                 cp.grupos.forEach(g=>{
                   const cond=(g.condicion||'SIEMPRE').toUpperCase();
                   const cond2g=(g.condicion2||'SIEMPRE').toUpperCase();
-                  if(!condSet.has(cond)) return;
-                  if(cond2g!=='SIEMPRE'&&!condSet.has(cond2g)) return;
+                  const cs1ok=condSet.has(cond);
+                  const cs2ok=cond2g==='SIEMPRE'||condSet.has(cond2g);
+                  if(cond2g==='SIEMPRE'){ if(!cs1ok) return; }
+                  else { if(!cs1ok&&!cs2ok) return; }
                   const divisor=g.divisor||1;
                   let longCorte=0;
                   if(g.tipo==='fijo') longCorte=g.long||0;
