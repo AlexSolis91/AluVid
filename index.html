@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es"><!-- SCAVi-FIX-v6-DUPLICAR -->
+<html lang="es"><!-- SCAVi-FIX-v7-DELETE-SYNC -->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1163,37 +1163,28 @@ const DB = {
       .catch(e => console.warn('Admin unpublish error:', e.message));
   },
   set(k, v) {
-    if (!window._cache) 
-// ── FIRESTORE RULES NEEDED ────────────────────────────────────
-// rules_version = '2';
-// service cloud.firestore {
-//   match /databases/{database}/documents {
-//     // Admin full access
-//     match /{document=**} {
-//       allow read, write: if request.auth != null && request.auth.uid == 'z447DgJCSTW8xRDp8pkIZ5S1A8G3';
-//     }
-//     // Users read admin_catalogo (but can't write)
-//     match /admin_catalogo/{col}/items/{docId} {
-//       allow read: if request.auth != null;
-//     }
-//     // Users access own data only
-//     match /usuarios/{uid} {
-//       allow read, write: if request.auth != null && request.auth.uid == uid;
-//       match /{coleccion}/{docId} {
-//         allow read, write: if request.auth != null && request.auth.uid == uid;
-//       }
-//     }
-//   }
-// }
-
-window._cache = {};
+    if (!window._cache) window._cache = {};
+    // Detect deleted items by comparing with current cache before overwriting
+    const prev = window._cache[k] || [];
+    const newIds = new Set(v.map(x => String(x.id || x._docId)));
+    const deleted = prev.filter(x => !newIds.has(String(x.id || x._docId)));
     window._cache[k] = v;
-    this._syncToFirestore(k, v);
+    this._syncToFirestore(k, v, deleted);
   },
-  _syncToFirestore(k, v) {
+  _syncToFirestore(k, v, deleted=[]) {
     if (!window._uid || !window._fsSetDoc || !window._fsDoc) return;
     const uid = window._uid;
-    // Delete removed items and upsert existing ones
+    // Delete removed docs from Firestore
+    if (window._fsDeleteDoc && deleted.length > 0) {
+      deleted.forEach(item => {
+        const key = String(item.id || item._docId);
+        if (key && key !== 'undefined') {
+          window._fsDeleteDoc(window._fsDoc('usuarios/' + uid + '/' + k + '/' + key))
+            .catch(e => console.warn('Delete sync error:', k, key, e.message));
+        }
+      });
+    }
+    // Upsert remaining items
     v.forEach(item => {
       const key = String(item.id || item._docId || Date.now());
       item._docId = key;
@@ -1649,22 +1640,17 @@ function eliminarReceta(){
 
 function duplicarReceta(){
   if(!recetaActual) return;
-  const nombreBase=recetaActual.nombre;
-  const nuevoNombre=prompt('Nombre para la receta duplicada:', nombreBase+' (Copia)');
+  const nuevoNombre=prompt('Nombre para la receta duplicada:',recetaActual.nombre+' (Copia)');
   if(!nuevoNombre||!nuevoNombre.trim()) return;
-  // Deep clone configs, perfiles, herrajes
   const copia=JSON.parse(JSON.stringify(recetaActual));
   copia.id=DB.nextId('recetas');
   copia.nombre=nuevoNombre.trim();
   copia.fecha=now();
-  // Remove publication flags — duplicate starts unpublished
-  delete copia._esAdmin;
-  delete copia._docId;
+  delete copia._esAdmin; delete copia._docId;
   const recetas=DB.get('recetas');
   recetas.push(copia);
   DB.set('recetas',recetas);
   recetaActual=copia;
-  // Load into editor
   document.getElementById('r-id').value=copia.id;
   document.getElementById('r-nombre').value=copia.nombre;
   document.getElementById('r-linea').value=copia.linea||'Panorama';
@@ -1678,7 +1664,6 @@ function duplicarReceta(){
   try{renderConfiguraciones();}catch(e){}
   try{renderComponentesReceta();}catch(e){}
   try{if(copia.configs&&copia.configs.length>0) seleccionarConfig(0);}catch(e){}
-  // Uncheck publicar
   const pubCb=document.getElementById('r-publicar-scavi');if(pubCb)pubCb.checked=false;
   toast('Receta duplicada — cambia el nombre y guarda','success');
 }
