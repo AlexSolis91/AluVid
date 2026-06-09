@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es"><!-- SCAVi-FIX-v7-DELETE-SYNC -->
+<html lang="es"><!-- SCAVi-FIX-v8-ADMIN-RECETA -->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1164,7 +1164,6 @@ const DB = {
   },
   set(k, v) {
     if (!window._cache) window._cache = {};
-    // Detect deleted items by comparing with current cache before overwriting
     const prev = window._cache[k] || [];
     const newIds = new Set(v.map(x => String(x.id || x._docId)));
     const deleted = prev.filter(x => !newIds.has(String(x.id || x._docId)));
@@ -1174,17 +1173,14 @@ const DB = {
   _syncToFirestore(k, v, deleted=[]) {
     if (!window._uid || !window._fsSetDoc || !window._fsDoc) return;
     const uid = window._uid;
-    // Delete removed docs from Firestore
     if (window._fsDeleteDoc && deleted.length > 0) {
       deleted.forEach(item => {
         const key = String(item.id || item._docId);
-        if (key && key !== 'undefined') {
+        if (key && key !== 'undefined')
           window._fsDeleteDoc(window._fsDoc('usuarios/' + uid + '/' + k + '/' + key))
             .catch(e => console.warn('Delete sync error:', k, key, e.message));
-        }
       });
     }
-    // Upsert remaining items
     v.forEach(item => {
       const key = String(item.id || item._docId || Date.now());
       item._docId = key;
@@ -1637,19 +1633,14 @@ function eliminarReceta(){
   DB.set('recetas',DB.get('recetas').filter(r=>r.id!==recetaActual.id));
   toast('Receta eliminada','info');cerrarReceta();
 }
-
 function duplicarReceta(){
   if(!recetaActual) return;
   const nuevoNombre=prompt('Nombre para la receta duplicada:',recetaActual.nombre+' (Copia)');
   if(!nuevoNombre||!nuevoNombre.trim()) return;
   const copia=JSON.parse(JSON.stringify(recetaActual));
-  copia.id=DB.nextId('recetas');
-  copia.nombre=nuevoNombre.trim();
-  copia.fecha=now();
+  copia.id=DB.nextId('recetas'); copia.nombre=nuevoNombre.trim(); copia.fecha=now();
   delete copia._esAdmin; delete copia._docId;
-  const recetas=DB.get('recetas');
-  recetas.push(copia);
-  DB.set('recetas',recetas);
+  const recetas=DB.get('recetas'); recetas.push(copia); DB.set('recetas',recetas);
   recetaActual=copia;
   document.getElementById('r-id').value=copia.id;
   document.getElementById('r-nombre').value=copia.nombre;
@@ -1660,10 +1651,8 @@ function duplicarReceta(){
   const dupBtn=document.getElementById('r-btn-dup');if(dupBtn)dupBtn.style.display='';
   document.getElementById('r-componentes').style.display='';
   document.getElementById('r-editor-title').textContent='Editar Receta';
-  try{renderRecetaLista();}catch(e){}
-  try{renderConfiguraciones();}catch(e){}
-  try{renderComponentesReceta();}catch(e){}
-  try{if(copia.configs&&copia.configs.length>0) seleccionarConfig(0);}catch(e){}
+  try{renderRecetaLista();}catch(e){} try{renderConfiguraciones();}catch(e){}
+  try{renderComponentesReceta();}catch(e){} try{if(copia.configs&&copia.configs.length>0)seleccionarConfig(0);}catch(e){}
   const pubCb=document.getElementById('r-publicar-scavi');if(pubCb)pubCb.checked=false;
   toast('Receta duplicada — cambia el nombre y guarda','success');
 }
@@ -3857,7 +3846,8 @@ function recopilarCortes(proyecto){
         // Buscar en la receta los cortesV y cortesH de esta clave
         const recetaNombre=partida.receta;
         const configNombre=partida.config;
-        const receta=DB.get('recetas').find(r=>r.nombre===recetaNombre);
+        const receta=DB.get('recetas').find(r=>r.nombre===recetaNombre)
+          || DB.getAdminRecetas().find(r=>r.nombre===recetaNombre);
         let cortesV=0, cortesH=0;
         if(receta){
           const cfg=receta.configs?receta.configs.find(c=>c.tipo===configNombre):null;
@@ -3875,7 +3865,9 @@ function recopilarCortes(proyecto){
                 if(!condSet.has('CON_MOSQUITERO')) condSet.add('SIN_MOSQUITERO');
                 if(!condSet.has('CON_ESCALONADO_VERT')) condSet.add('SIN_ESCALONADO_VERT');
                 if(!condSet.has('CON_ESCALONADO_SUP')) condSet.add('SIN_ESCALONADO_SUP');
-                ['CON_COMERCIAL','CON_RESIDENCIAL','CON_RESIDENCIAL_Z6','CON_RESIDENCIAL_Z10','CON_DUELA_50','CON_DUELA_50_2C','CON_DUELA_1C','CON_DUELA_2C','CON_LOUVER','CON_INTERMEDIO_1H','CON_INTERMEDIO_2H','CON_INTERMEDIO_4_1H','CON_INTERMEDIO_4_2H'
+                ['CON_COMERCIAL','CON_RESIDENCIAL','CON_RESIDENCIAL_Z6','CON_RESIDENCIAL_Z10',
+                 'CON_DUELA_50','CON_DUELA_50_2C','CON_DUELA_1C','CON_DUELA_2C',
+                 'CON_LOUVER','CON_INTERMEDIO_1H','CON_INTERMEDIO_2H','CON_INTERMEDIO_4_1H','CON_INTERMEDIO_4_2H'
                 ].forEach(id=>{ if(!condSet.has(id)) condSet.add(id.replace('CON_','SIN_')); });
                 cp.grupos.forEach(g=>{
                   const cond=(g.condicion||'SIEMPRE').toUpperCase();
