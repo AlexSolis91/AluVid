@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es"><!-- SCAVi-FIX-v8-ADMIN-RECETA -->
+<html lang="es"><!-- SCAVi-FIX-v9-NO-LEGACY -->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -3884,7 +3884,9 @@ function recopilarCortes(proyecto){
                     mapaPerfiles[key].cortes.push({longitud:parseFloat(longCorte.toFixed(4)),ubicacion});
                   }
                 });
-              } else {
+                // Si todos los grupos fueron filtrados por condición, el perfil no aplica
+                // NO caer al bloque legacy — dejar cortes vacío para que no se muestre
+              } else if(false) { // legacy deshabilitado cuando hay grupos
                 // Legacy: cortesV × alto + cortesH × ancho
                 cortesV=cp.cortesV||0; cortesH=cp.cortesH||0;
                 if(cortesV>0&&alto>0){
