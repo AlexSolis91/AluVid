@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es"><!-- SCAVi-FIX-v10-DETALLE-PARSER -->
+<html lang="es"><!-- SCAVi-FIX-v11-EXTRA-DETALLE -->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -2622,11 +2622,15 @@ function agregarExtraPerfil(){
   const p=DB.get('perfiles').find(x=>x.idCompuesto===idComp);
   if(!p){toast(`Perfil ${clave} no encontrado con acabado "${acabado}"`, 'error');return;}
   const costo=p.precioML*ml;
+  let detPartsA=[];
+  if(v>0&&largoV>0) detPartsA.push(`${v}×${largoV.toFixed(2)}m(alt)`);
+  if(h>0&&largoH>0) detPartsA.push(`${h}×${largoH.toFixed(2)}m(anch)`);
+  const detExtra=detPartsA.length>0?detPartsA.join(' + ')+` = ${num(ml)} ml × ${fmt(p.precioML)}/ml`:`${num(ml)} ml × ${fmt(p.precioML)}/ml`;
   const linea={
     idx: proyectoActivo._temp.lineasDesglose.length,
     label:`${p.idCompuesto} — ${p.nombre} [EXTRA]`,
     tipo:'Perfil', costo, encontrado:true, activo:true,
-    detalle:`${num(ml)} ml × ${fmt(p.precioML)}/ml`
+    detalle: detExtra
   };
   proyectoActivo._temp.lineasDesglose.push(linea);
   renderDesglose();
@@ -3420,7 +3424,11 @@ function epConfirmarExtraPerfil(idx){
   const idComp=acabado.replace(/\s+/g,'')+clave;
   const pf=DB.get('perfiles').find(x=>x.idCompuesto===idComp);
   if(!pf){toast(`Perfil ${clave} no encontrado con acabado "${acabado}"`, 'error');return;}
-  const linea={label:`${pf.idCompuesto} — ${pf.nombre} [EXTRA]`,tipo:'Perfil',costo:pf.precioML*ml,encontrado:true,detalle:`${num(ml)} ml × ${fmt(pf.precioML)}/ml`,activo:true};
+  let detPartsB=[];
+  if(v>0&&largoV>0) detPartsB.push(`${v}×${largoV.toFixed(2)}m(alt)`);
+  if(h>0&&largoH>0) detPartsB.push(`${h}×${largoH.toFixed(2)}m(anch)`);
+  const detExtraB=detPartsB.length>0?detPartsB.join(' + ')+` = ${num(ml)} ml × ${fmt(pf.precioML)}/ml`:`${num(ml)} ml × ${fmt(pf.precioML)}/ml`;
+  const linea={label:`${pf.idCompuesto} — ${pf.nombre} [EXTRA]`,tipo:'Perfil',costo:pf.precioML*ml,encontrado:true,detalle:detExtraB,activo:true};
   const p=proyectoActivo.partidas[idx];
   p._editDesglose=p._editDesglose||[...p.desglose||[]];
   p._editDesglose.push(linea);
