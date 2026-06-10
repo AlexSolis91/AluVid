@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es"><!-- SCAVi-FIX-v11-EXTRA-DETALLE -->
+<html lang="es"><!-- SCAVi-FIX-v12-TOGGLE-PERSIST -->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -2498,6 +2498,20 @@ function toggleDesglose(idx, activo){
   if(!proyectoActivo._temp) return;
   proyectoActivo._temp.lineasDesglose[idx].activo=activo;
   renderDesglose();
+  // Persistir inmediatamente: guardar lineas actuales en el proyecto
+  // Buscar la partida que corresponde al desglose activo comparando labels
+  const lineas=proyectoActivo._temp.lineasDesglose;
+  const proyectos=DB.get('proyectos');
+  const pr=proyectos.find(x=>x.id===proyectoActivo.id);
+  if(pr&&lineas.length>0){
+    const label0=lineas[0]?.label;
+    const pa=pr.partidas?.find(p=>p.desglose?.length>0&&p.desglose[0]?.label===label0);
+    if(pa){
+      // Sync activo flags from _temp to desglose
+      lineas.forEach((l,i)=>{ if(pa.desglose[i]) pa.desglose[i].activo=l.activo; });
+      DB.set('proyectos',proyectos);
+    }
+  }
 }
 
 // ══════════════════════════════════════════════
@@ -3355,6 +3369,17 @@ function toggleDesgloseEdicion(partidaIdx, lineaIdx, activo){
   const lineas=p._editDesglose||p.desglose||[];
   const total=lineas.filter(l=>l.activo!==false).reduce((s,l)=>s+l.costo,0)*cantidad;
   renderDesgloseEdicion(partidaIdx, lineas, total);
+  // Persistir inmediatamente
+  const proyectos=DB.get('proyectos');
+  const pr=proyectos.find(x=>x.id===proyectoActivo.id);
+  if(pr){
+    const pa=pr.partidas?.[partidaIdx];
+    if(pa){
+      const des=p._editDesglose||p.desglose||[];
+      pa.desglose=des;
+      DB.set('proyectos',proyectos);
+    }
+  }
 }
 
 // Extra perfil/herraje in edit panel
