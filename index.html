@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es"><!-- SCAVi-FIX-v12-TOGGLE-PERSIST -->
+<html lang="es"><!-- SCAVi-FIX-v13-EXTRA-SKIP-RECETA -->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -3879,8 +3879,9 @@ function recopilarCortes(proyecto){
         // Buscar en la receta los cortesV y cortesH de esta clave
         const recetaNombre=partida.receta;
         const configNombre=partida.config;
-        const receta=DB.get('recetas').find(r=>r.nombre===recetaNombre)
-          || DB.getAdminRecetas().find(r=>r.nombre===recetaNombre);
+        const esExtra=linea.label?.includes('[EXTRA]');
+        const receta=esExtra?null:(DB.get('recetas').find(r=>r.nombre===recetaNombre)
+          || DB.getAdminRecetas().find(r=>r.nombre===recetaNombre));
         let cortesV=0, cortesH=0;
         if(receta){
           const cfg=receta.configs?receta.configs.find(c=>c.tipo===configNombre):null;
