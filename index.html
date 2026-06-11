@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es"><!-- SCAVi-FIX-v14-PROYECCION -->
+<html lang="es"><!-- SCAVi-FIX-v15-MOSQUITERO-FIJO -->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -2756,10 +2756,13 @@ function calcularPartida(){
   if(document.getElementById('cond-CON_ZOCLO_SUP')?.checked) condicionesActivas.add('CON_ZOCLO_SUP');
   else condicionesActivas.add('SIN_ZOCLO_SUP');
   // Mosquitero
-  if(document.getElementById('cond-CON_MOSQUITERO')?.checked){
+  const _mosFijo=document.getElementById('cond-CON_MOSQUITERO_FIJO')?.checked;
+  const _mosCorr=document.getElementById('cond-CON_MOSQUITERO_CORREDIZO')?.checked;
+  const _mosGen=document.getElementById('cond-CON_MOSQUITERO')?.checked;
+  if(_mosGen||_mosFijo||_mosCorr){
     condicionesActivas.add('CON_MOSQUITERO');
-    if(document.getElementById('cond-CON_MOSQUITERO_FIJO')?.checked) condicionesActivas.add('CON_MOSQUITERO_FIJO');
-    if(document.getElementById('cond-CON_MOSQUITERO_CORREDIZO')?.checked) condicionesActivas.add('CON_MOSQUITERO_CORREDIZO');
+    if(_mosFijo) condicionesActivas.add('CON_MOSQUITERO_FIJO');
+    if(_mosCorr) condicionesActivas.add('CON_MOSQUITERO_CORREDIZO');
   } else {
     condicionesActivas.add('SIN_MOSQUITERO');
   }
