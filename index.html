@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es"><!-- SCAVi-FIX-v13-EXTRA-SKIP-RECETA -->
+<html lang="es"><!-- SCAVi-FIX-v14-PROYECCION -->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -2318,6 +2318,7 @@ function tipoCancelFromNombre(nombre) {
   const n = nombre.toUpperCase();
   if (n.includes('BATIENTE')) return 'BATIENTE';
   if (n.includes('FIJO')) return 'FIJO';
+  if (n.includes('PROYECCION') || n.includes('PROYECCIÓN')) return 'PROYECCION';
   if (n.includes('CORREDIZ') || n.includes('VENTANA') || n.includes('PUERTA')) return 'CORREDIZO';
   return 'NINGUNO';
 }
@@ -2350,6 +2351,10 @@ function renderOpcionesCancel(recetaNombre) {
     html += cb('CON_ZOCLO_SUP', 'Zoclo superior');
     html += cb('CON_ESCALONADO_VERT', 'Escalonado vertical');
     html += cb('CON_ESCALONADO_SUP', 'Escalonado superior');
+  }
+
+  if (tipo === 'PROYECCION') {
+    html += cb('CON_MOSQUITERO_FIJO', 'Mosquitero fijo', "sincronizarMosquitero('FIJO');calcularPartida()");
   }
 
   if (tipo === 'CORREDIZO') {
