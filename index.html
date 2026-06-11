@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es"><!-- SCAVi-FIX-v16-SYNC-MOSQUITERO -->
+<html lang="es"><!-- SCAVi-FIX-v17-TELA-M2 -->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -3973,15 +3973,18 @@ function recopilarCortes(proyecto){
         });
         if(!hj)return;
         const key=hj.id;
-        if(!mapaHerrajes[key]) mapaHerrajes[key]={herraje:hj,totalPiezas:0,totalML:0,costo:0};
+        if(!mapaHerrajes[key]) mapaHerrajes[key]={herraje:hj,totalPiezas:0,totalML:0,totalM2:0,costo:0};
         // Extraer del detalle
         const det=linea.detalle||'';
         const mlMatch=det.match(/([\d,.]+)\s*ml/);
         const pzMatch=det.match(/([\d,.]+)\s*pzs/);
+        const m2Match=det.match(/([\d,.]+)\s*m²/);
         const mlVal=mlMatch?parseFloat(mlMatch[1].replace(',','.'))*cant:0;
         const pzVal=pzMatch?parseFloat(pzMatch[1].replace(',','.'))*cant:0;
+        const m2Val=m2Match?parseFloat(m2Match[1].replace(',','.'))*cant:0;
         mapaHerrajes[key].totalML+=mlVal;
         mapaHerrajes[key].totalPiezas+=pzVal;
+        mapaHerrajes[key].totalM2+=m2Val;
         mapaHerrajes[key].costo+=linea.costo*cant;
       }
       else if(linea.tipo==='Vidrio'){
@@ -4137,9 +4140,12 @@ function calcularListaMaterial(proyecto){
     '<div class="empty-state"><p>Sin perfiles en este proyecto</p></div>';
 
   // ── HERRAJES ──────────────────────────────────────────────────
-  const herrajesHTML=Object.values(mapaHerrajes);
-  document.getElementById('mat-herrajes-tbody').innerHTML=herrajesHTML.length?
-    herrajesHTML.map(({herraje,totalPiezas,totalML,costo})=>`<tr>
+  const herrajesAll=Object.values(mapaHerrajes);
+  // Separar herrajes por m2 (van a sección vidrio) del resto
+  const herrajesPorM2=herrajesAll.filter(h=>h.herraje.precioM2&&!h.herraje.precioML&&!h.herraje.precioUnit);
+  const herrajesNorm=herrajesAll.filter(h=>!(h.herraje.precioM2&&!h.herraje.precioML&&!h.herraje.precioUnit));
+  document.getElementById('mat-herrajes-tbody').innerHTML=herrajesNorm.length?
+    herrajesNorm.map(({herraje,totalPiezas,totalML,costo})=>`<tr>
       <td>${herraje.descripcion}${herraje.clave?' <span class="td-mono" style="font-size:11px">['+herraje.clave+']</span>':''}</td>
       <td><span class="badge ${herraje.precioML?'badge-blue':'badge-amber'}">${herraje.precioML?'ml':'pieza'}</span></td>
       <td style="font-family:var(--mono);font-weight:600">${totalPiezas>0?totalPiezas+' pzs':'-'}</td>
@@ -4150,13 +4156,23 @@ function calcularListaMaterial(proyecto){
 
   // ── VIDRIO ────────────────────────────────────────────────────
   const vidrioHTML=Object.values(mapaVidrios);
-  document.getElementById('mat-vidrio-tbody').innerHTML=vidrioHTML.length?
-    vidrioHTML.map(({nombre,totalM2,costo,precioM2})=>`<tr>
+  // Agregar herrajes por m2 a la sección de vidrio
+  const vidrioRows=[
+    ...vidrioHTML.map(({nombre,totalM2,costo,precioM2})=>`<tr>
       <td>${nombre}</td>
       <td style="font-family:var(--mono);font-weight:600">${num(totalM2)} m²</td>
       <td>${fmt(precioM2)}/m²</td>
       <td style="color:var(--green);font-weight:600">${fmt(costo)}</td>
-    </tr>`).join(''):
+    </tr>`),
+    ...herrajesPorM2.map(({herraje,totalM2,costo})=>`<tr>
+      <td>${herraje.descripcion}${herraje.clave?' <span class="td-mono" style="font-size:11px">['+herraje.clave+']</span>':''}</td>
+      <td style="font-family:var(--mono);font-weight:600">${num(totalM2)} m²</td>
+      <td>${herraje.precioM2?fmt(herraje.precioM2)+'/m²':'-'}</td>
+      <td style="color:var(--green);font-weight:600">${fmt(costo)}</td>
+    </tr>`)
+  ];
+  document.getElementById('mat-vidrio-tbody').innerHTML=vidrioRows.length?
+    vidrioRows.join(''):
     '<tr><td colspan="4"><div class="empty-state" style="padding:16px"><p>Sin vidrio</p></div></td></tr>';
 }
 
@@ -4185,7 +4201,10 @@ function imprimirListaMaterial(){
 
   // ── Herrajes por ML
   let herrajesMLRows='', herrajesPzRows='';
-  Object.values(mapaHerrajes).forEach(({herraje,totalPiezas,totalML})=>{
+  // Separar herrajes m2 para sección vidrio en impresión
+  const _hjM2print=Object.values(mapaHerrajes).filter(h=>h.herraje.precioM2&&!h.herraje.precioML&&!h.herraje.precioUnit);
+  const _hjNormPrint=Object.values(mapaHerrajes).filter(h=>!(h.herraje.precioM2&&!h.herraje.precioML&&!h.herraje.precioUnit));
+  _hjNormPrint.forEach(({herraje,totalPiezas,totalML})=>{
     if(totalML>0.01){
       herrajesMLRows+=`<tr>
         <td style="font-family:monospace">${herraje.clave||'—'}</td>
@@ -4204,6 +4223,13 @@ function imprimirListaMaterial(){
 
   // ── Vidrio
   let vidrioRows='';
+  // Agregar herrajes por m2 a sección vidrio
+  _hjM2print.forEach(({herraje,totalM2})=>{
+    vidrioRows+=`<tr>
+      <td>${herraje.descripcion}</td>
+      <td style="font-family:monospace;font-weight:700;text-align:right">${num(totalM2)} m²</td>
+    </tr>`;
+  });
   Object.values(mapaVidrios).forEach(({nombre,totalM2})=>{
     vidrioRows+=`<tr>
       <td>${nombre}</td>
