@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es"><!-- SCAVi-FIX-v15-MOSQUITERO-FIJO -->
+<html lang="es"><!-- SCAVi-FIX-v16-SYNC-MOSQUITERO -->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -2450,9 +2450,9 @@ function sincronizarMosquitero(tipo){
   const fijo=document.getElementById('cond-CON_MOSQUITERO_FIJO');
   const corredizo=document.getElementById('cond-CON_MOSQUITERO_CORREDIZO');
   if(tipo==='FIJO'||tipo==='CORREDIZO'){
-    gen.checked=fijo.checked||corredizo.checked;
+    if(gen) gen.checked=(fijo?.checked||false)||(corredizo?.checked||false);
   }
-  if(tipo==='CON_MOSQUITERO'&&!gen.checked){
+  if(tipo==='CON_MOSQUITERO'&&gen&&!gen.checked){
     if(fijo) fijo.checked=false;
     if(corredizo) corredizo.checked=false;
   }
