@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es"><!-- SCAVi-FIX-v17-TELA-M2 -->
+<html lang="es"><!-- SCAVi-FIX-v18-NO-KERF -->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -4003,7 +4003,7 @@ function recopilarCortes(proyecto){
 }
 
 // ── CUTTING STOCK PROBLEM — First Fit Decreasing ────────────────
-function cuttingStockFFD(cortes, longitudTramo, kerfMm=5){
+function cuttingStockFFD(cortes, longitudTramo, kerfMm=0){
   // kerfMm: ancho del disco de sierra en milímetros (default 5mm).
   // El kerf se cobra UNA VEZ por cada corte de sierra dentro del tramo,
   // NO se aplica al primer corte (el tramo ya viene cortado del proveedor).
