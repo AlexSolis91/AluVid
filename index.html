@@ -783,6 +783,9 @@ onAuthStateChanged(_auth, async (user) => {
               <span class="list-panel-title">Recetas</span>
               <button class="btn btn-primary btn-sm" onclick="nuevaReceta()">+ Nueva</button>
             </div>
+            <div style="padding:8px 10px;border-bottom:1px solid var(--border)">
+              <input id="r-buscador" type="text" placeholder="🔍 Buscar receta..." oninput="renderRecetaLista()" style="width:100%;box-sizing:border-box">
+            </div>
             <div class="list-items" id="r-lista"></div>
           </div>
         </div>
@@ -1494,13 +1497,17 @@ let recetaActual=null,configActual=null;
 let modalCtx={},modalItemsAll=[];
 
 function renderRecetaLista(){
-  const recetas=DB.get('recetas');
+  let recetas=DB.get('recetas');
+  const q=(document.getElementById('r-buscador')?.value||'').trim().toLowerCase();
+  if(q){
+    recetas=recetas.filter(r=>(r.nombre||'').toLowerCase().includes(q)||(r.linea||'').toLowerCase().includes(q));
+  }
   const el=document.getElementById('r-lista');
   el.innerHTML=recetas.length?recetas.map(r=>`
     <div class="list-item ${recetaActual&&recetaActual.id===r.id?'active':''}" onclick="seleccionarReceta(${r.id})">
       <div><div class="list-item-name">${r.nombre}</div><div class="list-item-sub">${r.linea}</div></div>
     </div>`).join(''):
-    '<div class="empty-state"><p>No hay recetas aún</p></div>';
+    (q?'<div class="empty-state"><p>Sin resultados para "'+q+'"</p></div>':'<div class="empty-state"><p>No hay recetas aún</p></div>');
 }
 
 function seleccionarReceta(id){
