@@ -3891,6 +3891,7 @@ function recopilarCortes(proyecto){
         const receta=esExtra?null:(DB.get('recetas').find(r=>r.nombre===recetaNombre)
           || DB.getAdminRecetas().find(r=>r.nombre===recetaNombre));
         let cortesV=0, cortesH=0;
+        const cortesAntesDeEstaLinea=mapaPerfiles[key].cortes.length;
         if(receta){
           const cfg=receta.configs?receta.configs.find(c=>c.tipo===configNombre):null;
           if(cfg){
@@ -3943,8 +3944,9 @@ function recopilarCortes(proyecto){
             }
           }
         }
-        // Si no hay cortes de receta (extras manuales), parsear del detalle
-        if(mapaPerfiles[key].cortes.length===0 && linea.detalle){
+        // Si ESTA línea no generó cortes desde receta (extras manuales, o línea [EXTRA]), parsear del detalle
+        const cortesGeneradosPorEstaLinea=mapaPerfiles[key].cortes.length-cortesAntesDeEstaLinea;
+        if(cortesGeneradosPorEstaLinea===0 && linea.detalle){
           // Parsear patrones como "2×2.40m(alt)" o "1×1.20m(anch)" del detalle
           const patronCortes=/(\d+)×([\d.]+)m\(/g;
           let match;
@@ -3956,7 +3958,7 @@ function recopilarCortes(proyecto){
             }
           }
           // Si no se encontraron patrones individuales, usar ml total como último recurso
-          if(mapaPerfiles[key].cortes.length===0){
+          if(mapaPerfiles[key].cortes.length===cortesAntesDeEstaLinea){
             const mlMatch=linea.detalle.match(/([\d,.]+)\s*ml/);
             if(mlMatch){
               const mlTotal=parseFloat(mlMatch[1].replace(',','.'))||0;
