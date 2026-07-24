@@ -2323,6 +2323,7 @@ function guardarProyecto(){
 function tipoCancelFromNombre(nombre) {
   if (!nombre) return 'NINGUNO';
   const n = nombre.toUpperCase();
+  if (n.includes('OSCILOBATIENTE') || n.includes('OSCILO BATIENTE')) return 'OSCILOBATIENTE';
   if (n.includes('BATIENTE')) return 'BATIENTE';
   if (n.includes('FIJO')) return 'FIJO';
   if (n.includes('PROYECCION') || n.includes('PROYECCIÓN')) return 'PROYECCION';
@@ -2361,6 +2362,10 @@ function renderOpcionesCancel(recetaNombre) {
   }
 
   if (tipo === 'PROYECCION') {
+    html += cb('CON_MOSQUITERO_FIJO', 'Mosquitero fijo', "sincronizarMosquitero('FIJO');calcularPartida()");
+  }
+
+  if (tipo === 'OSCILOBATIENTE') {
     html += cb('CON_MOSQUITERO_FIJO', 'Mosquitero fijo', "sincronizarMosquitero('FIJO');calcularPartida()");
   }
 
