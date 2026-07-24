@@ -593,6 +593,12 @@ onAuthStateChanged(_auth, async (user) => {
         <h2>Proyectos guardados</h2>
         <button class="btn btn-purple" onclick="nav(document.querySelector('[data-view=cotizar]'));nuevoProyecto()">+ Nuevo proyecto</button>
       </div>
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px">
+        <div class="search-wrap" style="flex:1">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input id="proy-buscar" placeholder="Buscar por folio, cliente o fecha..." oninput="renderProyectos()" style="width:100%">
+        </div>
+      </div>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Folio</th><th>Cliente</th><th>Partidas</th><th>Total s/IVA</th><th>Total c/IVA</th><th>Fecha</th><th></th></tr></thead>
@@ -3588,7 +3594,21 @@ function eliminarPartida(idx){
 // MIS PROYECTOS
 // ══════════════════════════════════════════════
 function renderProyectos(){
-  const proyectos=DB.get('proyectos').slice().reverse();
+  let proyectos=DB.get('proyectos').slice().sort((a,b)=>{
+    const fa=new Date(a.fecha||0).getTime()||0;
+    const fb=new Date(b.fecha||0).getTime()||0;
+    if(fb!==fa) return fb-fa;
+    return (b.id||0)-(a.id||0);
+  });
+  const q=(document.getElementById('proy-buscar')?.value||'').trim().toLowerCase();
+  if(q){
+    proyectos=proyectos.filter(p=>
+      (p.folio||'').toLowerCase().includes(q)||
+      (p.cliente||'').toLowerCase().includes(q)||
+      fechaCorta(p.fecha).toLowerCase().includes(q)||
+      (p.fecha||'').toLowerCase().includes(q)
+    );
+  }
   document.getElementById('proy-tabla').innerHTML=proyectos.length?
     proyectos.map(p=>{
       const total=totalProyecto(p);
@@ -3604,7 +3624,7 @@ function renderProyectos(){
           <button class="btn btn-danger btn-sm" onclick="eliminarProyecto(${p.id})">✕</button>
         </td>
       </tr>`;}).join(''):
-    '<tr><td colspan="7"><div class="empty-state"><p>Sin proyectos guardados</p></div></td></tr>';
+    (q?'<tr><td colspan="7"><div class="empty-state"><p>Sin resultados para "'+q+'"</p></div></td></tr>':'<tr><td colspan="7"><div class="empty-state"><p>Sin proyectos guardados</p></div></td></tr>');
 }
 
 function eliminarProyecto(id){
