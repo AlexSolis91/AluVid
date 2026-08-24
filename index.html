@@ -356,7 +356,7 @@ onAuthStateChanged(_auth, async (user) => {
       <span class="nav-badge" id="badge-alertas">0</span>
     </div>
   </nav>
-  <div class="sidebar-footer">v1.1 — Datos guardados localmente</div>
+  <div class="sidebar-footer" id="sidebar-version">Datos guardados localmente</div>
 </aside>
 
 <!-- MAIN -->
@@ -364,6 +364,7 @@ onAuthStateChanged(_auth, async (user) => {
   <header id="topbar">
     <span id="page-title">Dashboard</span>
     <div class="topbar-actions" id="topbar-actions"></div>
+    <span id="topbar-version" style="margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--text3);background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:3px 8px;white-space:nowrap"></span>
   </header>
   <div id="content">
 
@@ -510,6 +511,9 @@ onAuthStateChanged(_auth, async (user) => {
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
                   <span style="font-size:13px;color:var(--text2)">Total partida (sin IVA)</span>
                   <span class="td-mono" style="font-size:18px;color:var(--green)" id="cot-total-partida">$0.00</span>
+                </div>
+                <div style="display:flex;justify-content:flex-end;margin-top:4px">
+                  <span class="td-mono" style="font-size:12px;color:var(--text3)" id="cot-total-unitario"></span>
                 </div>
               </div>
 
@@ -1123,6 +1127,9 @@ onAuthStateChanged(_auth, async (user) => {
 // }
 
 window._cache = {};
+
+// ── Versión de la app (subir en cada deploy con fixes) ─────────
+const APP_VERSION = '1.7.0';
 
 window.cerrarSesionApp = function() {
   if (window._fsSignOut && window._auth) {
@@ -2512,8 +2519,14 @@ function renderDesglose(){
     '<p style="color:var(--text3);font-size:12px;padding:8px 0">Selecciona configuración y medidas para ver el desglose</p>';
 
   // Recalcular total solo con líneas activas
-  const total=lineas.filter(l=>l.activo).reduce((s,l)=>s+l.costo,0)*cantidad;
+  const totalUnitario=lineas.filter(l=>l.activo).reduce((s,l)=>s+l.costo,0);
+  const total=totalUnitario*cantidad;
   document.getElementById('cot-total-partida').textContent=fmt(total);
+  const unitEl=document.getElementById('cot-total-unitario');
+  if(unitEl){
+    unitEl.style.display=cantidad>1?'':'none';
+    unitEl.textContent=cantidad>1?`Precio unitario: ${fmt(totalUnitario)} c/u`:'';
+  }
   if(proyectoActivo._temp) proyectoActivo._temp.totalSinIVA=total;
 }
 
@@ -2963,10 +2976,21 @@ function calcularPartida(){
 
   totalSinIVA*=cantidad;
 
+  // Preservar perfiles/herrajes EXTRA agregados manualmente (no vienen de la receta ni se deben perder al recalcular)
+  const prevLineas=(proyectoActivo._temp&&proyectoActivo._temp.lineasDesglose)||[];
+  const extrasPrevios=prevLineas.filter(l=>l.label&&l.label.includes('[EXTRA]'));
+  extrasPrevios.forEach(ex=>{
+    lineasDesglose.push({label:ex.label,tipo:ex.tipo,costo:ex.costo,encontrado:ex.encontrado,detalle:ex.detalle});
+    if(ex.activo!==false) totalSinIVA+=ex.costo*cantidad;
+  });
+
   // Render desglose
   // Store lineas in temp for checkbox toggling
   proyectoActivo._temp = proyectoActivo._temp || {};
-  proyectoActivo._temp.lineasDesglose = lineasDesglose.map((l,i)=>({...l,idx:i,activo:true}));
+  proyectoActivo._temp.lineasDesglose = lineasDesglose.map((l,i)=>{
+    const prev=prevLineas.find(p=>p.label===l.label);
+    return {...l,idx:i,activo:prev?prev.activo!==false:true};
+  });
   proyectoActivo._temp.cantidad = cantidad;
   renderDesglose();
 
@@ -4470,6 +4494,11 @@ function imprimirCortes(){
 // INIT — wait for Firebase auth to complete
 // ══════════════════════════════════════════════
 function _appInit() {
+  // Mostrar versión de la app
+  const topbarV=document.getElementById('topbar-version');
+  if(topbarV) topbarV.textContent='v'+APP_VERSION;
+  const sidebarV=document.getElementById('sidebar-version');
+  if(sidebarV) sidebarV.textContent='v'+APP_VERSION+' — Datos guardados localmente';
   // Migrate any existing localStorage data to Firestore
   const tablas = ['perfiles','herrajes','vidrios','recetas','proyectos'];
   let migrado = 0;
