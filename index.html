@@ -1129,7 +1129,7 @@ onAuthStateChanged(_auth, async (user) => {
 window._cache = {};
 
 // ── Versión de la app (subir en cada deploy con fixes) ─────────
-const APP_VERSION = '1.7.0';
+const APP_VERSION = '1.7.1';
 
 window.cerrarSesionApp = function() {
   if (window._fsSignOut && window._auth) {
@@ -2337,6 +2337,7 @@ function tipoCancelFromNombre(nombre) {
   if (!nombre) return 'NINGUNO';
   const n = nombre.toUpperCase();
   if (n.includes('OSCILOBATIENTE') || n.includes('OSCILO BATIENTE')) return 'OSCILOBATIENTE';
+  if (n.includes('VENTANA') && n.includes('BATIENTE')) return 'VENTANA_BATIENTE';
   if (n.includes('BATIENTE')) return 'BATIENTE';
   if (n.includes('FIJO')) return 'FIJO';
   if (n.includes('PROYECCION') || n.includes('PROYECCIÓN')) return 'PROYECCION';
@@ -2379,6 +2380,10 @@ function renderOpcionesCancel(recetaNombre) {
   }
 
   if (tipo === 'OSCILOBATIENTE') {
+    html += cb('CON_MOSQUITERO_FIJO', 'Mosquitero fijo', "sincronizarMosquitero('FIJO');calcularPartida()");
+  }
+
+  if (tipo === 'VENTANA_BATIENTE') {
     html += cb('CON_MOSQUITERO_FIJO', 'Mosquitero fijo', "sincronizarMosquitero('FIJO');calcularPartida()");
   }
 
