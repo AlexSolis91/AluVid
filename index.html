@@ -643,6 +643,19 @@ onAuthStateChanged(_auth, async (user) => {
           </div>
         </div>
 
+        <!-- Selector de partidas a incluir -->
+        <div class="list-panel" style="margin-bottom:16px">
+          <div class="list-panel-header" style="cursor:pointer" onclick="toggleMatPartidasPanel()">
+            <span class="list-panel-title">Partidas a incluir (<span id="mat-partidas-count"></span>)</span>
+            <div style="display:flex;gap:8px;align-items:center">
+              <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();marcarTodasMatPartidas(true)">Todas</button>
+              <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();marcarTodasMatPartidas(false)">Ninguna</button>
+              <span id="mat-partidas-caret">▾</span>
+            </div>
+          </div>
+          <div id="mat-partidas-checklist" class="list-items"></div>
+        </div>
+
         <!-- Tabs: Perfiles / Herrajes / Vidrio -->
         <div class="tabs">
           <div class="tab active" onclick="switchTab(this,'mat-tab-perfiles')">Perfiles de Aluminio</div>
@@ -1129,7 +1142,7 @@ onAuthStateChanged(_auth, async (user) => {
 window._cache = {};
 
 // ── Versión de la app (subir en cada deploy con fixes) ─────────
-const APP_VERSION = '1.7.1';
+const APP_VERSION = '1.8.0';
 
 window.cerrarSesionApp = function() {
   if (window._fsSignOut && window._auth) {
@@ -3902,6 +3915,58 @@ function filtrarMatProyectos(q){
     '<div class="empty-state"><p>No hay proyectos guardados</p></div>';
 }
 
+let matPartidasSeleccionadas = new Set();
+
+function proyectoMatFiltrado(){
+  if(!matProyectoActivo) return null;
+  const todasPartidas = matProyectoActivo.partidas||[];
+  const partidasFiltradas = todasPartidas.filter((_,i)=>matPartidasSeleccionadas.has(i));
+  return {...matProyectoActivo, partidas: partidasFiltradas};
+}
+
+function renderMatPartidasChecklist(){
+  const partidas = matProyectoActivo?.partidas||[];
+  const el = document.getElementById('mat-partidas-checklist');
+  const countEl = document.getElementById('mat-partidas-count');
+  if(!el) return;
+  countEl.textContent = matPartidasSeleccionadas.size+' de '+partidas.length;
+  el.innerHTML = partidas.map((p,i)=>{
+    const total = p.totalPartida||0;
+    return `<div class="list-item" style="cursor:default">
+      <label style="display:flex;align-items:center;gap:10px;width:100%;cursor:pointer">
+        <input type="checkbox" ${matPartidasSeleccionadas.has(i)?'checked':''} onchange="toggleMatPartida(${i})">
+        <div style="flex:1">
+          <div class="list-item-name">${p.ubicacion||'(sin ubicación)'} — ${p.receta||''}</div>
+          <div class="list-item-sub">${p.ancho||0}m × ${p.alto||0}m · cant: ${p.cantidad||1} · ${p.acabado||''}</div>
+        </div>
+        <div class="td-mono" style="color:var(--green);font-weight:600">${fmt(total)}</div>
+      </label>
+    </div>`;
+  }).join('')||'<div class="empty-state"><p>Este proyecto no tiene partidas</p></div>';
+}
+
+function toggleMatPartida(i){
+  if(matPartidasSeleccionadas.has(i)) matPartidasSeleccionadas.delete(i);
+  else matPartidasSeleccionadas.add(i);
+  renderMatPartidasChecklist();
+  calcularListaMaterial(proyectoMatFiltrado());
+}
+
+function marcarTodasMatPartidas(marcar){
+  const total=(matProyectoActivo?.partidas||[]).length;
+  matPartidasSeleccionadas = marcar ? new Set(Array.from({length:total},(_,i)=>i)) : new Set();
+  renderMatPartidasChecklist();
+  calcularListaMaterial(proyectoMatFiltrado());
+}
+
+function toggleMatPartidasPanel(){
+  const el=document.getElementById('mat-partidas-checklist');
+  const caret=document.getElementById('mat-partidas-caret');
+  const abierto=el.style.display!=='none';
+  el.style.display=abierto?'none':'';
+  caret.textContent=abierto?'▸':'▾';
+}
+
 function abrirMatProyecto(id){
   matProyectoActivo=DB.get('proyectos').find(p=>p.id===id);
   if(!matProyectoActivo)return;
@@ -3909,7 +3974,11 @@ function abrirMatProyecto(id){
   document.getElementById('mat-detalle').style.display='';
   document.getElementById('mat-folio-title').textContent=matProyectoActivo.folio;
   document.getElementById('mat-cliente-title').textContent=matProyectoActivo.cliente||'Sin cliente';
-  calcularListaMaterial(matProyectoActivo);
+  // Por defecto todas las partidas quedan seleccionadas
+  const total=(matProyectoActivo.partidas||[]).length;
+  matPartidasSeleccionadas = new Set(Array.from({length:total},(_,i)=>i));
+  renderMatPartidasChecklist();
+  calcularListaMaterial(proyectoMatFiltrado());
 }
 
 // ── RECOPILAR CORTES DE TODAS LAS PARTIDAS ──────────────────────
@@ -4244,7 +4313,8 @@ function calcularListaMaterial(proyecto){
 // ══════════════════════════════════════════════════════════════════
 function imprimirListaMaterial(){
   if(!matProyectoActivo)return;
-  const p=matProyectoActivo;
+  const p=proyectoMatFiltrado();
+  if(!p.partidas.length){toast('Selecciona al menos una partida','error');return;}
   const {mapaPerfiles,mapaHerrajes,mapaVidrios}=recopilarCortes(p);
   const fecha=new Date().toLocaleDateString('es-MX',{year:'numeric',month:'long',day:'numeric'});
 
@@ -4368,7 +4438,8 @@ function imprimirListaMaterial(){
 // ══════════════════════════════════════════════════════════════════
 function imprimirCortes(){
   if(!matProyectoActivo)return;
-  const p=matProyectoActivo;
+  const p=proyectoMatFiltrado();
+  if(!p.partidas.length){toast('Selecciona al menos una partida','error');return;}
   const {mapaPerfiles}=recopilarCortes(p);
   const fecha=new Date().toLocaleDateString('es-MX',{year:'numeric',month:'long',day:'numeric'});
 
