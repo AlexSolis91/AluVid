@@ -605,7 +605,7 @@ onAuthStateChanged(_auth, async (user) => {
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Folio</th><th>Cliente</th><th>Partidas</th><th>Total s/IVA</th><th>Total c/IVA</th><th>Fecha</th><th></th></tr></thead>
+          <thead><tr><th>Folio</th><th>Cliente</th><th>Partidas</th><th style="color:var(--accent2)">Aluminio</th><th>Total s/IVA</th><th>Total c/IVA</th><th>Fecha</th><th></th></tr></thead>
           <tbody id="proy-tabla"></tbody>
         </table>
       </div>
@@ -1142,7 +1142,7 @@ onAuthStateChanged(_auth, async (user) => {
 window._cache = {};
 
 // ── Versión de la app (subir en cada deploy con fixes) ─────────
-const APP_VERSION = '1.8.1';
+const APP_VERSION = '1.9.0';
 
 window.cerrarSesionApp = function() {
   if (window._fsSignOut && window._auth) {
@@ -2315,6 +2315,16 @@ function abrirProyecto(id){
 }
 
 function totalProyecto(p){return(p.partidas||[]).reduce((s,x)=>s+(x.totalPartida||0),0);}
+
+function totalAluminioProyecto(p){
+  return (p.partidas||[]).reduce((sPartida,partida)=>{
+    const cant=partida.cantidad||1;
+    const subtotalPerfiles=(partida.desglose||[])
+      .filter(l=>l.tipo==='Perfil' && l.activo!==false)
+      .reduce((s,l)=>s+(l.costo||0),0);
+    return sPartida+(subtotalPerfiles*cant);
+  },0);
+}
 
 function sobranteProyecto(p){
   // Calculate total waste cost across all perfiles in project
@@ -3654,10 +3664,12 @@ function renderProyectos(){
   document.getElementById('proy-tabla').innerHTML=proyectos.length?
     proyectos.map(p=>{
       const total=totalProyecto(p);
+      const totalAluminio=totalAluminioProyecto(p);
       return`<tr>
         <td class="td-mono">${p.folio}</td>
         <td>${p.cliente||'<span class="td-muted">Sin nombre</span>'}</td>
         <td>${(p.partidas||[]).length} partidas</td>
+        <td style="color:var(--accent2);font-weight:600">${fmt(totalAluminio)}</td>
         <td style="color:var(--green);font-weight:600">${fmt(total)}</td>
         <td>${fmt(total*1.16)}</td>
         <td>${fechaCorta(p.fecha)}</td>
@@ -3666,7 +3678,7 @@ function renderProyectos(){
           <button class="btn btn-danger btn-sm" onclick="eliminarProyecto(${p.id})">✕</button>
         </td>
       </tr>`;}).join(''):
-    (q?'<tr><td colspan="7"><div class="empty-state"><p>Sin resultados para "'+q+'"</p></div></td></tr>':'<tr><td colspan="7"><div class="empty-state"><p>Sin proyectos guardados</p></div></td></tr>');
+    (q?'<tr><td colspan="8"><div class="empty-state"><p>Sin resultados para "'+q+'"</p></div></td></tr>':'<tr><td colspan="8"><div class="empty-state"><p>Sin proyectos guardados</p></div></td></tr>');
 }
 
 function eliminarProyecto(id){
