@@ -467,9 +467,14 @@ onAuthStateChanged(_auth, async (user) => {
               </div>
               <div class="form-group">
                 <label>Tipo de vidrio del cancel</label>
-                <select id="cot-vidrio" onchange="alCambiarVidrio()">
-                  <option value="">— Sin vidrio —</option>
-                </select>
+                <div class="combo-buscable" id="cot-vidrio-combo" style="position:relative">
+                  <input type="text" id="cot-vidrio-buscar" placeholder="— Sin vidrio — (escribe para buscar)" autocomplete="off"
+                    oninput="filtrarComboVidrio()" onfocus="filtrarComboVidrio()" onblur="setTimeout(cerrarComboVidrio,150)">
+                  <select id="cot-vidrio" onchange="alCambiarVidrio()" style="display:none">
+                    <option value="">— Sin vidrio —</option>
+                  </select>
+                  <div id="cot-vidrio-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:50;max-height:280px;overflow-y:auto;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius);margin-top:4px;box-shadow:var(--shadow)"></div>
+                </div>
                 <div id="cot-tipo-vidrio-indicator" style="display:none;margin-top:6px;font-size:11px;color:var(--text3)">
                   Tipo detectado: <span id="cot-tipo-vidrio-label" style="font-weight:600"></span>
                 </div>
@@ -1142,7 +1147,7 @@ onAuthStateChanged(_auth, async (user) => {
 window._cache = {};
 
 // ── Versión de la app (subir en cada deploy con fixes) ─────────
-const APP_VERSION = '1.9.0';
+const APP_VERSION = '1.10.0';
 
 window.cerrarSesionApp = function() {
   if (window._fsSignOut && window._auth) {
@@ -2262,9 +2267,53 @@ function mostrarEditorCotizacion(){
   renderPartidas();
   // Cargar vidrios en select
   const vs=DB.get('vidrios');
+  window._vidriosComboData=vs;
   document.getElementById('cot-vidrio').innerHTML='<option value="">— Sin vidrio —</option>'+
     vs.map(v=>`<option value="${v.id}">[${v.tipo||'SENCILLO'}] ${v.descripcion} — ${fmt(v.precioM2)}/m²</option>`).join('');
+  document.getElementById('cot-vidrio-buscar').value='';
+  document.getElementById('cot-vidrio-buscar').placeholder='— Sin vidrio — (escribe para buscar)';
 }
+
+function filtrarComboVidrio(){
+  const q=(document.getElementById('cot-vidrio-buscar').value||'').trim().toLowerCase();
+  const vs=window._vidriosComboData||[];
+  const filtrados=q?vs.filter(v=>{
+    const texto=`[${v.tipo||'SENCILLO'}] ${v.descripcion}`.toLowerCase();
+    return texto.includes(q);
+  }):vs;
+  const dd=document.getElementById('cot-vidrio-dropdown');
+  let html='';
+  if(!q){
+    html+=`<div class="combo-item" onmousedown="seleccionarVidrioCombo('')" style="padding:8px 12px;cursor:pointer;font-size:13px;color:var(--text2)">— Sin vidrio —</div>`;
+  }
+  html+=filtrados.map(v=>{
+    const label=`[${v.tipo||'SENCILLO'}] ${v.descripcion} — ${fmt(v.precioM2)}/m²`;
+    return `<div class="combo-item" onmousedown="seleccionarVidrioCombo(${v.id})" style="padding:8px 12px;cursor:pointer;font-size:13px" onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background=''">${label}</div>`;
+  }).join('');
+  if(!filtrados.length && q){
+    html+=`<div style="padding:8px 12px;font-size:13px;color:var(--text3)">Sin resultados para "${q}"</div>`;
+  }
+  dd.innerHTML=html;
+  dd.style.display='';
+}
+
+function seleccionarVidrioCombo(id){
+  const sel=document.getElementById('cot-vidrio');
+  sel.value=id;
+  const buscar=document.getElementById('cot-vidrio-buscar');
+  if(id===''){
+    buscar.value='';
+    buscar.placeholder='— Sin vidrio — (escribe para buscar)';
+  }else{
+    const v=(window._vidriosComboData||[]).find(x=>x.id===id);
+    buscar.value=v?`[${v.tipo||'SENCILLO'}] ${v.descripcion} — ${fmt(v.precioM2)}/m²`:'';
+  }
+  cerrarComboVidrio();
+  alCambiarVidrio();
+}
+
+function cerrarComboVidrio(){
+  document.getElementById('cot-vidrio-dropdown').style.display='none';
 
 function cerrarCotizacion(){
   document.getElementById('cot-inicio').style.display='';
