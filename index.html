@@ -1147,7 +1147,7 @@ onAuthStateChanged(_auth, async (user) => {
 window._cache = {};
 
 // ── Versión de la app (subir en cada deploy con fixes) ─────────
-const APP_VERSION = '1.10.2';
+const APP_VERSION = '1.11.0';
 
 window.cerrarSesionApp = function() {
   if (window._fsSignOut && window._auth) {
@@ -3268,11 +3268,43 @@ function toggleEditPartida(idx){
   btn.style.background=open?'rgba(79,142,247,.15)':'';
   btn.style.color=open?'var(--accent2)':'';
   if(open){
-    // Populate recetas select
-    epCargarRecetas(idx);
-    // Trigger full recalc
-    recotizarPartida(idx);
+    // Populate recetas select (sin disparar recálculo — solo refleja el estado guardado)
+    epCargarRecetasSinRecalcular(idx);
+    // Mostrar el desglose EXACTO que ya se guardó, no uno regenerado desde la receta
+    renderDesgloseEdicion(idx);
   }
+}
+
+// Populate recetas/config selects WITHOUT recalculating — used when opening the panel
+// so the originally saved desglose is shown as-is, not regenerated from the receta.
+function epCargarRecetasSinRecalcular(idx){
+  const linea=document.getElementById('ep-linea-'+idx).value;
+  const lineaL=linea.toLowerCase();
+  const userRs=DB.get('recetas').filter(r=>(r.linea||'').toLowerCase()===lineaL);
+  const adminRs=DB.getAdminRecetas().filter(r=>(r.linea||'').toLowerCase()===lineaL);
+  const p=proyectoActivo.partidas[idx];
+  const sel=document.getElementById('ep-receta-'+idx);
+  let opts='';
+  if(userRs.length) opts+='<optgroup label="Mis recetas">'+userRs.map(r=>`<option value="${r.id}" ${r.nombre===p.receta?'selected':''}>${r.nombre}</option>`).join('')+'</optgroup>';
+  if(adminRs.length) opts+='<optgroup label="── SCAVi ──">'+adminRs.map(r=>`<option value="${r.id||r._docId}" ${r.nombre===p.receta?'selected':''}>${r.nombre}</option>`).join('')+'</optgroup>';
+  sel.innerHTML=opts||'<option value="">Sin recetas en esta línea</option>';
+  epCargarConfigsSinRecalcular(idx);
+}
+
+function epCargarConfigsSinRecalcular(idx){
+  const ridRaw=document.getElementById('ep-receta-'+idx).value;
+  const rid=parseInt(ridRaw)||ridRaw;
+  const p=proyectoActivo.partidas[idx];
+  let r=DB.get('recetas').find(x=>x.id===rid||x.id===parseInt(rid));
+  if(!r) r=DB.getAdminRecetas().find(x=>String(x.id||x._docId)===String(rid));
+  const sel=document.getElementById('ep-config-'+idx);
+  if(r&&r.configs&&r.configs.length){
+    sel.innerHTML='<option value="">— Sin config —</option>'+
+      r.configs.map((c,i)=>`<option value="${i}" ${c.tipo===p.config?'selected':''}>${c.tipo}</option>`).join('');
+  } else {
+    sel.innerHTML='<option value="">Sin configuraciones</option>';
+  }
+  // NOTA: a propósito NO llamamos recotizarPartida aquí — solo poblamos los selects
 }
 
 // Populate recetas by linea for edit panel
