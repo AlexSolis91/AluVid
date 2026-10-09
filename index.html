@@ -584,6 +584,10 @@ onAuthStateChanged(_auth, async (user) => {
             <div class="step-num">2</div>
             <div class="step-title">Partidas del proyecto</div>
           </div>
+          <div class="search-wrap" style="margin-bottom:12px">
+            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input id="cot-partidas-buscar" placeholder="Buscar partida por ubicación, receta, config o acabado (ej. VF-1)..." oninput="renderPartidas()">
+          </div>
           <div id="cot-partidas-lista"></div>
           <div class="total-bar" id="cot-total-bar" style="display:none">
             <div>
@@ -1147,7 +1151,7 @@ onAuthStateChanged(_auth, async (user) => {
 window._cache = {};
 
 // ── Versión de la app (subir en cada deploy con fixes) ─────────
-const APP_VERSION = '1.11.0';
+const APP_VERSION = '1.12.0';
 
 window.cerrarSesionApp = function() {
   if (window._fsSignOut && window._auth) {
@@ -3149,7 +3153,27 @@ function renderPartidas(){
     document.getElementById('cot-total-bar').style.display='none';
     return;
   }
-  el.innerHTML=partidas.map((p,i)=>`
+  // Filtrar por búsqueda (conserva el índice real i para edición/eliminación)
+  const qBuscarPartida=(document.getElementById('cot-partidas-buscar')?.value||'').trim().toLowerCase();
+  const partidasConIdx=partidas.map((p,i)=>({p,i}));
+  const partidasFiltradas=qBuscarPartida
+    ? partidasConIdx.filter(({p,i})=>{
+        const texto=[p.ubicacion,p.descripcion,p.receta,p.config,p.acabado,p.linea,`${i+1}`]
+          .filter(Boolean).join(' ').toLowerCase();
+        return texto.includes(qBuscarPartida);
+      })
+    : partidasConIdx;
+
+  if(qBuscarPartida && !partidasFiltradas.length){
+    el.innerHTML='<div class="empty-state"><p>Sin resultados para "'+qBuscarPartida.replace(/</g,'&lt;')+'"</p></div>';
+    const total=partidas.reduce((s,p)=>s+(p.totalPartida||0),0);
+    document.getElementById('cot-total-proyecto').textContent=fmt(total);
+    document.getElementById('cot-total-iva-label').textContent=`Con IVA (16%): ${fmt(total*1.16)}`;
+    document.getElementById('cot-total-bar').style.display='';
+    return;
+  }
+
+  el.innerHTML=partidasFiltradas.map(({p,i})=>`
     <div class="partida-row" id="partida-row-${i}" style="flex-direction:column;gap:0;padding:0">
       <!-- Header de la partida -->
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:14px 16px;width:100%">
