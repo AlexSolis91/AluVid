@@ -613,9 +613,12 @@ onAuthStateChanged(_auth, async (user) => {
 
         <!-- Paso 2: Partidas del proyecto -->
         <div class="cotizar-step">
-          <div class="cotizar-step-header">
-            <div class="step-num">2</div>
-            <div class="step-title">Partidas del proyecto</div>
+          <div class="cotizar-step-header" style="justify-content:space-between">
+            <div style="display:flex;align-items:center;gap:10px">
+              <div class="step-num">2</div>
+              <div class="step-title">Partidas del proyecto</div>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="abrirCambiarMarcaPerfiles()" title="Sustituye los perfiles de todas las partidas por su equivalente de otra marca/proveedor">⇄ Cambiar marca de perfiles</button>
           </div>
           <div class="search-wrap" style="margin-bottom:12px">
             <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -1152,6 +1155,34 @@ onAuthStateChanged(_auth, async (user) => {
   </div>
 </div>
 
+<!-- MODAL cambiar marca de perfiles -->
+<div class="modal-overlay" id="modal-cambiar-marca">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">⇄ Cambiar marca de perfiles</span>
+      <button class="btn btn-ghost btn-icon" onclick="cerrarModal('modal-cambiar-marca')">✕</button>
+    </div>
+    <div style="background:rgba(79,142,247,0.06);border:1px solid rgba(79,142,247,0.15);border-radius:var(--radius);padding:12px 14px;margin-bottom:14px;font-size:12px;color:var(--text2)">
+      Sustituye los perfiles de <strong style="color:var(--accent2)">todas las partidas</strong> de este proyecto por su equivalente de otra marca, emparejando por <strong style="color:var(--accent2)">mismo nombre + mismo acabado/color</strong>. Herrajes, vidrio y perfiles [EXTRA] no se tocan.
+    </div>
+    <div class="form-grid" style="margin-bottom:14px">
+      <div class="form-group">
+        <label>Marca actual (origen)</label>
+        <select id="cm-marca-origen" onchange="previsualizarCambioMarca()"></select>
+      </div>
+      <div class="form-group">
+        <label>Marca destino</label>
+        <select id="cm-marca-destino" onchange="previsualizarCambioMarca()"></select>
+      </div>
+    </div>
+    <div id="cm-preview" style="max-height:320px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg3);margin-bottom:14px;padding:4px"></div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="cerrarModal('modal-cambiar-marca')">Cancelar</button>
+      <button class="btn btn-primary" id="cm-btn-aplicar" onclick="aplicarCambioMarca()" disabled>Aplicar cambio</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast-container"></div>
 
 <script>
@@ -1184,7 +1215,7 @@ onAuthStateChanged(_auth, async (user) => {
 window._cache = {};
 
 // ── Versión de la app (subir en cada deploy con fixes) ─────────
-const APP_VERSION = '1.13.0';
+const APP_VERSION = '1.14.0';
 
 window.cerrarSesionApp = function() {
   if (window._fsSignOut && window._auth) {
@@ -3378,6 +3409,128 @@ function renderPartidas(){
   document.getElementById('cot-total-proyecto').textContent=fmt(total);
   document.getElementById('cot-total-iva-label').textContent=`Con IVA (16%): ${fmt(total*1.16)}`;
   document.getElementById('cot-total-bar').style.display='';
+}
+
+// ══════════════════════════════════════════════
+// CAMBIAR MARCA DE PERFILES (sustituir perfiles de todas las partidas
+// por su equivalente de otro proveedor, emparejando por nombre+acabado)
+// ══════════════════════════════════════════════
+function abrirCambiarMarcaPerfiles(){
+  if(!proyectoActivo||!proyectoActivo.partidas||!proyectoActivo.partidas.length){
+    toast('No hay partidas en este proyecto','error');return;
+  }
+  const perfiles=DB.getCombined('perfiles');
+  const proveedores=[...new Set(perfiles.map(p=>(p.proveedor||'').trim()).filter(Boolean))].sort();
+  if(proveedores.length<2){
+    toast('Necesitas al menos 2 proveedores distintos capturados en el catálogo de perfiles (campo Proveedor)','error');
+    return;
+  }
+  const selO=document.getElementById('cm-marca-origen');
+  const selD=document.getElementById('cm-marca-destino');
+  selO.innerHTML=proveedores.map(p=>`<option value="${p}">${p}</option>`).join('');
+  selD.innerHTML=proveedores.map(p=>`<option value="${p}">${p}</option>`).join('');
+  if(proveedores.length>1) selD.value=proveedores[1];
+  document.getElementById('modal-cambiar-marca').classList.add('open');
+  previsualizarCambioMarca();
+}
+
+// Extrae idCompuesto de un label con formato "IdComp — Nombre" (ver recopilarCortes/listas de material)
+function _cmExtraerIdComp(label){
+  if(!label) return null;
+  const m=label.match(/^([^\s—]+)\s*—/);
+  return m?m[1].trim():null;
+}
+
+function _cmCalcularSustituciones(){
+  const origen=(document.getElementById('cm-marca-origen').value||'').trim();
+  const destino=(document.getElementById('cm-marca-destino').value||'').trim();
+  const perfiles=DB.getCombined('perfiles');
+  const resultado=[]; // {partidaIdx, lineaIdx, actual, nuevo, ok}
+  if(!proyectoActivo||!proyectoActivo.partidas) return resultado;
+  proyectoActivo.partidas.forEach((p,pi)=>{
+    (p.desglose||[]).forEach((l,li)=>{
+      if(l.tipo!=='Perfil') return;
+      if(l.label&&l.label.includes('[EXTRA]')) return; // extras manuales no se tocan
+      const idComp=_cmExtraerIdComp(l.label);
+      if(!idComp) return;
+      const actual=perfiles.find(x=>x.idCompuesto===idComp);
+      if(!actual) return; // no se puede determinar el perfil de origen
+      if((actual.proveedor||'').trim()!==origen) return; // no es de la marca origen seleccionada
+      const nuevo=perfiles.find(x=>
+        (x.proveedor||'').trim()===destino &&
+        (x.nombre||'').trim().toLowerCase()===(actual.nombre||'').trim().toLowerCase() &&
+        (x.acabado||'').trim().toLowerCase()===(actual.acabado||'').trim().toLowerCase()
+      );
+      resultado.push({partidaIdx:pi,lineaIdx:li,label:l.label,actual,nuevo,ok:!!nuevo});
+    });
+  });
+  return resultado;
+}
+
+function previsualizarCambioMarca(){
+  const origen=document.getElementById('cm-marca-origen').value;
+  const destino=document.getElementById('cm-marca-destino').value;
+  const el=document.getElementById('cm-preview');
+  const btn=document.getElementById('cm-btn-aplicar');
+  if(origen===destino){
+    el.innerHTML='<p style="color:var(--text3);font-size:12px;padding:10px">Selecciona dos marcas distintas</p>';
+    btn.disabled=true;return;
+  }
+  const subs=_cmCalcularSustituciones();
+  if(!subs.length){
+    el.innerHTML=`<p style="color:var(--text3);font-size:12px;padding:10px">No se encontraron perfiles de "${origen}" en las partidas de este proyecto</p>`;
+    btn.disabled=true;return;
+  }
+  const ok=subs.filter(s=>s.ok);
+  const fail=subs.filter(s=>!s.ok);
+  let html='';
+  if(ok.length){
+    html+=`<div style="padding:8px 10px;font-size:11px;color:var(--green);text-transform:uppercase;letter-spacing:.5px">✓ Se sustituirán (${ok.length})</div>`;
+    html+=ok.map(s=>`<div style="padding:6px 10px;font-size:12px;border-top:1px solid var(--border);display:flex;justify-content:space-between;gap:8px">
+      <span>Partida ${s.partidaIdx+1}: <span style="color:var(--text2)">${s.actual.idCompuesto} — ${s.actual.nombre}</span></span>
+      <span style="color:var(--green)">→ ${s.nuevo.idCompuesto}</span>
+    </div>`).join('');
+  }
+  if(fail.length){
+    html+=`<div style="padding:8px 10px;font-size:11px;color:var(--amber);text-transform:uppercase;letter-spacing:.5px;margin-top:6px">⚠ Sin equivalente — se dejarán igual (${fail.length})</div>`;
+    html+=fail.map(s=>`<div style="padding:6px 10px;font-size:12px;border-top:1px solid var(--border);color:var(--text2)">
+      Partida ${s.partidaIdx+1}: ${s.actual.idCompuesto} — ${s.actual.nombre} (${s.actual.acabado})
+    </div>`).join('');
+  }
+  el.innerHTML=html;
+  btn.disabled=ok.length===0;
+}
+
+function aplicarCambioMarca(){
+  const subs=_cmCalcularSustituciones().filter(s=>s.ok);
+  if(!subs.length){toast('Nada que sustituir','error');return;}
+  const destino=document.getElementById('cm-marca-destino').value;
+  if(!confirm(`¿Sustituir ${subs.length} perfil(es) por su equivalente de "${destino}" en todas las partidas de este proyecto?`))return;
+
+  subs.forEach(s=>{
+    const linea=proyectoActivo.partidas[s.partidaIdx].desglose[s.lineaIdx];
+    const pf=s.nuevo;
+    // Recalcular costo con el mismo ml que tenía la línea original (misma longitud de tramo, solo cambia precio/clave)
+    const mlMatch=(linea.detalle||'').match(/([\d,.]+)\s*ml/);
+    const ml=mlMatch?parseFloat(mlMatch[1].replace(',','')):null;
+    if(ml!==null){
+      linea.costo=pf.precioML*ml;
+      linea.detalle=`${num(ml)} ml × ${fmt(pf.precioML)}/ml`;
+    }
+    linea.label=`${pf.idCompuesto} — ${pf.nombre}`;
+    linea.encontrado=true;
+  });
+
+  // Recalcular totalPartida de cada partida afectada
+  const partidasAfectadas=[...new Set(subs.map(s=>s.partidaIdx))];
+  partidasAfectadas.forEach(pi=>{
+    const p=proyectoActivo.partidas[pi];
+    p.totalPartida=(p.desglose||[]).filter(l=>l.activo!==false).reduce((s,l)=>s+l.costo,0)*(p.cantidad||1);
+  });
+
+  cerrarModal('modal-cambiar-marca');
+  renderPartidas();
+  toast(`${subs.length} perfil(es) sustituidos por ${destino} ✓`);
 }
 
 function toggleEditPartida(idx){
