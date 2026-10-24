@@ -631,7 +631,8 @@ onAuthStateChanged(_auth, async (user) => {
               <div style="font-size:11px;color:var(--text3);margin-top:2px" id="cot-total-iva-label"></div>
             </div>
             <div style="display:flex;align-items:center;gap:14px">
-              <button class="btn btn-ghost btn-sm" onclick="imprimirCotizacion()">🖨 Imprimir cotización</button>
+              <button class="btn btn-ghost btn-sm" onclick="imprimirCotizacion(false)">🖨 Imprimir cotización</button>
+              <button class="btn btn-ghost btn-sm" onclick="imprimirCotizacion(true)" title="Incluye perfiles, herrajes y vidrio de cada partida">🖨 Con detalle de materiales</button>
               <div class="total-value" id="cot-total-proyecto">$0.00</div>
             </div>
           </div>
@@ -1218,7 +1219,7 @@ onAuthStateChanged(_auth, async (user) => {
 window._cache = {};
 
 // ── Versión de la app (subir en cada deploy con fixes) ─────────
-const APP_VERSION = '1.15.0';
+const APP_VERSION = '1.16.0';
 
 window.cerrarSesionApp = function() {
   if (window._fsSignOut && window._auth) {
@@ -4684,7 +4685,7 @@ function calcularListaMaterial(proyecto){
 // ══════════════════════════════════════════════════════════════════
 //  IMPRESIÓN — COTIZACIÓN (resumen por partida)
 // ══════════════════════════════════════════════════════════════════
-function imprimirCotizacion(){
+function imprimirCotizacion(detallado){
   if(!proyectoActivo||!proyectoActivo.partidas||!proyectoActivo.partidas.length){
     toast('Agrega al menos una partida antes de imprimir','error');return;
   }
@@ -4698,6 +4699,31 @@ function imprimirCotizacion(){
     const total=partida.totalPartida||0;
     const unitario=cantidad>0?total/cantidad:total;
     totalGeneral+=total;
+
+    let detalleHtml='';
+    if(detallado){
+      const lineas=(partida.desglose||[]).filter(l=>l.activo!==false);
+      const sumaLineas=lineas.reduce((s,l)=>s+(l.costo||0),0);
+      if(lineas.length){
+        detalleHtml=`<tr class="detalle-row"><td></td><td colspan="5" style="padding:0">
+          <table class="detalle-tabla">
+            <thead><tr><th>Tipo</th><th>Descripción</th><th>Detalle</th><th style="text-align:right">Costo</th></tr></thead>
+            <tbody>
+              ${lineas.map(l=>`<tr>
+                <td><span class="tag tag-${(l.tipo||'').toLowerCase()}">${l.tipo||''}</span></td>
+                <td${l.encontrado===false?' style="color:#c0392b"':''}>${l.label||''}</td>
+                <td style="color:#666">${l.detalle||''}</td>
+                <td style="text-align:right;font-family:monospace">${fmt(l.costo||0)}</td>
+              </tr>`).join('')}
+              <tr class="detalle-sub"><td colspan="3" style="text-align:right">Suma por pieza</td><td style="text-align:right;font-family:monospace">${fmt(sumaLineas)}</td></tr>
+            </tbody>
+          </table>
+        </td></tr>`;
+      } else {
+        detalleHtml=`<tr class="detalle-row"><td></td><td colspan="5" style="color:#999;font-style:italic">Sin materiales en el desglose de esta partida</td></tr>`;
+      }
+    }
+
     filas+=`<tr>
       <td style="text-align:center">${i+1}</td>
       <td>
@@ -4708,7 +4734,7 @@ function imprimirCotizacion(){
       <td style="text-align:center;font-weight:700">${cantidad}</td>
       <td style="text-align:right;font-family:monospace">${fmt(unitario)}</td>
       <td style="text-align:right;font-family:monospace;font-weight:700">${fmt(total)}</td>
-    </tr>`;
+    </tr>${detalleHtml}`;
   });
 
   const totalConIva=totalGeneral*1.16;
@@ -4728,17 +4754,26 @@ function imprimirCotizacion(){
     th{background:#1a56db;color:#fff;font-size:10px;text-transform:uppercase;letter-spacing:.5px;padding:7px 10px;text-align:left}
     td{padding:8px 10px;border-bottom:1px solid #e5e7eb;vertical-align:top}
     tr:nth-child(even) td{background:#f9fafb}
+    .detalle-row td{background:#fafbfe!important;border-bottom:1px solid #e5e7eb;padding:0 10px 10px}
+    .detalle-tabla{margin:4px 0 0;width:100%}
+    .detalle-tabla th{background:#eef2fb;color:#1a56db;font-size:9px;padding:4px 8px}
+    .detalle-tabla td{padding:4px 8px;font-size:11px;border-bottom:1px solid #eee;background:none!important}
+    .detalle-sub td{font-weight:700;border-top:1px solid #c7d7fd;border-bottom:none}
+    .tag{display:inline-block;padding:1px 7px;border-radius:10px;font-size:9px;font-weight:700;text-transform:uppercase}
+    .tag-perfil{background:#dbeafe;color:#1a56db}
+    .tag-herraje{background:#fef3c7;color:#92400e}
+    .tag-vidrio{background:#d1fae5;color:#065f46}
     .totales{display:flex;justify-content:flex-end;margin-top:14px}
     .totales table{width:320px}
     .totales td{border:none;padding:5px 10px}
     .totales .lbl{color:#555}
     .totales .val{text-align:right;font-family:monospace}
     .totales .final td{font-weight:700;font-size:15px;border-top:2px solid #1a56db;padding-top:8px;color:#1a56db}
-    @media print{body{padding:10px 16px}@page{margin:12mm 14mm;size:A4}}
+    @media print{body{padding:10px 16px}@page{margin:12mm 14mm;size:A4}tr{page-break-inside:avoid}}
   </style>
   </head><body>
   <h1>Cotización</h1>
-  <div class="sub">Generado el ${fecha}</div>
+  <div class="sub">Generado el ${fecha}${detallado?' — incluye detalle de materiales por partida':''}</div>
   <div class="meta">
     <div><label>Folio</label><strong>${p.folio}</strong></div>
     <div><label>Cliente</label><strong>${p.cliente||'Sin nombre'}</strong></div>
