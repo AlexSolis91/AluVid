@@ -630,7 +630,10 @@ onAuthStateChanged(_auth, async (user) => {
               <div class="total-label">Total del proyecto (sin IVA)</div>
               <div style="font-size:11px;color:var(--text3);margin-top:2px" id="cot-total-iva-label"></div>
             </div>
-            <div class="total-value" id="cot-total-proyecto">$0.00</div>
+            <div style="display:flex;align-items:center;gap:14px">
+              <button class="btn btn-ghost btn-sm" onclick="imprimirCotizacion()">🖨 Imprimir cotización</button>
+              <div class="total-value" id="cot-total-proyecto">$0.00</div>
+            </div>
           </div>
         </div>
       </div>
@@ -1215,7 +1218,7 @@ onAuthStateChanged(_auth, async (user) => {
 window._cache = {};
 
 // ── Versión de la app (subir en cada deploy con fixes) ─────────
-const APP_VERSION = '1.14.0';
+const APP_VERSION = '1.15.0';
 
 window.cerrarSesionApp = function() {
   if (window._fsSignOut && window._auth) {
@@ -4676,6 +4679,99 @@ function calcularListaMaterial(proyecto){
   document.getElementById('mat-vidrio-tbody').innerHTML=vidrioRows.length?
     vidrioRows.join(''):
     '<tr><td colspan="4"><div class="empty-state" style="padding:16px"><p>Sin vidrio</p></div></td></tr>';
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  IMPRESIÓN — COTIZACIÓN (resumen por partida)
+// ══════════════════════════════════════════════════════════════════
+function imprimirCotizacion(){
+  if(!proyectoActivo||!proyectoActivo.partidas||!proyectoActivo.partidas.length){
+    toast('Agrega al menos una partida antes de imprimir','error');return;
+  }
+  const p=proyectoActivo;
+  const fecha=new Date().toLocaleDateString('es-MX',{year:'numeric',month:'long',day:'numeric'});
+
+  let filas='';
+  let totalGeneral=0;
+  (p.partidas||[]).forEach((partida,i)=>{
+    const cantidad=partida.cantidad||1;
+    const total=partida.totalPartida||0;
+    const unitario=cantidad>0?total/cantidad:total;
+    totalGeneral+=total;
+    filas+=`<tr>
+      <td style="text-align:center">${i+1}</td>
+      <td>
+        <strong>${partida.ubicacion||partida.descripcion||'—'}</strong><br>
+        <span style="color:#666;font-size:11px">${partida.receta||''}${partida.config&&partida.config!=='—'?' — '+partida.config:''}${partida.acabado?' — '+partida.acabado:''}</span>
+      </td>
+      <td style="text-align:center;font-family:monospace">${num(partida.ancho)}m × ${num(partida.alto)}m</td>
+      <td style="text-align:center;font-weight:700">${cantidad}</td>
+      <td style="text-align:right;font-family:monospace">${fmt(unitario)}</td>
+      <td style="text-align:right;font-family:monospace;font-weight:700">${fmt(total)}</td>
+    </tr>`;
+  });
+
+  const totalConIva=totalGeneral*1.16;
+
+  const html=`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+  <title>Cotización — ${p.folio}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',Arial,sans-serif;font-size:12px;color:#1a1a1a;padding:20px 28px}
+    h1{font-size:18px;font-weight:700;margin-bottom:2px}
+    .sub{font-size:12px;color:#555;margin-bottom:16px}
+    .meta{display:flex;gap:32px;margin-bottom:20px;padding:10px 14px;background:#f0f4ff;border-radius:6px;border:1px solid #c7d7fd}
+    .meta div{display:flex;flex-direction:column;gap:2px}
+    .meta label{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#666}
+    .meta strong{font-size:14px;font-weight:700}
+    table{width:100%;border-collapse:collapse;margin-bottom:8px}
+    th{background:#1a56db;color:#fff;font-size:10px;text-transform:uppercase;letter-spacing:.5px;padding:7px 10px;text-align:left}
+    td{padding:8px 10px;border-bottom:1px solid #e5e7eb;vertical-align:top}
+    tr:nth-child(even) td{background:#f9fafb}
+    .totales{display:flex;justify-content:flex-end;margin-top:14px}
+    .totales table{width:320px}
+    .totales td{border:none;padding:5px 10px}
+    .totales .lbl{color:#555}
+    .totales .val{text-align:right;font-family:monospace}
+    .totales .final td{font-weight:700;font-size:15px;border-top:2px solid #1a56db;padding-top:8px;color:#1a56db}
+    @media print{body{padding:10px 16px}@page{margin:12mm 14mm;size:A4}}
+  </style>
+  </head><body>
+  <h1>Cotización</h1>
+  <div class="sub">Generado el ${fecha}</div>
+  <div class="meta">
+    <div><label>Folio</label><strong>${p.folio}</strong></div>
+    <div><label>Cliente</label><strong>${p.cliente||'Sin nombre'}</strong></div>
+    <div><label>Partidas</label><strong>${(p.partidas||[]).length}</strong></div>
+    <div><label>Fecha del proyecto</label><strong>${fechaCorta(p.fecha)}</strong></div>
+  </div>
+
+  <table>
+    <thead><tr>
+      <th style="text-align:center">#</th>
+      <th>Partida</th>
+      <th style="text-align:center">Medidas</th>
+      <th style="text-align:center">Cant.</th>
+      <th style="text-align:right">Costo unitario</th>
+      <th style="text-align:right">Total</th>
+    </tr></thead>
+    <tbody>${filas}</tbody>
+  </table>
+
+  <div class="totales">
+    <table>
+      <tr><td class="lbl">Subtotal (sin IVA)</td><td class="val">${fmt(totalGeneral)}</td></tr>
+      <tr><td class="lbl">IVA (16%)</td><td class="val">${fmt(totalConIva-totalGeneral)}</td></tr>
+      <tr class="final"><td>Total</td><td class="val">${fmt(totalConIva)}</td></tr>
+    </table>
+  </div>
+  </body></html>`;
+
+  const win=window.open('','_blank','width=900,height=700');
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(()=>win.print(),400);
 }
 
 // ══════════════════════════════════════════════════════════════════
