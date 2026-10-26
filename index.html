@@ -1180,9 +1180,12 @@ onAuthStateChanged(_auth, async (user) => {
       </div>
     </div>
     <div id="cm-preview" style="max-height:320px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg3);margin-bottom:14px;padding:4px"></div>
-    <div class="form-actions">
-      <button class="btn btn-ghost" onclick="cerrarModal('modal-cambiar-marca')">Cancelar</button>
-      <button class="btn btn-primary" id="cm-btn-aplicar" onclick="aplicarCambioMarca()" disabled>Aplicar cambio</button>
+    <div class="form-actions" style="justify-content:space-between">
+      <button class="btn btn-ghost btn-sm" onclick="repararCortesCambioMarca()" title="Para proyectos donde ya se cambió la marca de perfiles ANTES de este fix — corrige el cálculo de cortes de Lista de Material sin tocar precios">🩹 Reparar cortes de un cambio anterior</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost" onclick="cerrarModal('modal-cambiar-marca')">Cancelar</button>
+        <button class="btn btn-primary" id="cm-btn-aplicar" onclick="aplicarCambioMarca()" disabled>Aplicar cambio</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1219,7 +1222,7 @@ onAuthStateChanged(_auth, async (user) => {
 window._cache = {};
 
 // ── Versión de la app (subir en cada deploy con fixes) ─────────
-const APP_VERSION = '1.16.0';
+const APP_VERSION = '1.17.0';
 
 window.cerrarSesionApp = function() {
   if (window._fsSignOut && window._auth) {
@@ -3514,6 +3517,12 @@ function aplicarCambioMarca(){
   subs.forEach(s=>{
     const linea=proyectoActivo.partidas[s.partidaIdx].desglose[s.lineaIdx];
     const pf=s.nuevo;
+    // Guardar la CLAVE ORIGINAL (con la que se cotizó por receta) la primera vez que se
+    // sustituye esta línea — recopilarCortes() la necesita para encontrar los grupos de
+    // cortes exactos de la receta, que están definidos con la clave original, no con la
+    // del perfil sustituido. Si la línea ya tenía una claveOriginal (cambios de marca
+    // encadenados), se conserva la primera para no perder la referencia a la receta.
+    if(!linea.claveOriginal) linea.claveOriginal=s.actual.clave;
     // Recalcular costo con el mismo ml que tenía la línea original (misma longitud de tramo, solo cambia precio/clave)
     const mlMatch=(linea.detalle||'').match(/([\d,.]+)\s*ml/);
     const ml=mlMatch?parseFloat(mlMatch[1].replace(',','')):null;
@@ -3535,6 +3544,63 @@ function aplicarCambioMarca(){
   cerrarModal('modal-cambiar-marca');
   renderPartidas();
   toast(`${subs.length} perfil(es) sustituidos por ${destino} ✓`);
+}
+
+// Repara retroactivamente partidas donde "Cambiar marca de perfiles" se aplicó ANTES
+// de que se guardara claveOriginal (versiones previas a v1.17.0). Sin eso, Lista de
+// Material no encuentra el grupo de cortes de la receta (porque busca por la clave
+// del perfil sustituido, que no existe en la receta) y cae a un fallback de ml total
+// que puede dar un conteo de tramos incorrecto.
+function repararCortesCambioMarca(){
+  if(!proyectoActivo||!proyectoActivo.partidas||!proyectoActivo.partidas.length){
+    toast('No hay partidas en este proyecto','error');return;
+  }
+  const todosPerfiles=DB.getCombined('perfiles');
+  let reparadas=0, sinSolucion=0;
+
+  proyectoActivo.partidas.forEach(partida=>{
+    const recetaNombre=partida.receta;
+    const configNombre=partida.config;
+    const receta=DB.get('recetas').find(r=>r.nombre===recetaNombre)
+      || DB.getAdminRecetas().find(r=>r.nombre===recetaNombre);
+    if(!receta) return;
+    const cfg=receta.configs?receta.configs.find(c=>c.tipo===configNombre):null;
+    if(!cfg||!cfg.perfiles) return;
+
+    (partida.desglose||[]).forEach(linea=>{
+      if(linea.tipo!=='Perfil') return;
+      if(linea.label&&linea.label.includes('[EXTRA]')) return;
+      if(linea.claveOriginal) return; // ya tiene referencia correcta
+      const idComp=(linea.label||'').split(' — ')[0].trim();
+      const pfActual=todosPerfiles.find(x=>x.idCompuesto===idComp);
+      if(!pfActual) return;
+      // Si la clave actual YA coincide con algún grupo de la receta, no hace falta reparar
+      if(cfg.perfiles.find(x=>x.clave===pfActual.clave)) return;
+      // Buscar entre TODOS los perfiles del catálogo (cualquier marca) uno con mismo
+      // nombre+acabado cuya clave sí esté definida en la receta
+      const candidato=todosPerfiles.find(x=>
+        (x.nombre||'').trim().toLowerCase()===(pfActual.nombre||'').trim().toLowerCase() &&
+        (x.acabado||'').trim().toLowerCase()===(pfActual.acabado||'').trim().toLowerCase() &&
+        cfg.perfiles.find(cp=>cp.clave===x.clave)
+      );
+      if(candidato){
+        linea.claveOriginal=candidato.clave;
+        reparadas++;
+      } else {
+        sinSolucion++;
+      }
+    });
+  });
+
+  if(reparadas===0 && sinSolucion===0){
+    toast('No se encontraron líneas que necesiten reparación','info');return;
+  }
+  renderPartidas();
+  if(sinSolucion>0){
+    toast(`${reparadas} línea(s) reparada(s). ${sinSolucion} sin equivalente encontrado en el catálogo — revísalas manualmente.`,'error');
+  } else {
+    toast(`${reparadas} línea(s) reparada(s) ✓ — revisa la Lista de Material`);
+  }
 }
 
 function toggleEditPartida(idx){
@@ -4396,7 +4462,11 @@ function recopilarCortes(proyecto){
         if(receta){
           const cfg=receta.configs?receta.configs.find(c=>c.tipo===configNombre):null;
           if(cfg){
-            const cp=cfg.perfiles?cfg.perfiles.find(x=>x.clave===pf.clave):null;
+            // Si el perfil fue sustituido por "Cambiar marca de perfiles", los grupos de
+            // cortes de la receta siguen definidos con la clave ORIGINAL (con la que se
+            // cotizó), no con la del perfil nuevo — usar claveOriginal cuando exista.
+            const claveParaBuscarEnReceta=linea.claveOriginal||pf.clave;
+            const cp=cfg.perfiles?cfg.perfiles.find(x=>x.clave===claveParaBuscarEnReceta):null;
             if(cp){
               // Nueva lógica: grupos de cortes
               if(cp.grupos&&cp.grupos.length>0){
