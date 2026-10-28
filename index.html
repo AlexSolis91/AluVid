@@ -279,8 +279,10 @@ onAuthStateChanged(_auth, async (user) => {
   const tablas = ['perfiles','herrajes','vidrios','recetas','proyectos'];
   const snaps = await Promise.all(tablas.map(t => getDocs(collection(_db, 'usuarios', user.uid, t))));
   tablas.forEach((tabla, i) => {
-    window._cache[tabla] = snaps[i].docs.map(d => ({ _docId: d.id, ...d.data() }));
+    window._cache[tabla] = snaps[i].docs.map(d => ({ ...d.data(), _docId: d.id }));
   });
+  // Copia de lo que hay en Firestore: DB.set solo escribe lo que cambió respecto a esto
+  if (window._dbSeed) window._dbSeed(tablas);
   // Load admin catalogo for pricing (perfiles/herrajes/vidrios from admin's own catalog)
   window._adminCache = {};
   // Load recetas from admin_catalogo collection (published SCAVi recetas)
@@ -302,6 +304,7 @@ onAuthStateChanged(_auth, async (user) => {
   window._uid = user.uid;
   // Signal app that Firebase is ready
   window._fbReady = true;
+  const _ov = document.getElementById('carga-overlay'); if (_ov) _ov.remove();
   if (window._onFbReady) window._onFbReady();
 
   } catch (e) {
@@ -316,6 +319,7 @@ onAuthStateChanged(_auth, async (user) => {
 </script>
 </head>
 <body>
+<div id="carga-overlay" style="position:fixed;inset:0;z-index:99999;background:var(--bg);color:var(--text2);display:flex;align-items:center;justify-content:center;font-size:15px">Cargando tus datos…</div>
 <div id="app">
 
 <!-- SIDEBAR -->
@@ -422,7 +426,7 @@ onAuthStateChanged(_auth, async (user) => {
             </div>
             <div style="display:flex;gap:8px">
               <button class="btn btn-ghost btn-sm" onclick="cerrarCotizacion()">← Volver</button>
-              <button class="btn btn-success btn-sm" onclick="guardarProyecto()">💾 Guardar</button>
+              <button class="btn btn-success btn-sm" id="cot-btn-guardar" onclick="guardarProyecto()">💾 Guardar</button>
             </div>
           </div>
         </div>
@@ -1235,9 +1239,12 @@ onAuthStateChanged(_auth, async (user) => {
 window._cache = {};
 
 // ── Versión de la app (subir en cada deploy con fixes) ─────────
-const APP_VERSION = '1.19.0';
+const APP_VERSION = '1.20.0';
 
 window.cerrarSesionApp = function() {
+  if ((DB._pending > 0 || _proyHayCambios()) &&
+      !confirm('Hay cambios sin guardar o que aún se están guardando. ¿Cerrar sesión de todos modos?')) return;
+  window._saliendo = true;
   if (window._fsSignOut && window._auth) {
     window._fsSignOut(window._auth).then(() => { window.location.href = 'login.html'; });
   }
@@ -1245,9 +1252,8 @@ window.cerrarSesionApp = function() {
 
 const DB = {
   get(k) {
-    if (window._cache && window._cache[k] && window._cache[k].length >= 0)
-      return window._cache[k];
-    try { return JSON.parse(localStorage.getItem('av_'+k)) || []; } catch(e) { return []; }
+    if (window._cache && Array.isArray(window._cache[k])) return window._cache[k];
+    return []; // aún no carga (lo cubre la pantalla de carga); los datos locales viejos se importan aparte
   },
   // Get combined: user items + admin items (for pricing lookups only, not for display)
   getCombined(k) {
@@ -1284,38 +1290,128 @@ const DB = {
     window._fsDeleteDoc(window._fsDoc('admin_catalogo/' + k + '/items/' + String(id)))
       .catch(e => console.warn('Admin unpublish error:', e.message));
   },
+  // ── Sincronización con Firestore ──────────────────────────────
+  // _shadow[k]: Map docId → JSON (canónico) de lo que Firestore tiene. DB.set compara
+  // contra esto y solo escribe docs nuevos/cambiados y borra los que desaparecieron,
+  // aunque el llamador mute el mismo arreglo que devolvió DB.get. Un valor null
+  // significa "desconocido" (falló la escritura) → se reintenta en el siguiente set.
+  _shadow: {},
+  _inflight: {}, // 'tabla/docId' → promesa de la escritura en curso
+  _pending: 0,
+  _lastId: 0,
+  _key(item) { return String(item.id || item._docId || ''); },
+  // Copia limpia para Firestore: sin campos temporales con prefijo _ (excepto _docId)
+  _clean(item) {
+    const o = {};
+    Object.keys(item).forEach(f => { if (f[0] !== '_' || f === '_docId') o[f] = item[f]; });
+    return JSON.parse(JSON.stringify(o));
+  },
+  // JSON con llaves ordenadas: el orden de las propiedades no cuenta como cambio
+  _stable(v) {
+    if (Array.isArray(v)) return '[' + v.map(x => this._stable(x)).join(',') + ']';
+    if (v && typeof v === 'object')
+      return '{' + Object.keys(v).sort().map(f => JSON.stringify(f) + ':' + this._stable(v[f])).join(',') + '}';
+    return JSON.stringify(v);
+  },
+  _seed(k, arr) {
+    const m = new Map();
+    (arr || []).forEach(item => {
+      if (!item || typeof item !== 'object') return;
+      const key = String(item._docId || item.id || '');
+      if (key) m.set(key, this._stable(this._clean(item)));
+    });
+    this._shadow[k] = m;
+  },
   set(k, v) {
     if (!window._cache) window._cache = {};
-    const prev = window._cache[k] || [];
-    const newIds = new Set(v.map(x => String(x.id || x._docId)));
-    const deleted = prev.filter(x => !newIds.has(String(x.id || x._docId)));
+    const prev = window._cache[k];
+    // Respaldo: si no se sembró al cargar, usar el arreglo anterior (si es otro objeto)
+    if (!this._shadow[k] && window._uid) this._seed(k, prev && prev !== v ? prev : []);
     window._cache[k] = v;
-    this._syncToFirestore(k, v, deleted);
+    return this._syncToFirestore(k, v);
   },
-  _syncToFirestore(k, v, deleted=[]) {
-    if (!window._uid || !window._fsSetDoc || !window._fsDoc) return;
+  _syncToFirestore(k, v) {
+    if (!window._uid || !window._fsSetDoc || !window._fsDeleteDoc || !window._fsDoc) return Promise.resolve();
     const uid = window._uid;
-    if (window._fsDeleteDoc && deleted.length > 0) {
-      deleted.forEach(item => {
-        const key = String(item.id || item._docId);
-        if (key && key !== 'undefined')
-          window._fsDeleteDoc(window._fsDoc('usuarios/' + uid + '/' + k + '/' + key))
-            .catch(e => console.warn('Delete sync error:', k, key, e.message));
-      });
-    }
-    v.forEach(item => {
-      const key = String(item.id || item._docId || Date.now());
+    if (!this._shadow[k]) this._seed(k, []);
+    const sh = this._shadow[k], fl = this._inflight, seen = new Set(), writes = [], waits = [];
+    (v || []).forEach(item => {
+      if (!item || typeof item !== 'object') return;
+      let key = this._key(item);
+      if (!key) key = String(this.nextId(k));
       item._docId = key;
-      const clean = JSON.parse(JSON.stringify(item));
-      window._fsSetDoc(window._fsDoc('usuarios/' + uid + '/' + k + '/' + key), clean)
-        .catch(e => console.warn('Sync error:', k, e.message));
+      seen.add(key);
+      const clean = this._clean(item), s = this._stable(clean);
+      // Sin cambios, pero si su escritura sigue en curso, este set también la espera
+      if (sh.get(key) === s) { if (fl[k + '/' + key]) waits.push(fl[k + '/' + key]); return; }
+      sh.set(key, s);
+      writes.push({ key, clean, s });
     });
+    const dels = [...sh.keys()].filter(key => !seen.has(key));
+    dels.forEach(key => sh.delete(key));
+    if (!writes.length && !dels.length && !waits.length) return Promise.resolve();
+    const ref = key => window._fsDoc('usuarios/' + uid + '/' + k + '/' + key);
+    const errores = rs => rs.filter(r => r.status === 'rejected').map(r => r.reason);
+    const propio = writes.length || dels.length;
+    if (propio) this._pendingDelta(1);
+    const ps = writes.map(w => {
+      const id = k + '/' + w.key;
+      const p = Promise.resolve().then(() => window._fsSetDoc(ref(w.key), w.clean))
+        .catch(e => { if (sh.get(w.key) === w.s) sh.set(w.key, null); throw e; });
+      fl[id] = p;
+      p.then(() => {}, () => {}).then(() => { if (fl[id] === p) delete fl[id]; });
+      return p;
+    });
+    // Primero escrituras; los borrados solo si todas salieron bien (por si un doc cambió de id)
+    return Promise.allSettled(ps.concat(waits))
+      .then(rs => {
+        const errs = errores(rs);
+        if (errs.length) { dels.forEach(key => { if (!sh.has(key)) sh.set(key, null); }); return errs; }
+        return Promise.allSettled(dels.map(key => Promise.resolve().then(() => window._fsDeleteDoc(ref(key)))
+          .catch(e => { if (!sh.has(key)) sh.set(key, null); throw e; }))).then(errores);
+      })
+      .then(errs => {
+        if (!errs.length) return;
+        console.warn('Sync error:', k, errs);
+        const err = new Error((errs[0] && errs[0].message) || String(errs[0]));
+        err.code = errs[0] && errs[0].code; err.errores = errs; err._dbToast = true;
+        _toastErrorNube(err);
+        throw err;
+      })
+      .finally(() => { if (propio) this._pendingDelta(-1); });
   },
+  _pendingDelta(d) { this._pending = Math.max(0, this._pending + d); },
+  // Id numérico resistente a colisiones entre pestañas/dispositivos (≈1.7e15, < MAX_SAFE_INTEGER)
   nextId(k) {
-    const ids = this.get(k).map(x => x.id || 0);
-    return ids.length ? Math.max(...ids) + 1 : 1;
+    const maxL = this.get(k).reduce((m, x) => { const n = Number(x && x.id) || 0; return n > m && n < Number.MAX_SAFE_INTEGER ? n : m; }, 0);
+    const id = Math.max(maxL + 1, Date.now() * 1000 + Math.floor(Math.random() * 1000), this._lastId + 1);
+    this._lastId = id;
+    return id;
   }
 };
+window._dbSeed = tablas => tablas.forEach(t => DB._seed(t, window._cache[t]));
+
+// Aviso visible cuando falla una escritura en la nube
+let _ultimoToastNube = { msg: '', t: 0 };
+function _toastErrorNube(e) {
+  const code = String((e && e.code) || '');
+  let msg;
+  if (code.includes('permission-denied'))
+    msg = '⚠ No se pudo guardar en la nube: tu suscripción pudo haber vencido o tu sesión expiró. Recarga la página e inicia sesión de nuevo.';
+  else if (code.includes('resource-exhausted'))
+    msg = '⚠ No se pudo guardar en la nube: se alcanzó el límite diario de escrituras. Intenta más tarde y no cierres esta pestaña.';
+  else
+    msg = '⚠ No se pudo guardar en la nube: ' + ((e && e.message) || 'error desconocido') + '. Revisa tu conexión.';
+  if (msg === _ultimoToastNube.msg && Date.now() - _ultimoToastNube.t < 4000) return;
+  _ultimoToastNube = { msg, t: Date.now() };
+  toast(msg, 'error', 9000);
+}
+// Los llamadores que no esperan DB.set no dejan rechazos "no manejados": el toast ya avisó
+window.addEventListener('unhandledrejection', ev => { if (ev.reason && ev.reason._dbToast) ev.preventDefault(); });
+window.addEventListener('beforeunload', ev => {
+  if (window._saliendo) return;
+  if (DB._pending > 0 || (typeof _proyHayCambios === 'function' && _proyHayCambios())) { ev.preventDefault(); ev.returnValue = ''; }
+});
 
 // ══════════════════════════════════════════════
 // UTILS
@@ -1324,11 +1420,11 @@ const fmt=v=>new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN'}).fo
 const num=v=>new Intl.NumberFormat('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2}).format(v||0);
 const now=()=>new Date().toISOString().slice(0,19).replace('T',' ');
 
-function toast(msg,type='success'){
+function toast(msg,type='success',ms=3000){
   const t=document.createElement('div');
   t.className=`toast ${type}`;t.textContent=msg;
   document.getElementById('toast-container').appendChild(t);
-  setTimeout(()=>t.remove(),3000);
+  setTimeout(()=>t.remove(),ms);
 }
 function dateDiff(d){if(!d)return 9999;return(Date.now()-new Date(d.replace(' ','T')).getTime())/(1000*60*60*24*365);}
 function fechaCorta(d){return d?d.slice(0,10):'-';}
@@ -1342,6 +1438,11 @@ const TITLES={cotizar:'Nueva Cotización',proyectos:'Mis Proyectos',materiales:'
   vidrios:'Tipos de Vidrio',recetas:'Recetas de Canceles',alertas:'Alertas de Precios'};
 
 function nav(el){
+  const vAct=document.querySelector('.view.active');
+  if(vAct&&vAct.id==='view-cotizar'&&el.dataset.view!=='cotizar'&&_proyHayCambios()){
+    if(!_confirmarSalirProyecto())return;
+    _descartarProyecto(); // salió sin guardar: se descartan los cambios
+  }
   document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
   document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
   el.classList.add('active');
@@ -2333,16 +2434,50 @@ function confirmarComponente(){
 // ══════════════════════════════════════════════
 let proyectoActivo=null;
 
+let _proySnap=null,_guardandoProy=false;
+
+// Siguiente folio del año: máximo consecutivo existente COT-AAAA-NNNNN + 1 (reinicia en 1 cada año)
 function generarFolio(){
-  const proyectos=DB.get('proyectos');
-  const n=(proyectos.length+1).toString().padStart(5,'0');
-  const d=new Date();
-  return `COT-${d.getFullYear()}-${n}`;
+  const y=new Date().getFullYear(),re=new RegExp('^COT-'+y+'-(\\d+)$');
+  const max=DB.get('proyectos').reduce((m,p)=>{const r=re.exec(String((p&&p.folio)||'').trim());return r?Math.max(m,parseInt(r[1],10)):m;},0);
+  return `COT-${y}-${String(max+1).padStart(5,'0')}`;
+}
+
+function _clonar(o){
+  try{if(typeof structuredClone==='function')return structuredClone(o);}catch(e){}
+  return JSON.parse(JSON.stringify(o));
+}
+// Firma del proyecto para detectar cambios sin guardar (ignora campos temporales _*)
+function _firmaProyecto(p){
+  if(!p)return '';
+  const c=JSON.parse(JSON.stringify(p));
+  Object.keys(c).forEach(k=>{if(k[0]==='_')delete c[k];});
+  (c.partidas||[]).forEach(_limpiarCamposTemp);
+  return DB._stable(c);
+}
+function _proyHayCambios(){
+  if(!proyectoActivo)return false;
+  const inp=document.getElementById('cot-cliente');
+  if(inp&&document.getElementById('cot-editor')?.style.display!=='none')proyectoActivo.cliente=inp.value;
+  const guardado=DB.get('proyectos').some(p=>p.id===proyectoActivo.id);
+  if(!guardado)return !!((proyectoActivo.partidas||[]).length||String(proyectoActivo.cliente||'').trim());
+  return _firmaProyecto(proyectoActivo)!==_proySnap;
+}
+function _confirmarSalirProyecto(){
+  return !_proyHayCambios()||confirm('Tienes cambios sin guardar en este proyecto. ¿Salir sin guardar?');
+}
+function _descartarProyecto(){
+  proyectoActivo=null;_proySnap=null;
+  const ini=document.getElementById('cot-inicio'),ed=document.getElementById('cot-editor');
+  if(ini)ini.style.display='';
+  if(ed)ed.style.display='none';
 }
 
 function nuevoProyecto(){
+  if(!_confirmarSalirProyecto())return;
   const folio=generarFolio();
   proyectoActivo={id:DB.nextId('proyectos'),folio,cliente:'',partidas:[],fecha:now(),estado:'borrador'};
+  _proySnap=null;
   mostrarEditorCotizacion();
 }
 
@@ -2424,9 +2559,8 @@ function cerrarComboVidrio(){
 }
 
 function cerrarCotizacion(){
-  document.getElementById('cot-inicio').style.display='';
-  document.getElementById('cot-editor').style.display='none';
-  proyectoActivo=null;
+  if(!_confirmarSalirProyecto())return;
+  _descartarProyecto();
   renderCotizarInicio();
 }
 
@@ -2467,8 +2601,14 @@ function resaltarBusqueda(texto, q){
 }
 
 function abrirProyecto(id){
-  proyectoActivo=DB.get('proyectos').find(p=>p.id===id);
-  if(proyectoActivo)mostrarEditorCotizacion();
+  if(!_confirmarSalirProyecto())return;
+  const p=DB.get('proyectos').find(x=>x.id===id);
+  if(!p)return;
+  // Se edita una copia: los cambios no tocan el caché (listas/totales) hasta guardar
+  proyectoActivo=_clonar(p);
+  proyectoActivo.cliente=proyectoActivo.cliente||'';
+  mostrarEditorCotizacion();
+  _proySnap=_firmaProyecto(proyectoActivo);
 }
 
 function totalProyecto(p){return(p.partidas||[]).reduce((s,x)=>s+(x.totalPartida||0),0);}
@@ -2501,15 +2641,41 @@ function actualizarProyecto(){
   proyectoActivo.cliente=document.getElementById('cot-cliente').value;
 }
 
-function guardarProyecto(){
-  if(!proyectoActivo)return;
+const LIMITE_PROYECTO_BYTES=900*1024; // Firestore admite máx. 1 MiB por documento
+async function guardarProyecto(){
+  if(!proyectoActivo||_guardandoProy)return;
   proyectoActivo.cliente=document.getElementById('cot-cliente').value;
   (proyectoActivo.partidas||[]).forEach(_limpiarCamposTemp); // no guardar estado temporal de edición
+  const copia=_clonar(proyectoActivo);
+  Object.keys(copia).forEach(k=>{if(k[0]==='_'&&k!=='_docId')delete copia[k];}); // sin _temp
+  const bytes=new TextEncoder().encode(JSON.stringify(copia)).length;
+  if(bytes>LIMITE_PROYECTO_BYTES){
+    toast(`⚠ El proyecto es demasiado grande para guardarse (${Math.round(bytes/1024)} KB; máximo ${LIMITE_PROYECTO_BYTES/1024} KB). Pasa algunas partidas a otro proyecto.`,'error',9000);
+    return;
+  }
+  const firma=_firmaProyecto(copia);
   const proyectos=DB.get('proyectos');
-  const idx=proyectos.findIndex(p=>p.id===proyectoActivo.id);
-  if(idx>=0)proyectos[idx]=proyectoActivo;else proyectos.push(proyectoActivo);
-  DB.set('proyectos',proyectos);
-  toast('Proyecto guardado');updateBadges();
+  const idx=proyectos.findIndex(p=>p.id===copia.id);
+  if(idx>=0)proyectos[idx]=copia;else proyectos.push(copia);
+  const btn=document.getElementById('cot-btn-guardar'),txt=btn?btn.textContent:'';
+  _guardandoProy=true;
+  if(btn){btn.disabled=true;btn.textContent='Guardando…';}
+  // Sin conexión Firestore deja la escritura en espera: avisar en lugar de bloquear
+  const lento=setTimeout(()=>{
+    toast('La conexión está lenta: se terminará de guardar al reconectar. No cierres esta pestaña.','info',6000);
+    _guardandoProy=false;if(btn){btn.disabled=false;btn.textContent=txt;}
+  },15000);
+  try{
+    await DB.set('proyectos',proyectos);
+    if(proyectoActivo&&proyectoActivo.id===copia.id)_proySnap=firma;
+    toast('Proyecto guardado');
+  }catch(e){
+    // El aviso de error ya lo mostró DB.set; el proyecto sigue marcado con cambios
+  }finally{
+    clearTimeout(lento);
+    _guardandoProy=false;if(btn){btn.disabled=false;btn.textContent=txt;}
+    updateBadges();
+  }
 }
 
 
@@ -4187,6 +4353,7 @@ function renderProyectos(){
 
 function eliminarProyecto(id){
   if(!confirm('¿Eliminar este proyecto?'))return;
+  if(proyectoActivo&&proyectoActivo.id===id)_descartarProyecto(); // no recrearlo al guardar
   DB.set('proyectos',DB.get('proyectos').filter(p=>p.id!==id));
   renderProyectos();updateBadges();toast('Proyecto eliminado','info');
 }
@@ -4370,23 +4537,61 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
 });
 
 // ══════════════════════════════════════════════
-// MIGRACIÓN: recuperar datos guardados con prefijo anterior (aluvid_)
+// MIGRACIÓN: datos guardados en este equipo por versiones viejas (aluvid_* / av_*)
+// Se ofrece una sola vez por cuenta, y solo si la cuenta está vacía en la nube.
 // ══════════════════════════════════════════════
-(function migrarDatos(){
-  const tablas=['perfiles','herrajes','vidrios','recetas','proyectos'];
-  let migrado=0;
-  tablas.forEach(k=>{
-    const vieja='aluvid_'+k;
-    const nueva='av_'+k;
-    const datosViejos=localStorage.getItem(vieja);
-    const yaExiste=localStorage.getItem(nueva);
-    if(datosViejos&&!yaExiste){
-      localStorage.setItem(nueva,datosViejos);
-      migrado++;
+const TABLAS_DATOS=['perfiles','herrajes','vidrios','recetas','proyectos'];
+function _leerLocalLegado(){
+  const out={};let n=0;
+  TABLAS_DATOS.forEach(k=>{
+    let arr=null;
+    for(const key of ['av_'+k,'aluvid_'+k]){
+      try{const v=JSON.parse(localStorage.getItem(key)||'null');if(Array.isArray(v)&&v.length){arr=v;break;}}catch(e){}
     }
+    if(arr){arr=arr.filter(x=>x&&typeof x==='object');if(arr.length){out[k]=arr;n+=arr.length;}}
   });
-  if(migrado>0)console.log('AluVid: '+migrado+' tablas migradas correctamente.');
-})();
+  return {datos:out,n};
+}
+function _borrarLocalLegado(){
+  TABLAS_DATOS.forEach(k=>{try{localStorage.removeItem('av_'+k);localStorage.removeItem('aluvid_'+k);}catch(e){}});
+}
+async function migrarDatosLocales(){
+  const uid=window._uid;if(!uid)return false;
+  const flag='av_migrado_'+uid;
+  try{if(localStorage.getItem(flag))return false;}catch(e){return false;}
+  const {datos,n}=_leerLocalLegado();
+  const marcar=()=>{try{localStorage.setItem(flag,new Date().toISOString());}catch(e){}};
+  if(!n){marcar();return false;}
+  // Solo cuentas nuevas: si ya hay algo en la nube no se importa nada (evita revivir datos borrados)
+  if(TABLAS_DATOS.some(k=>DB.get(k).length>0)){marcar();return false;}
+  const resumen=TABLAS_DATOS.filter(k=>datos[k]).map(k=>datos[k].length+' '+k).join(', ');
+  if(!confirm('Se encontraron datos guardados en este equipo por una versión anterior ('+resumen+').\n\n'+
+    'Pueden ser de otra persona si este equipo es compartido.\n¿Importarlos a tu cuenta?')){
+    _borrarLocalLegado();marcar();return false;
+  }
+  const proms=[];
+  TABLAS_DATOS.forEach(k=>{
+    if(!datos[k])return;
+    const usados=new Set(),arr=[];
+    datos[k].forEach(x=>{
+      const it=JSON.parse(JSON.stringify(x));
+      delete it._docId; // el id del doc sale del id del registro
+      let id=Number(it.id);
+      if(!(Number.isInteger(id)&&id>0&&id<Number.MAX_SAFE_INTEGER)||usados.has(id)){id=DB.nextId(k);while(usados.has(id))id=DB.nextId(k);}
+      it.id=id;usados.add(id);arr.push(it);
+    });
+    proms.push(DB.set(k,arr));
+  });
+  try{
+    await Promise.all(proms);
+  }catch(e){
+    toast('⚠ La importación no se completó; los datos de este equipo no se borraron.','error',9000);
+    return true;
+  }
+  _borrarLocalLegado();marcar();
+  toast('✅ '+n+' registros importados a tu cuenta');
+  return true;
+}
 
 // ══════════════════════════════════════════════
 
@@ -5292,23 +5497,11 @@ function _appInit() {
   if(topbarV) topbarV.textContent='v'+APP_VERSION;
   const sidebarV=document.getElementById('sidebar-version');
   if(sidebarV) sidebarV.textContent='v'+APP_VERSION+' — Datos guardados en la nube';
-  // Migrate any existing localStorage data to Firestore
-  const tablas = ['perfiles','herrajes','vidrios','recetas','proyectos'];
-  let migrado = 0;
-  tablas.forEach(k => {
-    const local = JSON.parse(localStorage.getItem('av_'+k)||'null');
-    if (local && local.length > 0 && (!window._cache[k] || window._cache[k].length === 0)) {
-      window._cache[k] = local;
-      DB._syncToFirestore(k, local);
-      localStorage.removeItem('av_'+k);
-      migrado++;
-    }
-  });
-  if (migrado > 0) {
-    toast('✅ ' + migrado + ' catálogos migrados a la nube');
-  }
   renderMatProyectos();
   updateBadges();
+  // Datos locales de versiones viejas: una vez por cuenta, solo si está vacía y con confirmación
+  migrarDatosLocales().then(imp=>{if(imp){renderMatProyectos();updateBadges();}})
+    .catch(e=>console.warn('Migración local:',e));
 }
 
 // If Firebase already ready (fast load), run now; otherwise wait
