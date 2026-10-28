@@ -1235,7 +1235,7 @@ onAuthStateChanged(_auth, async (user) => {
 window._cache = {};
 
 // ── Versión de la app (subir en cada deploy con fixes) ─────────
-const APP_VERSION = '1.18.0';
+const APP_VERSION = '1.19.0';
 
 window.cerrarSesionApp = function() {
   if (window._fsSignOut && window._auth) {
@@ -2490,7 +2490,7 @@ function sobranteProyecto(p){
   let totalSobrante=0;
   Object.values(mapaPerfiles).forEach(({perfil,cortes})=>{
     if(!cortes.length) return;
-    const {sobrante}=cuttingStockFFD(cortes,perfil.longitudTramo);
+    const {sobrante}=cuttingStockFFD(cortes,perfil.longitudTramo,CONFIG_CORTE);
     totalSobrante+=sobrante*(perfil.precioML||0);
   });
   return totalSobrante;
@@ -2504,6 +2504,7 @@ function actualizarProyecto(){
 function guardarProyecto(){
   if(!proyectoActivo)return;
   proyectoActivo.cliente=document.getElementById('cot-cliente').value;
+  (proyectoActivo.partidas||[]).forEach(_limpiarCamposTemp); // no guardar estado temporal de edición
   const proyectos=DB.get('proyectos');
   const idx=proyectos.findIndex(p=>p.id===proyectoActivo.id);
   if(idx>=0)proyectos[idx]=proyectoActivo;else proyectos.push(proyectoActivo);
@@ -2611,20 +2612,16 @@ function cargarRecetasPorLinea(){
 
 function cargarConfigsPorReceta(){
   const ridRaw=document.getElementById('cot-receta').value;
-  const isAdminReceta=ridRaw.startsWith('a_');
-  const isUserReceta=ridRaw.startsWith('u_');
   // Handle u_ prefix (user recetas) and a_ prefix (admin recetas)
-  const rid=isAdminReceta ? ridRaw.slice(2) : isUserReceta ? parseInt(ridRaw.slice(2)) : parseInt(ridRaw);
-  if(!rid){document.getElementById('cot-opciones-wrap').style.display='none';return;}
-  const r=isAdminReceta
-    ? DB.getAdminRecetas().find(x=>String(x.id||x._docId)===String(rid))
-    : DB.get('recetas').find(x=>x.id===rid);
-  if(!r)return;
+  const r=resolveReceta(ridRaw);
+  // Cambiar la configuración también recalcula el desglose
+  document.getElementById('cot-config').onchange=calcularPartida;
+  if(!r){document.getElementById('cot-opciones-wrap').style.display='none';return;}
   const configs=r.configs||[];
   // If configs empty but receta exists, retry once after delay (timing issue)
   if(!configs.length && r.id) {
     setTimeout(()=>{
-      const r2=DB.get('recetas').find(x=>x.id===rid)||DB.getAdminRecetas().find(x=>String(x.id||x._docId)===String(rid));
+      const r2=resolveReceta(ridRaw);
       if(r2?.configs?.length) {
         document.getElementById('cot-config').innerHTML=
           '<option value="">— Sin configuración —</option>'+r2.configs.map((c,i)=>`<option value="${i}">${c.tipo}</option>`).join('');
@@ -2719,20 +2716,7 @@ function toggleDesglose(idx, activo){
   if(!proyectoActivo._temp) return;
   proyectoActivo._temp.lineasDesglose[idx].activo=activo;
   renderDesglose();
-  // Persistir inmediatamente: guardar lineas actuales en el proyecto
-  // Buscar la partida que corresponde al desglose activo comparando labels
-  const lineas=proyectoActivo._temp.lineasDesglose;
-  const proyectos=DB.get('proyectos');
-  const pr=proyectos.find(x=>x.id===proyectoActivo.id);
-  if(pr&&lineas.length>0){
-    const label0=lineas[0]?.label;
-    const pa=pr.partidas?.find(p=>p.desglose?.length>0&&p.desglose[0]?.label===label0);
-    if(pa){
-      // Sync activo flags from _temp to desglose
-      lineas.forEach((l,i)=>{ if(pa.desglose[i]) pa.desglose[i].activo=l.activo; });
-      DB.set('proyectos',proyectos);
-    }
-  }
+  // Solo afecta al borrador de la partida nueva; se guarda al "Agregar partida"
 }
 
 // ══════════════════════════════════════════════
@@ -2851,22 +2835,10 @@ function agregarExtraPerfil(){
   const lv=parseFloat(document.getElementById('ep-lv').value)||0;
   const h=parseFloat(document.getElementById('ep-h').value)||0;
   const lh=parseFloat(document.getElementById('ep-lh').value)||0;
-  const largoV=lv||alto, largoH=lh||ancho;
-  const ml=(v*largoV)+(h*largoH);
-  const idComp=acabado.replace(/\s+/g,'')+clave;
-  const p=DB.get('perfiles').find(x=>x.idCompuesto===idComp);
-  if(!p){toast(`Perfil ${clave} no encontrado con acabado "${acabado}"`, 'error');return;}
-  const costo=p.precioML*ml;
-  let detPartsA=[];
-  if(v>0&&largoV>0) detPartsA.push(`${v}×${largoV.toFixed(2)}m(alt)`);
-  if(h>0&&largoH>0) detPartsA.push(`${h}×${largoH.toFixed(2)}m(anch)`);
-  const detExtra=detPartsA.length>0?detPartsA.join(' + ')+` = ${num(ml)} ml × ${fmt(p.precioML)}/ml`:`${num(ml)} ml × ${fmt(p.precioML)}/ml`;
-  const linea={
-    idx: proyectoActivo._temp.lineasDesglose.length,
-    label:`${p.idCompuesto} — ${p.nombre} [EXTRA]`,
-    tipo:'Perfil', costo, encontrado:true, activo:true,
-    detalle: detExtra
-  };
+  // Se guardan los datos de captura para recalcular el extra si cambian las medidas/acabado
+  const res=_calcLineaExtra({tipo:'perfil',clave,v,lv,h,lh},ancho,alto,acabado);
+  if(!res.encontrado){toast(`Perfil ${clave} no encontrado con acabado "${acabado}"`, 'error');return;}
+  const linea={...res,idx:proyectoActivo._temp.lineasDesglose.length,activo:true};
   proyectoActivo._temp.lineasDesglose.push(linea);
   renderDesglose();
   // Reset
@@ -2891,19 +2863,10 @@ function agregarExtraHerraje(){
   const lv=parseFloat(document.getElementById('eh-lv').value)||0;
   const h=parseFloat(document.getElementById('eh-h').value)||0;
   const lh=parseFloat(document.getElementById('eh-lh').value)||0;
-  const largoV=lv||alto, largoH=lh||ancho;
-  const ml=(v*largoV)+(h*largoH);
-  const hj=DB.get('herrajes').find(x=>x.id===id);
-  if(!hj){toast('Herraje no encontrado','error');return;}
-  let costo=0,det='';
-  if(ml>0){costo+=(hj.precioML||0)*ml;det+=`${num(ml)} ml × ${fmt(hj.precioML||0)}/ml`;}
-  if(cant>0){costo+=(hj.precioUnitario||0)*cant;det+=(det?' + ':'')+`${cant} pzs × ${fmt(hj.precioUnitario||0)}`;}
-  if(!costo){toast('Ingresa cantidad o cortes','error');return;}
-  const linea={
-    idx:proyectoActivo._temp.lineasDesglose.length,
-    label:hj.descripcion+(hj.clave?' ['+hj.clave+']':'')+' [EXTRA]',
-    tipo:'Herraje',costo,encontrado:true,activo:true,detalle:det
-  };
+  const res=_calcLineaExtra({tipo:'herraje',herrajeId:id,cant,v,lv,h,lh},ancho,alto,'');
+  if(!res.encontrado){toast('Herraje no encontrado','error');return;}
+  if(!res.costo){toast('Ingresa cantidad o cortes','error');return;}
+  const linea={...res,idx:proyectoActivo._temp.lineasDesglose.length,activo:true};
   proyectoActivo._temp.lineasDesglose.push(linea);
   renderDesglose();
   document.getElementById('eh-item').value='';
@@ -2920,84 +2883,145 @@ function alCambiarVidrio(){
   calcularPartida();
 }
 
-function calcularPartida(){
-  const ridRaw=document.getElementById('cot-receta').value;
-  const isAdminReceta=ridRaw.startsWith('a_');
-  const isUserReceta2=ridRaw.startsWith('u_');
-  const rid=isAdminReceta ? ridRaw.slice(2) : isUserReceta2 ? parseInt(ridRaw.slice(2)) : parseInt(ridRaw);
-  const acabado=document.getElementById('cot-acabado-custom').value.trim();
-  const ancho=parseFloat(document.getElementById('cot-ancho').value)||0;
-  const alto=parseFloat(document.getElementById('cot-alto').value)||0;
-  const cantidad=parseInt(document.getElementById('cot-cantidad').value)||1;
-  const cidxRaw=document.getElementById('cot-config').value;
-  const cidx=cidxRaw!==''?parseInt(cidxRaw):null;
-  const vidrioId=parseInt(document.getElementById('cot-vidrio').value)||null;
-
-  // Mostrar desglose aunque no haya acabado, para ver los perfiles pendientes
-  if(!rid||!(ancho>0)||!(alto>0)||!(cantidad>=1)){
-    document.getElementById('cot-preview').style.display='none';
-    if(proyectoActivo) delete proyectoActivo._temp; // evita agregar con un cálculo viejo
-    return;
+// ══════════════════════════════════════════════
+// MOTOR DE COTIZACIÓN COMPARTIDO (alta de partida y edición)
+// ══════════════════════════════════════════════
+// Resuelve el valor del select de receta: 'a_<id>' (SCAVi), 'u_<id>' (mis recetas) o número legacy sin prefijo
+function resolveReceta(val){
+  if(val===undefined||val===null||val==='') return null;
+  const s=String(val);
+  if(s.startsWith('a_')){
+    const id=s.slice(2);
+    return id?(DB.getAdminRecetas().find(x=>String(x.id||x._docId)===id)||null):null;
   }
+  const esU=s.startsWith('u_');
+  const raw=esU?s.slice(2):s;
+  const n=parseInt(raw);
+  const r=n?DB.get('recetas').find(x=>x.id===n):null;
+  if(r||esU) return r||null;
+  // Legacy sin prefijo (panel de edición anterior): podía ser una receta SCAVi
+  return DB.getAdminRecetas().find(x=>String(x.id||x._docId)===raw)||null;
+}
 
-  const r=isAdminReceta
-    ? DB.getAdminRecetas().find(x=>String(x.id||x._docId)===String(rid))
-    : DB.get('recetas').find(x=>x.id===rid);
-  if(!r)return;
+// Receta de una partida guardada: por recetaId (partidas nuevas) o por nombre (partidas antiguas)
+function _recetaDePartida(p){
+  if(p&&p.recetaId&&/^[au]_/.test(String(p.recetaId))){
+    const r=resolveReceta(p.recetaId);
+    if(r) return {r,valor:String(p.recetaId)};
+  }
+  if(!p) return {r:null,valor:''};
+  const u=DB.get('recetas').find(x=>x.nombre===p.receta);
+  const a=DB.getAdminRecetas().find(x=>x.nombre===p.receta);
+  if(p.recetaEsAdmin&&a) return {r:a,valor:`a_${a.id||a._docId}`};
+  if(u) return {r:u,valor:`u_${u.id}`};
+  if(a) return {r:a,valor:`a_${a.id||a._docId}`};
+  return {r:null,valor:''};
+}
+
+// Índice de configuración de una partida: configIdx guardado (si sigue siendo la misma config) o por nombre
+function _configIdxDePartida(p,r){
+  if(!r||!r.configs||!r.configs.length) return null;
+  const okIdx=Number.isInteger(p.configIdx)&&r.configs[p.configIdx];
+  if(okIdx&&(!p.config||r.configs[p.configIdx].tipo===p.config)) return p.configIdx;
+  const i=r.configs.findIndex(c=>c.tipo===p.config);
+  if(i>=0) return i;
+  return okIdx?p.configIdx:null;
+}
+
+// Condiciones con contraparte SIN_ cuando no están marcadas
+const COND_CON_SIN=['CON_ZOCLO_INF','CON_ZOCLO_SUP','CON_ESCALONADO_VERT','CON_ESCALONADO_SUP',
+  'CON_COMERCIAL','CON_RESIDENCIAL','CON_RESIDENCIAL_Z6','CON_RESIDENCIAL_Z10',
+  'CON_DUELA_50','CON_DUELA_50_2C','CON_DUELA_1C','CON_DUELA_2C',
+  'CON_LOUVER','CON_INTERMEDIO_1H','CON_INTERMEDIO_2H','CON_INTERMEDIO_4_1H','CON_INTERMEDIO_4_2H'];
+
+// {CON_X:true/false} → Set de condiciones activas (misma semántica que el formulario de cotizar)
+function construirCondicionesActivas(cond){
+  const c=cond||{};
+  const set=new Set(['SIEMPRE']);
+  Object.keys(c).forEach(k=>{ if(c[k]===true) set.add(k); });
+  if(c.CON_MOSQUITERO||c.CON_MOSQUITERO_FIJO||c.CON_MOSQUITERO_CORREDIZO) set.add('CON_MOSQUITERO');
+  else set.add('SIN_MOSQUITERO');
+  COND_CON_SIN.forEach(id=>{ if(!c[id]) set.add(id.replace('CON_','SIN_')); });
+  return set;
+}
+
+// Equivalente de un perfil en otra marca (mismo nombre + acabado)
+function _cmEquivalente(actual,destino,perfiles){
+  return perfiles.find(x=>
+    (x.proveedor||'').trim()===destino &&
+    (x.nombre||'').trim().toLowerCase()===(actual.nombre||'').trim().toLowerCase() &&
+    (x.acabado||'').trim().toLowerCase()===(actual.acabado||'').trim().toLowerCase()
+  )||null;
+}
+
+// Línea [EXTRA] calculada desde sus datos de captura (se recalcula con las medidas actuales)
+// ex: {tipo:'perfil', clave, v, lv, h, lh} | {tipo:'herraje', herrajeId, cant, v, lv, h, lh}
+function _calcLineaExtra(ex,ancho,alto,acabado){
+  const v=ex.v||0, lv=ex.lv||0, h=ex.h||0, lh=ex.lh||0;
+  const largoV=lv||alto, largoH=lh||ancho;
+  const ml=(v*largoV)+(h*largoH);
+  if(ex.tipo==='perfil'){
+    const cortes=[];
+    if(v>0&&largoV>0) cortes.push({long:largoV,cant:v});
+    if(h>0&&largoH>0) cortes.push({long:largoH,cant:h});
+    const idComp=(acabado||'').replace(/\s+/g,'')+ex.clave;
+    const p=DB.getCombined('perfiles').find(x=>x.idCompuesto===idComp);
+    if(!p) return {label:`${ex.clave} (acabado "${acabado||''}" no encontrado) [EXTRA]`,tipo:'Perfil',costo:0,encontrado:false,
+      detalle:`${num(ml)} ml`,extra:{...ex},esExtra:true,cortes,ml,perfilIdCompuesto:null,perfilClave:ex.clave};
+    const detParts=[];
+    if(v>0&&largoV>0) detParts.push(`${v}×${largoV.toFixed(2)}m(alt)`);
+    if(h>0&&largoH>0) detParts.push(`${h}×${largoH.toFixed(2)}m(anch)`);
+    const det=detParts.length>0?detParts.join(' + ')+` = ${num(ml)} ml × ${fmt(p.precioML)}/ml`:`${num(ml)} ml × ${fmt(p.precioML)}/ml`;
+    return {label:`${p.idCompuesto} — ${p.nombre} [EXTRA]`,tipo:'Perfil',costo:p.precioML*ml,encontrado:true,detalle:det,
+      extra:{...ex},esExtra:true,cortes,ml,perfilIdCompuesto:p.idCompuesto,perfilClave:p.clave};
+  }
+  const cant=ex.cant||0;
+  const hj=DB.getCombined('herrajes').find(x=>x.id===ex.herrajeId);
+  if(!hj) return {label:'Herraje no encontrado [EXTRA]',tipo:'Herraje',costo:0,encontrado:false,detalle:'',
+    extra:{...ex},esExtra:true,herrajeId:ex.herrajeId,cantPzas:cant,ml};
+  let costo=0,det='';
+  if(ml>0){costo+=(hj.precioML||0)*ml;det+=`${num(ml)} ml × ${fmt(hj.precioML||0)}/ml`;}
+  if(cant>0){costo+=(hj.precioUnitario||0)*cant;det+=(det?' + ':'')+`${cant} pzs × ${fmt(hj.precioUnitario||0)}`;}
+  return {label:hj.descripcion+(hj.clave?' ['+hj.clave+']':'')+' [EXTRA]',tipo:'Herraje',costo,encontrado:true,detalle:det,
+    extra:{...ex},esExtra:true,herrajeId:hj.id!==undefined?hj.id:hj._docId,cantPzas:cant,ml};
+}
+
+// Cotiza una partida SIN tocar el DOM. Lo usan calcularPartida (alta) y recotizarPartida (edición).
+// o: {receta|recetaId, configIdx, ancho, alto, cantidad, acabado, vidrioId, vidrioDividido:{supId,infId,altoSup,altoInf},
+//     vidriosCongelados:[lineas Vidrio guardadas], condiciones:{CON_X:bool}, sustituciones:{claveReceta:{proveedor,clave,idCompuesto}}, prevLineas}
+// Devuelve {lineasDesglose (con idx y activo), totalSinIVA (solo activas × cantidad), tipoVidrio, receta} o null si no hay receta.
+function cotizarPartida(o){
+  const r=o.receta||resolveReceta(o.recetaId);
+  if(!r) return null;
+  const ancho=o.ancho||0, alto=o.alto||0, cantidad=o.cantidad||1;
+  const acabado=(o.acabado||'').trim();
+  const cidx=(o.configIdx===null||o.configIdx===undefined||o.configIdx==='')?null:o.configIdx;
+  const vidrioId=o.vidrioId||null;
+  const div=o.vidrioDividido||null;
+  const sustituciones=o.sustituciones||null;
 
   // Use combined catalog (user + admin) for pricing — user prices take priority
   const todosPerfiles=DB.getCombined('perfiles');
   const todosHerrajes=DB.getCombined('herrajes');
+  const todosVidrios=DB.getCombined('vidrios');
   let lineasDesglose=[];
-  let totalSinIVA=0;
 
-  // Tipo de vidrio: se detecta automáticamente del vidrio elegido en catálogo
+  // Tipo de vidrio: del vidrio elegido; en vidrio dividido, de las secciones (DUOVENT si alguna lo es)
   let tipoVidrioSeleccionado='SENCILLO'; // default
-  if(vidrioId){
-    const vSel=DB.get('vidrios').find(x=>x.id===vidrioId);
+  const vSup=div&&div.supId&&div.altoSup>0?todosVidrios.find(x=>x.id===div.supId):null;
+  const vInf=div&&div.infId&&div.altoInf>0?todosVidrios.find(x=>x.id===div.infId):null;
+  if(div||o.vidriosCongelados){
+    const vsSecc=div?[vSup,vInf]:(o.vidriosCongelados||[]).map(l=>l.vidrioId?todosVidrios.find(x=>x.id===l.vidrioId):
+      todosVidrios.find(x=>x.descripcion===String(l.label||'').replace(/ \(sección (superior|inferior)\)$/,'')));
+    const tipos=vsSecc.filter(v=>v&&v.tipo).map(v=>v.tipo.toUpperCase());
+    if(tipos.includes('DUOVENT')) tipoVidrioSeleccionado='DUOVENT';
+    else if(tipos.length) tipoVidrioSeleccionado=tipos[0];
+  } else if(vidrioId){
+    const vSel=todosVidrios.find(x=>x.id===vidrioId);
     if(vSel&&vSel.tipo) tipoVidrioSeleccionado=vSel.tipo.toUpperCase();
   }
-  // Actualizar indicador visual
-  const indicador=document.getElementById('cot-tipo-vidrio-indicator');
-  const labelTv=document.getElementById('cot-tipo-vidrio-label');
-  if(indicador&&labelTv){
-    indicador.style.display=vidrioId?'':'none';
-    if(vidrioId){
-      labelTv.textContent=tipoVidrioSeleccionado;
-      labelTv.style.color=tipoVidrioSeleccionado==='DUOVENT'?'var(--purple)':'var(--accent2)';
-    }
-  }
 
-  // ── Leer condiciones activas del cancel ─────────────────────
-  const condicionesActivas=new Set(['SIEMPRE']);
-  // Zoclos
-  if(document.getElementById('cond-CON_ZOCLO_INF')?.checked) condicionesActivas.add('CON_ZOCLO_INF');
-  else condicionesActivas.add('SIN_ZOCLO_INF');
-  if(document.getElementById('cond-CON_ZOCLO_SUP')?.checked) condicionesActivas.add('CON_ZOCLO_SUP');
-  else condicionesActivas.add('SIN_ZOCLO_SUP');
-  // Mosquitero
-  const _mosFijo=document.getElementById('cond-CON_MOSQUITERO_FIJO')?.checked;
-  const _mosCorr=document.getElementById('cond-CON_MOSQUITERO_CORREDIZO')?.checked;
-  const _mosGen=document.getElementById('cond-CON_MOSQUITERO')?.checked;
-  if(_mosGen||_mosFijo||_mosCorr){
-    condicionesActivas.add('CON_MOSQUITERO');
-    if(_mosFijo) condicionesActivas.add('CON_MOSQUITERO_FIJO');
-    if(_mosCorr) condicionesActivas.add('CON_MOSQUITERO_CORREDIZO');
-  } else {
-    condicionesActivas.add('SIN_MOSQUITERO');
-  }
-  // Escalonado
-  if(document.getElementById('cond-CON_ESCALONADO_VERT')?.checked) condicionesActivas.add('CON_ESCALONADO_VERT');
-  else condicionesActivas.add('SIN_ESCALONADO_VERT');
-  if(document.getElementById('cond-CON_ESCALONADO_SUP')?.checked) condicionesActivas.add('CON_ESCALONADO_SUP');
-  else condicionesActivas.add('SIN_ESCALONADO_SUP');
-  ['CON_COMERCIAL','CON_RESIDENCIAL','CON_RESIDENCIAL_Z6','CON_RESIDENCIAL_Z10',
-   'CON_DUELA_50','CON_DUELA_50_2C','CON_DUELA_1C','CON_DUELA_2C',
-   'CON_LOUVER','CON_INTERMEDIO_1H','CON_INTERMEDIO_2H','CON_INTERMEDIO_4_1H','CON_INTERMEDIO_4_2H'
-  ].forEach(id=>{
-    if(document.getElementById('cond-'+id)?.checked) condicionesActivas.add(id);
-    else condicionesActivas.add(id.replace('CON_','SIN_'));
-  });
+  const condicionesActivas=construirCondicionesActivas(o.condiciones);
 
   // ── Calcular costo de un perfil ──────────────────────────────
   // grupos: [{tipo:'vertical'|'horizontal'|'fijo', cant, long, divisor, condicion}]
@@ -3008,11 +3032,20 @@ function calcularPartida(){
 
     const acabadoClean=acabado.replace(/\s+/g,'');
     const idComp=acabadoClean+clave;
-    const p=acabado ? todosPerfiles.find(x=>x.idCompuesto===idComp) : null;
+    let p=acabado ? todosPerfiles.find(x=>x.idCompuesto===idComp) : null;
+    // "Cambiar marca": mantener la marca sustituida al recotizar
+    let sustituido=false, avisoMarca='';
+    const sub=sustituciones&&sustituciones[clave];
+    if(p&&sub&&sub.proveedor&&(p.proveedor||'').trim()!==sub.proveedor){
+      const eq=_cmEquivalente(p,sub.proveedor,todosPerfiles);
+      if(eq){ sustituido=eq.clave!==clave; p=eq; }
+      else avisoMarca=` (sin equivalente en ${sub.proveedor})`;
+    }
 
     // Calcular metros lineales desde grupos filtrando por condicion
     let ml=0;
     let detalleGrupos=[];
+    const cortes=[];
     if(grupos&&grupos.length>0){
       grupos.forEach(g=>{
         const cond=(g.condicion||'SIEMPRE').toUpperCase();
@@ -3027,6 +3060,7 @@ function calcularPartida(){
         else longCorte=ancho/divisor;
         const mlGrupo=cantCortes*longCorte;
         ml+=mlGrupo;
+        cortes.push({long:longCorte,cant:cantCortes});
         if(g.tipo==='fijo') detalleGrupos.push(`${cantCortes}×${g.long}m`);
         else if(g.tipo==='vertical') detalleGrupos.push(`${cantCortes}×${num(longCorte)}m(alt${divisor>1?'/'+divisor:''})`);
         else detalleGrupos.push(`${cantCortes}×${num(longCorte)}m(anch${divisor>1?'/'+divisor:''})`);
@@ -3038,6 +3072,8 @@ function calcularPartida(){
       ml=(cortesV*alto)+(cortesH*ancho);
       if(cortesV>0) detalleGrupos.push(`${cortesV}×alto`);
       if(cortesH>0) detalleGrupos.push(`${cortesH}×ancho`);
+      if(cortesV>0) cortes.push({long:alto,cant:cortesV});
+      if(cortesH>0) cortes.push({long:ancho,cant:cortesH});
     }
 
     const detalleCortes=detalleGrupos.join(' + ');
@@ -3046,16 +3082,20 @@ function calcularPartida(){
       return{
         label: clave+(acabado?` (acabado "${acabado}" no encontrado)`:' ← elige un acabado'),
         costo:0, encontrado:false,
-        detalle: ml>0?`${detalleCortes} = ${num(ml)} ml`:''
+        detalle: ml>0?`${detalleCortes} = ${num(ml)} ml`:'',
+        cortes, ml, perfilIdCompuesto:null, perfilClave:clave, claveReceta:clave
       };
     }
 
     const costo=p.precioML*ml;
-    return{
+    const res={
       label:`${p.idCompuesto} — ${p.nombre}`,
       costo, encontrado:true,
-      detalle:`${detalleCortes} = ${num(ml)} ml × ${fmt(p.precioML)}/ml`
+      detalle:`${detalleCortes} = ${num(ml)} ml × ${fmt(p.precioML)}/ml${avisoMarca}`,
+      cortes, ml, perfilIdCompuesto:p.idCompuesto, perfilClave:p.clave, claveReceta:clave
     };
+    if(sustituido) res.claveOriginal=clave;
+    return res;
   };
 
   // ── Calcular costo de un herraje (con condiciones por campo) ──
@@ -3063,9 +3103,9 @@ function calcularPartida(){
     const tvh=(tipoVidH||'AMBOS').toUpperCase();
     if(tvh!=='AMBOS'&&tvh!==tipoVidrioSeleccionado) return null;
     const h=todosHerrajes.find(x=>x.id===herrajeId);
-    if(!h)return{label:'Herraje no encontrado',costo:0,detalle:''};
+    if(!h)return{label:'Herraje no encontrado',costo:0,detalle:'',encontrado:false,herrajeId,cantPzas:0};
 
-    let costo=0, detalle='';
+    let costo=0, detalle='', mlTot=0, m2Tot=0, pzas=0;
 
     // Verticales: aplican si condV se cumple (default SIEMPRE)
     const condVok=condicionesActivas.has((condV||'SIEMPRE').toUpperCase());
@@ -3080,6 +3120,7 @@ function calcularPartida(){
       const mlH=hAplic?metrosH*ancho:0;
       const ml=mlV+mlH;
       if(ml>0){
+        mlTot=ml;
         costo=(h.precioML||0)*ml;
         if(vAplic&&hAplic)
           detalle=`${metrosV}V×${num(alto)}m + ${metrosH}H×${num(ancho)}m = ${num(ml)} ml × ${fmt(h.precioML||0)}/ml`;
@@ -3094,6 +3135,7 @@ function calcularPartida(){
     const condCok=condicionesActivas.has((condCantidad||'SIEMPRE').toUpperCase());
     const cantAplic=cantPiezas>0&&condCok;
     if(cantAplic){
+      pzas=cantPiezas;
       costo+=(h.precioUnitario||0)*cantPiezas;
       detalle+=(detalle?'  +  ':'')+`${cantPiezas} pzs × ${fmt(h.precioUnitario||0)}`;
     }
@@ -3103,23 +3145,24 @@ function calcularPartida(){
     const m2Aplic=(h.precioM2||0)>0&&condM2ok;
     if(m2Aplic){
       const m2=(ancho/(m2DivAncho||1))*(alto/(m2DivAlto||1));
+      m2Tot=m2;
       const costoM2=(h.precioM2||0)*m2;
       costo+=costoM2;
       detalle+=(detalle?'  +  ':'')+`${num(ancho)}÷${m2DivAncho||1}×${num(alto)}÷${m2DivAlto||1}=${num(m2)}m² × ${fmt(h.precioM2||0)}/m²`;
     }
     if(costo===0) return null; // nada aplica — omitir completamente
-    return{label:h.descripcion+(h.clave?' ['+h.clave+']':''),costo,detalle};
+    return{label:h.descripcion+(h.clave?' ['+h.clave+']':''),costo,detalle,
+      herrajeId:h.id!==undefined?h.id:h._docId,cantPzas:pzas,ml:mlTot,m2:m2Tot};
   };
 
   // ── Procesar configuración seleccionada ──────────────────────
   if(cidx!==null){
-    const cfg=r.configs[cidx];
+    const cfg=(r.configs||[])[cidx];
     if(cfg){
       (cfg.perfiles||[]).forEach(cp=>{
         const res=costoPerfil(cp.clave,cp.cortesV||0,cp.cortesH||0,cp.tipoVidrio,cp.grupos);
         if(res===null)return; // filtrado por tipo vidrio
         lineasDesglose.push({...res,tipo:'Perfil'});
-        totalSinIVA+=res.costo;
       });
       (cfg.herrajes||[]).forEach(ch=>{
         // Filter by general condicion (header-level)
@@ -3128,7 +3171,6 @@ function calcularPartida(){
         const res=costoHerraje(ch.herrajeId,ch.cantidad||0,ch.metrosV||0,ch.metrosH||0,ch.tipoVidrio,ch.condCantidad,ch.condV,ch.condH,ch.condM2,ch.m2DivAncho,ch.m2DivAlto);
         if(res===null)return;
         lineasDesglose.push({...res,tipo:'Herraje'});
-        totalSinIVA+=res.costo;
       });
     }
   } else if(r.configs&&r.configs.length===0){
@@ -3136,86 +3178,164 @@ function calcularPartida(){
     lineasDesglose.push({label:'Esta receta no tiene configuraciones definidas',costo:0,encontrado:false,tipo:'Info',detalle:''});
   }
 
+  // Separador DUOVENT (si la receta/config lo define) para un vidrio de alto altoVid
+  const separador=(altoVid)=>{
+    if(cidx===null||!r.configs||!r.configs[cidx]||!(r.separadorPrecio>0)) return null;
+    const cfg=r.configs[cidx];
+    const sepV=cfg.sepV||0;
+    const sepH=cfg.sepH||0;
+    const mlSep=(sepV*altoVid)+(sepH*ancho);
+    if(!(mlSep>0)) return null;
+    const costoSep=r.separadorPrecio*mlSep;
+    return{costoSep,texto:` + sep."${r.separador||''}": ${num(mlSep)} ml × ${fmt(r.separadorPrecio)}/ml = ${fmt(costoSep)}`};
+  };
+
   // ── Vidrio + Separador (o vidrio dividido en dos secciones) ───
-  const vidrioDividido=document.getElementById('cot-vidrio-dividido-chk')?.checked;
-  if(vidrioDividido){
-    const vidrioSupId=parseInt(document.getElementById('cot-vidrio-sup').value)||null;
-    const vidrioInfId=parseInt(document.getElementById('cot-vidrio-inf').value)||null;
-    const altoSup=parseFloat(document.getElementById('cot-alto-sup').value)||0;
-    const altoInf=parseFloat(document.getElementById('cot-alto-inf').value)||0;
-    const avisoEl=document.getElementById('cot-vidrio-dividido-aviso');
-    if(avisoEl){
-      if(altoSup>0&&altoInf>0&&Math.abs((altoSup+altoInf)-alto)>0.01){
-        avisoEl.style.display='';
-        avisoEl.textContent=`⚠ La suma de alturas (${num(altoSup+altoInf)}m) no coincide con el alto del cancel (${num(alto)}m)`;
-      } else {
-        avisoEl.style.display='none';
+  if(div){
+    [[vSup,div.altoSup,'superior','sup'],[vInf,div.altoInf,'inferior','inf']].forEach(([vs,altoS,nom,secc])=>{
+      if(!vs) return;
+      const m2=ancho*altoS;
+      let costo=vs.precioM2*m2;
+      let detalle=`${num(m2)} m² × ${fmt(vs.precioM2)}/m²`;
+      if((vs.tipo||'').toUpperCase()==='DUOVENT'){
+        const sep=separador(altoS);
+        if(sep){costo+=sep.costoSep;detalle+=sep.texto;}
       }
-    }
-    if(vidrioSupId&&altoSup>0){
-      const vSup=DB.getCombined('vidrios').find(x=>x.id===vidrioSupId);
-      if(vSup){
-        const m2Sup=ancho*altoSup;
-        const costoSup=vSup.precioM2*m2Sup;
-        lineasDesglose.push({label:vSup.descripcion+' (sección superior)',tipo:'Vidrio',costo:costoSup,encontrado:true,
-          detalle:`${num(m2Sup)} m² × ${fmt(vSup.precioM2)}/m²`});
-        totalSinIVA+=costoSup;
-      }
-    }
-    if(vidrioInfId&&altoInf>0){
-      const vInf=DB.getCombined('vidrios').find(x=>x.id===vidrioInfId);
-      if(vInf){
-        const m2Inf=ancho*altoInf;
-        const costoInf=vInf.precioM2*m2Inf;
-        lineasDesglose.push({label:vInf.descripcion+' (sección inferior)',tipo:'Vidrio',costo:costoInf,encontrado:true,
-          detalle:`${num(m2Inf)} m² × ${fmt(vInf.precioM2)}/m²`});
-        totalSinIVA+=costoInf;
-      }
-    }
+      lineasDesglose.push({label:vs.descripcion+` (sección ${nom})`,tipo:'Vidrio',costo,encontrado:true,detalle,
+        vidrioId:vs.id,m2,seccion:secc,altoSeccion:altoS});
+    });
+  } else if(o.vidriosCongelados){
+    // Vidrio dividido de partidas antiguas (sin datos de secciones): se conserva tal cual se cotizó
+    o.vidriosCongelados.forEach(l=>lineasDesglose.push({...l}));
   } else if(vidrioId){
-    const v=DB.getCombined('vidrios').find(x=>x.id===vidrioId);
+    const v=todosVidrios.find(x=>x.id===vidrioId);
     if(v){
       const m2=ancho*alto;
       let costoVidrio=v.precioM2*m2;
       let detalleVidrio=`${num(m2)} m² × ${fmt(v.precioM2)}/m²`;
       // Sumar separador si es DUOVENT y la receta/config tiene separador definido
-      if(tipoVidrioSeleccionado==='DUOVENT' && cidx!==null && r.configs && r.configs[cidx]){
-        const cfg=r.configs[cidx];
-        if(r.separadorPrecio>0){
-          const sepV=cfg.sepV||0;
-          const sepH=cfg.sepH||0;
-          const mlSep=(sepV*alto)+(sepH*ancho);
-          if(mlSep>0){
-            const costoSep=r.separadorPrecio*mlSep;
-            costoVidrio+=costoSep;
-            detalleVidrio+=` + sep."${r.separador||''}": ${num(mlSep)} ml × ${fmt(r.separadorPrecio)}/ml = ${fmt(costoSep)}`;
-          }
-        }
+      if(tipoVidrioSeleccionado==='DUOVENT'){
+        const sep=separador(alto);
+        if(sep){costoVidrio+=sep.costoSep;detalleVidrio+=sep.texto;}
       }
       lineasDesglose.push({label:v.descripcion,tipo:'Vidrio',costo:costoVidrio,encontrado:true,
-        detalle:detalleVidrio});
-      totalSinIVA+=costoVidrio;
+        detalle:detalleVidrio,vidrioId:v.id,m2});
     }
   }
 
-  totalSinIVA*=cantidad;
-
-  // Preservar perfiles/herrajes EXTRA agregados manualmente (no vienen de la receta ni se deben perder al recalcular)
-  const prevLineas=(proyectoActivo._temp&&proyectoActivo._temp.lineasDesglose)||[];
-  const extrasPrevios=prevLineas.filter(l=>l.label&&l.label.includes('[EXTRA]'));
-  extrasPrevios.forEach(ex=>{
-    lineasDesglose.push({label:ex.label,tipo:ex.tipo,costo:ex.costo,encontrado:ex.encontrado,detalle:ex.detalle});
-    if(ex.activo!==false) totalSinIVA+=ex.costo*cantidad;
+  // Estado activo/inactivo previo (por label) para las líneas de receta
+  const prevLineas=o.prevLineas||[];
+  lineasDesglose=lineasDesglose.map(l=>{
+    const prev=prevLineas.find(p=>p.label===l.label);
+    return {...l,activo:prev?prev.activo!==false:true};
   });
 
-  // Render desglose
+  // Perfiles/herrajes EXTRA agregados manualmente: se recalculan con las medidas actuales
+  // (los antiguos, sin datos de captura, se conservan con su costo guardado)
+  prevLineas.filter(l=>l.label&&l.label.includes('[EXTRA]')).forEach(ex=>{
+    const nueva=ex.extra?_calcLineaExtra(ex.extra,ancho,alto,acabado)
+      :{label:ex.label,tipo:ex.tipo,costo:ex.costo,encontrado:ex.encontrado,detalle:ex.detalle};
+    lineasDesglose.push({...nueva,activo:ex.activo!==false});
+  });
+
+  lineasDesglose=lineasDesglose.map((l,i)=>({...l,idx:i}));
+  const totalSinIVA=lineasDesglose.filter(l=>l.activo).reduce((s,l)=>s+l.costo,0)*cantidad;
+  return {lineasDesglose,totalSinIVA,tipoVidrio:tipoVidrioSeleccionado,receta:r};
+}
+
+// Valida las líneas activas antes de guardar: total numérico y aviso de conceptos no encontrados.
+// Devuelve el total (sin IVA) o null si no se debe guardar.
+function _validarLineasPartida(lineas,cantidad){
+  const activas=(lineas||[]).filter(l=>l.activo!==false);
+  const invalidas=activas.filter(l=>!Number.isFinite(l.costo));
+  const total=activas.reduce((s,l)=>s+l.costo,0)*cantidad;
+  if(invalidas.length||!Number.isFinite(total)){
+    toast(`Precio inválido en: ${invalidas.map(l=>l.label).join(', ')||'total'} — revisa el precio en el catálogo`,'error');
+    return null;
+  }
+  const faltantes=activas.filter(l=>l.encontrado===false);
+  if(faltantes.length&&!confirm(`Hay ${faltantes.length} concepto(s) sin precio (se cotizarán en $0):\n\n• ${faltantes.map(l=>l.label).join('\n• ')}\n\n¿Guardar la partida de todos modos?`)) return null;
+  return total;
+}
+
+// Quita campos temporales (_edit*, _temp*) de una partida antes de guardarla
+function _limpiarCamposTemp(p){
+  if(!p) return;
+  Object.keys(p).forEach(k=>{ if(/^_(edit|temp)/i.test(k)) delete p[k]; });
+}
+
+// Lee todas las opciones del cancel (checkboxes cond-*) del formulario de cotizar
+function _leerCondicionesForm(){
+  const c={};
+  document.querySelectorAll('#cot-condiciones-grid input[type=checkbox][id^="cond-"]').forEach(el=>{ c[el.id.slice(5)]=!!el.checked; });
+  return c;
+}
+
+// Datos de entrada del formulario de cotizar (lo que se cotiza y lo que se guarda en la partida)
+function _leerEntradaCotizar(){
+  const cidxRaw=document.getElementById('cot-config').value;
+  const dividido=!!document.getElementById('cot-vidrio-dividido-chk')?.checked;
+  return {
+    recetaId:document.getElementById('cot-receta').value,
+    configIdx:cidxRaw!==''?parseInt(cidxRaw):null,
+    acabado:document.getElementById('cot-acabado-custom').value.trim(),
+    ancho:parseFloat(document.getElementById('cot-ancho').value)||0,
+    alto:parseFloat(document.getElementById('cot-alto').value)||0,
+    cantidad:parseInt(document.getElementById('cot-cantidad').value)||1,
+    vidrioId:dividido?null:(parseInt(document.getElementById('cot-vidrio').value)||null),
+    vidrioDividido:dividido?{
+      supId:parseInt(document.getElementById('cot-vidrio-sup').value)||null,
+      infId:parseInt(document.getElementById('cot-vidrio-inf').value)||null,
+      altoSup:parseFloat(document.getElementById('cot-alto-sup').value)||0,
+      altoInf:parseFloat(document.getElementById('cot-alto-inf').value)||0
+    }:null,
+    condiciones:_leerCondicionesForm()
+  };
+}
+
+function calcularPartida(){
+  const e=_leerEntradaCotizar();
+  const r=resolveReceta(e.recetaId);
+
+  // Mostrar desglose aunque no haya acabado, para ver los perfiles pendientes
+  if(!r||!(e.ancho>0)||!(e.alto>0)||!(e.cantidad>=1)){
+    document.getElementById('cot-preview').style.display='none';
+    if(proyectoActivo) delete proyectoActivo._temp; // evita agregar con un cálculo viejo
+    return;
+  }
+
+  // Aviso de vidrio dividido: la suma de alturas debe coincidir con el alto
+  const avisoEl=document.getElementById('cot-vidrio-dividido-aviso');
+  if(avisoEl&&e.vidrioDividido){
+    const {altoSup,altoInf}=e.vidrioDividido;
+    if(altoSup>0&&altoInf>0&&Math.abs((altoSup+altoInf)-e.alto)>0.01){
+      avisoEl.style.display='';
+      avisoEl.textContent=`⚠ La suma de alturas (${num(altoSup+altoInf)}m) no coincide con el alto del cancel (${num(e.alto)}m)`;
+    } else {
+      avisoEl.style.display='none';
+    }
+  }
+
+  const prevLineas=(proyectoActivo._temp&&proyectoActivo._temp.lineasDesglose)||[];
+  const res=cotizarPartida({...e,receta:r,prevLineas});
+
+  // Actualizar indicador visual del tipo de vidrio detectado
+  const hayVidrio=e.vidrioDividido?!!(e.vidrioDividido.supId||e.vidrioDividido.infId):!!e.vidrioId;
+  const indicador=document.getElementById('cot-tipo-vidrio-indicator');
+  const labelTv=document.getElementById('cot-tipo-vidrio-label');
+  if(indicador&&labelTv){
+    indicador.style.display=hayVidrio?'':'none';
+    if(hayVidrio){
+      labelTv.textContent=res.tipoVidrio;
+      labelTv.style.color=res.tipoVidrio==='DUOVENT'?'var(--purple)':'var(--accent2)';
+    }
+  }
+
   // Store lineas in temp for checkbox toggling
   proyectoActivo._temp = proyectoActivo._temp || {};
-  proyectoActivo._temp.lineasDesglose = lineasDesglose.map((l,i)=>{
-    const prev=prevLineas.find(p=>p.label===l.label);
-    return {...l,idx:i,activo:prev?prev.activo!==false:true};
-  });
-  proyectoActivo._temp.cantidad = cantidad;
+  proyectoActivo._temp.lineasDesglose = res.lineasDesglose;
+  proyectoActivo._temp.cantidad = e.cantidad;
+  proyectoActivo._temp.entrada = e; // datos con los que se calculó (se guardan en la partida)
   renderDesglose();
 
   document.getElementById('cot-preview').style.display='';
@@ -3226,11 +3346,8 @@ function calcularPartida(){
 function agregarPartida(){
   const desc=document.getElementById('cot-desc').value.trim();
   const ridRaw=document.getElementById('cot-receta').value;
-  const isAdminReceta=ridRaw.startsWith('a_');
-  const isUserReceta2=ridRaw.startsWith('u_');
-  const rid=isAdminReceta ? ridRaw.slice(2) : isUserReceta2 ? parseInt(ridRaw.slice(2)) : parseInt(ridRaw);
   if(!desc){toast('Ingresa la ubicación','error');return;}
-  if(!rid){toast('Selecciona una receta','error');return;}
+  if(!ridRaw){toast('Selecciona una receta','error');return;}
   const vAncho=parseFloat(document.getElementById('cot-ancho').value);
   const vAlto=parseFloat(document.getElementById('cot-alto').value);
   const vCantRaw=document.getElementById('cot-cantidad').value;
@@ -3240,36 +3357,42 @@ function agregarPartida(){
   if((vAncho>15||vAlto>15)&&!confirm(`Las medidas se capturan en metros (ej. 1.20).\n¿Confirmas ${vAncho} m × ${vAlto} m?`))return;
   if(!proyectoActivo._temp){toast('Configura las medidas primero','error');return;}
 
-  const ridRawA=document.getElementById('cot-receta').value;
-  const isAdminRA=ridRawA.startsWith('a_');
-  const r=isAdminRA
-    ? DB.getAdminRecetas().find(x=>String(x.id||x._docId)===String(rid))
-    : DB.get('recetas').find(x=>x.id===rid);
+  const r=resolveReceta(ridRaw);
   if(!r){toast('Error: receta no encontrada','error');return;}
-  const cfgIdx=document.getElementById('cot-config').value;
-  const cfgNombre=cfgIdx!==''?((r.configs||[])[parseInt(cfgIdx)]||{}).tipo:'—';
-  const acabado=document.getElementById('cot-acabado-custom').value.trim();
 
-  // Capture active conditions for this partida
-  const condActivas={};
-  ['CON_ZOCLO_INF','CON_ZOCLO_SUP','CON_MOSQUITERO','CON_MOSQUITERO_FIJO','CON_MOSQUITERO_CORREDIZO','CON_ESCALONADO_VERT','CON_ESCALONADO_SUP'].forEach(c=>{
-    const el=document.getElementById('cond-'+c);
-    if(el) condActivas[c]=el.checked;
-  });
+  // El desglose debe corresponder exactamente a los datos actuales del formulario
+  const e=_leerEntradaCotizar();
+  if(JSON.stringify(e)!==JSON.stringify(proyectoActivo._temp.entrada)){
+    calcularPartida();
+    toast('El desglose se actualizó con los datos actuales — revísalo y vuelve a agregar','error');
+    return;
+  }
+
+  const lineas=proyectoActivo._temp.lineasDesglose||[];
+  const cantidad=proyectoActivo._temp.cantidad;
+  const total=_validarLineasPartida(lineas,cantidad);
+  if(total===null) return;
+
+  const cfgNombre=e.configIdx!==null?((r.configs||[])[e.configIdx]||{}).tipo:'—';
   const partida={
     id:Date.now(),
     ubicacion:desc,
     receta:r.nombre,
-    recetaEsAdmin:isAdminRA,
+    recetaEsAdmin:ridRaw.startsWith('a_'),
+    recetaId:ridRaw,
+    linea:document.getElementById('cot-linea').value||r.linea||'',
     config:cfgNombre,
-    acabado,
-    condiciones:condActivas,
-    ancho:parseFloat(document.getElementById('cot-ancho').value)||0,
-    alto:parseFloat(document.getElementById('cot-alto').value)||0,
-    cantidad:proyectoActivo._temp.cantidad,
-    desglose:proyectoActivo._temp.lineasDesglose,
-    totalPartida:proyectoActivo._temp.totalSinIVA
+    configIdx:e.configIdx,
+    acabado:e.acabado,
+    condiciones:e.condiciones,
+    vidrioId:e.vidrioId,
+    ancho:e.ancho,
+    alto:e.alto,
+    cantidad,
+    desglose:lineas.map(l=>({...l})),
+    totalPartida:total
   };
+  if(e.vidrioDividido) partida.vidrioDividido={...e.vidrioDividido};
 
   proyectoActivo.partidas=proyectoActivo.partidas||[];
   proyectoActivo.partidas.push(partida);
@@ -3304,6 +3427,7 @@ function agregarPartida(){
 }
 
 function renderPartidas(){
+  _epEstado={}; // los paneles de edición se vuelven a dibujar cerrados: descartar ediciones pendientes
   const partidas=proyectoActivo?proyectoActivo.partidas||[]:[];
   const el=document.getElementById('cot-partidas-lista');
   if(!partidas.length){
@@ -3398,7 +3522,8 @@ function renderPartidas(){
             <label>Tipo de vidrio</label>
             <select id="ep-vidrio-${i}" onchange="recotizarPartida(${i})">
               <option value="">— Sin vidrio —</option>
-              ${DB.get('vidrios').map(v=>`<option value="${v.id}" ${p.vidrioId==v.id?'selected':''}>[${v.tipo||'SENCILLO'}] ${v.descripcion} — ${fmt(v.precioM2)}/m²</option>`).join('')}
+              ${p.vidrioDividido?`<option value="dividido">Vidrio dividido en 2 secciones (guardado)</option>`:_epTieneDivididoAntiguo(p)?`<option value="congelado">Vidrio dividido en 2 secciones (sin cambios)</option>`:''}
+              ${DB.get('vidrios').map(v=>`<option value="${v.id}">[${v.tipo||'SENCILLO'}] ${v.descripcion} — ${fmt(v.precioM2)}/m²</option>`).join('')}
             </select>
           </div>
         </div>
@@ -3482,16 +3607,12 @@ function _cmCalcularSustituciones(){
     (p.desglose||[]).forEach((l,li)=>{
       if(l.tipo!=='Perfil') return;
       if(l.label&&l.label.includes('[EXTRA]')) return; // extras manuales no se tocan
-      const idComp=_cmExtraerIdComp(l.label);
+      const idComp=l.perfilIdCompuesto||_cmExtraerIdComp(l.label);
       if(!idComp) return;
       const actual=perfiles.find(x=>x.idCompuesto===idComp);
       if(!actual) return; // no se puede determinar el perfil de origen
       if((actual.proveedor||'').trim()!==origen) return; // no es de la marca origen seleccionada
-      const nuevo=perfiles.find(x=>
-        (x.proveedor||'').trim()===destino &&
-        (x.nombre||'').trim().toLowerCase()===(actual.nombre||'').trim().toLowerCase() &&
-        (x.acabado||'').trim().toLowerCase()===(actual.acabado||'').trim().toLowerCase()
-      );
+      const nuevo=_cmEquivalente(actual,destino,perfiles);
       resultado.push({partidaIdx:pi,lineaIdx:li,label:l.label,actual,nuevo,ok:!!nuevo});
     });
   });
@@ -3538,28 +3659,49 @@ function aplicarCambioMarca(){
   const destino=document.getElementById('cm-marca-destino').value;
   if(!confirm(`¿Sustituir ${subs.length} perfil(es) por su equivalente de "${destino}" en todas las partidas de este proyecto?`))return;
 
+  let sinMl=0;
+  const aplicadas=[];
   subs.forEach(s=>{
-    const linea=proyectoActivo.partidas[s.partidaIdx].desglose[s.lineaIdx];
+    const partida=proyectoActivo.partidas[s.partidaIdx];
+    const linea=partida.desglose[s.lineaIdx];
     const pf=s.nuevo;
+    // Mismo ml que tenía la línea (mismos cortes, solo cambia precio/clave). Preferir los datos
+    // estructurados (ml / cortes); el detalle de texto solo para partidas antiguas.
+    let ml=null;
+    if(Number.isFinite(linea.ml)) ml=linea.ml;
+    else if(Array.isArray(linea.cortes)&&linea.cortes.length) ml=linea.cortes.reduce((t,c)=>t+(c.cant||0)*(c.long||0),0);
+    else {
+      const mlMatch=(linea.detalle||'').match(/([\d,.]+)\s*ml/);
+      ml=mlMatch?parseFloat(mlMatch[1].replace(',','')):null;
+    }
+    if(ml===null||!Number.isFinite(ml)){sinMl++;return;} // sin ml no se puede re-preciar: se deja igual
     // Guardar la CLAVE ORIGINAL (con la que se cotizó por receta) la primera vez que se
     // sustituye esta línea — recopilarCortes() la necesita para encontrar los grupos de
     // cortes exactos de la receta, que están definidos con la clave original, no con la
     // del perfil sustituido. Si la línea ya tenía una claveOriginal (cambios de marca
     // encadenados), se conserva la primera para no perder la referencia a la receta.
-    if(!linea.claveOriginal) linea.claveOriginal=s.actual.clave;
-    // Recalcular costo con el mismo ml que tenía la línea original (misma longitud de tramo, solo cambia precio/clave)
-    const mlMatch=(linea.detalle||'').match(/([\d,.]+)\s*ml/);
-    const ml=mlMatch?parseFloat(mlMatch[1].replace(',','')):null;
-    if(ml!==null){
-      linea.costo=pf.precioML*ml;
-      linea.detalle=`${num(ml)} ml × ${fmt(pf.precioML)}/ml`;
-    }
+    const claveReceta=linea.claveOriginal||linea.claveReceta||s.actual.clave;
+    if(!linea.claveOriginal) linea.claveOriginal=claveReceta;
+    linea.costo=pf.precioML*ml;
+    // Conservar el detalle de cortes ("2×2.10m(alt) + ...") — solo cambia el precio
+    const det=linea.detalle||'';
+    const iEq=det.lastIndexOf(' = ');
+    linea.detalle=(iEq>=0?det.slice(0,iEq)+' = ':'')+`${num(ml)} ml × ${fmt(pf.precioML)}/ml`;
+    linea.ml=ml;
     linea.label=`${pf.idCompuesto} — ${pf.nombre}`;
+    linea.perfilIdCompuesto=pf.idCompuesto;
+    linea.perfilClave=pf.clave;
     linea.encontrado=true;
+    // Recordar la sustitución en la partida para que al recotizar (panel de edición) se mantenga la marca
+    partida.sustitucionesMarca=partida.sustitucionesMarca||{};
+    partida.sustitucionesMarca[claveReceta]={proveedor:(pf.proveedor||'').trim(),clave:pf.clave,idCompuesto:pf.idCompuesto};
+    aplicadas.push(s);
   });
+  if(sinMl) toast(`${sinMl} línea(s) sin metros lineales legibles — se dejaron sin cambio`,'error');
+  if(!aplicadas.length){cerrarModal('modal-cambiar-marca');return;}
 
   // Recalcular totalPartida de cada partida afectada
-  const partidasAfectadas=[...new Set(subs.map(s=>s.partidaIdx))];
+  const partidasAfectadas=[...new Set(aplicadas.map(s=>s.partidaIdx))];
   partidasAfectadas.forEach(pi=>{
     const p=proyectoActivo.partidas[pi];
     p.totalPartida=(p.desglose||[]).filter(l=>l.activo!==false).reduce((s,l)=>s+l.costo,0)*(p.cantidad||1);
@@ -3567,7 +3709,7 @@ function aplicarCambioMarca(){
 
   cerrarModal('modal-cambiar-marca');
   renderPartidas();
-  toast(`${subs.length} perfil(es) sustituidos por ${destino} ✓`);
+  toast(`${aplicadas.length} perfil(es) sustituidos por ${destino} ✓`);
 }
 
 // Repara retroactivamente partidas donde "Cambiar marca de perfiles" se aplicó ANTES
@@ -3583,19 +3725,17 @@ function repararCortesCambioMarca(){
   let reparadas=0, sinSolucion=0;
 
   proyectoActivo.partidas.forEach(partida=>{
-    const recetaNombre=partida.receta;
-    const configNombre=partida.config;
-    const receta=DB.get('recetas').find(r=>r.nombre===recetaNombre)
-      || DB.getAdminRecetas().find(r=>r.nombre===recetaNombre);
+    const receta=_recetaDePartida(partida).r;
     if(!receta) return;
-    const cfg=receta.configs?receta.configs.find(c=>c.tipo===configNombre):null;
+    const cIdx=_configIdxDePartida(partida,receta);
+    const cfg=cIdx!==null?receta.configs[cIdx]:null;
     if(!cfg||!cfg.perfiles) return;
 
     (partida.desglose||[]).forEach(linea=>{
       if(linea.tipo!=='Perfil') return;
       if(linea.label&&linea.label.includes('[EXTRA]')) return;
       if(linea.claveOriginal) return; // ya tiene referencia correcta
-      const idComp=(linea.label||'').split(' — ')[0].trim();
+      const idComp=linea.perfilIdCompuesto||(linea.label||'').split(' — ')[0].trim();
       const pfActual=todosPerfiles.find(x=>x.idCompuesto===idComp);
       if(!pfActual) return;
       // Si la clave actual YA coincide con algún grupo de la receta, no hace falta reparar
@@ -3627,6 +3767,26 @@ function repararCortesCambioMarca(){
   }
 }
 
+// Estado local del panel de edición por índice de partida: {lineas, recalculado, recetaId, ...}.
+// No toca la partida hasta "Guardar cambios"; "Cancelar" lo descarta.
+var _epEstado={};
+
+// Partida antigua con vidrio dividido (líneas "(sección ...)") pero sin datos de secciones guardados
+function _epTieneDivididoAntiguo(p){
+  return !p.vidrioDividido&&(p.desglose||[]).some(l=>l.tipo==='Vidrio'&&/ \(sección (superior|inferior)\)$/.test(l.label||''));
+}
+
+// Vidrio a preseleccionar en el panel de edición (partidas antiguas no guardaban vidrioId)
+function _epVidrioValor(p){
+  if(p.vidrioDividido) return 'dividido';
+  if(_epTieneDivididoAntiguo(p)) return 'congelado';
+  if(p.vidrioId) return String(p.vidrioId);
+  const lv=(p.desglose||[]).filter(l=>l.tipo==='Vidrio');
+  if(lv.length!==1) return '';
+  const v=DB.get('vidrios').find(x=>x.descripcion===lv[0].label);
+  return v?String(v.id):'';
+}
+
 function toggleEditPartida(idx){
   const panel=document.getElementById('edit-panel-'+idx);
   const btn=document.getElementById('btn-edit-'+idx);
@@ -3634,7 +3794,27 @@ function toggleEditPartida(idx){
   panel.style.display=open?'':'none';
   btn.style.background=open?'rgba(79,142,247,.15)':'';
   btn.style.color=open?'var(--accent2)':'';
+  const p=proyectoActivo.partidas[idx];
+  // Abrir o cancelar: descartar cualquier edición pendiente
+  delete _epEstado[idx];
+  _limpiarCamposTemp(p);
   if(open){
+    // Reflejar los valores guardados (por si hubo una edición cancelada)
+    document.getElementById('ep-ubicacion-'+idx).value=p.ubicacion||p.descripcion||'';
+    document.getElementById('ep-ancho-'+idx).value=p.ancho||0;
+    document.getElementById('ep-alto-'+idx).value=p.alto||0;
+    document.getElementById('ep-cant-'+idx).value=p.cantidad||1;
+    document.getElementById('ep-acabado-'+idx).value=p.acabado||'';
+    const selV=document.getElementById('ep-vidrio-'+idx);
+    selV.value=_epVidrioValor(p);
+    if(selV.value===''&&selV.selectedIndex<0) selV.selectedIndex=0;
+    // Línea: la guardada o la de la receta (partidas antiguas)
+    const {r}=_recetaDePartida(p);
+    const lineaSel=p.linea||(r&&r.linea)||'';
+    const selL=document.getElementById('ep-linea-'+idx);
+    const optL=[...selL.options].find(o=>o.value.toLowerCase()===lineaSel.toLowerCase());
+    if(optL) selL.value=optL.value;
+    else if(lineaSel){ selL.add(new Option(lineaSel,lineaSel)); selL.value=lineaSel; }
     // Populate recetas select (sin disparar recálculo — solo refleja el estado guardado)
     epCargarRecetasSinRecalcular(idx);
     // Mostrar el desglose EXACTO que ya se guardó, no uno regenerado desde la receta
@@ -3642,239 +3822,113 @@ function toggleEditPartida(idx){
   }
 }
 
-// Populate recetas/config selects WITHOUT recalculating — used when opening the panel
-// so the originally saved desglose is shown as-is, not regenerated from the receta.
-function epCargarRecetasSinRecalcular(idx){
+// Opciones de receta del panel de edición (mismos valores 'u_'/'a_' que el formulario de cotizar)
+function _epOpcionesRecetas(idx){
   const linea=document.getElementById('ep-linea-'+idx).value;
   const lineaL=linea.toLowerCase();
   const userRs=DB.get('recetas').filter(r=>(r.linea||'').toLowerCase()===lineaL);
   const adminRs=DB.getAdminRecetas().filter(r=>(r.linea||'').toLowerCase()===lineaL);
   const p=proyectoActivo.partidas[idx];
+  const {valor}=_recetaDePartida(p);
   const sel=document.getElementById('ep-receta-'+idx);
-  let opts='';
-  if(userRs.length) opts+='<optgroup label="Mis recetas">'+userRs.map(r=>`<option value="${r.id}" ${r.nombre===p.receta?'selected':''}>${r.nombre}</option>`).join('')+'</optgroup>';
-  if(adminRs.length) opts+='<optgroup label="── SCAVi ──">'+adminRs.map(r=>`<option value="${r.id||r._docId}" ${r.nombre===p.receta?'selected':''}>${r.nombre}</option>`).join('')+'</optgroup>';
-  sel.innerHTML=opts||'<option value="">Sin recetas en esta línea</option>';
+  let opts='<option value="">— Selecciona receta —</option>';
+  if(userRs.length) opts+='<optgroup label="Mis recetas">'+userRs.map(r=>{const v=`u_${r.id}`;return `<option value="${v}" ${v===valor?'selected':''}>${r.nombre}</option>`;}).join('')+'</optgroup>';
+  if(adminRs.length) opts+='<optgroup label="── SCAVi ──">'+adminRs.map(r=>{const v=`a_${r.id||r._docId}`;return `<option value="${v}" ${v===valor?'selected':''}>${r.nombre}</option>`;}).join('')+'</optgroup>';
+  if(!userRs.length&&!adminRs.length) opts='<option value="">Sin recetas en esta línea</option>';
+  sel.innerHTML=opts;
+}
+
+// Opciones de configuración: si es la receta guardada se preselecciona configIdx; si no, por nombre
+function _epOpcionesConfigs(idx){
+  const ridRaw=document.getElementById('ep-receta-'+idx).value;
+  const r=resolveReceta(ridRaw);
+  const p=proyectoActivo.partidas[idx];
+  const sel=document.getElementById('ep-config-'+idx);
+  if(r&&r.configs&&r.configs.length){
+    const esGuardada=ridRaw===_recetaDePartida(p).valor;
+    const cSel=esGuardada?_configIdxDePartida(p,r):r.configs.findIndex(c=>c.tipo===p.config);
+    sel.innerHTML='<option value="">— Sin config —</option>'+
+      r.configs.map((c,i)=>`<option value="${i}" ${i===cSel?'selected':''}>${c.tipo}</option>`).join('');
+  } else {
+    sel.innerHTML='<option value="">Sin configuraciones</option>';
+  }
+}
+
+// Populate recetas/config selects WITHOUT recalculating — used when opening the panel
+// so the originally saved desglose is shown as-is, not regenerated from the receta.
+function epCargarRecetasSinRecalcular(idx){
+  _epOpcionesRecetas(idx);
   epCargarConfigsSinRecalcular(idx);
 }
 
 function epCargarConfigsSinRecalcular(idx){
-  const ridRaw=document.getElementById('ep-receta-'+idx).value;
-  const rid=parseInt(ridRaw)||ridRaw;
-  const p=proyectoActivo.partidas[idx];
-  let r=DB.get('recetas').find(x=>x.id===rid||x.id===parseInt(rid));
-  if(!r) r=DB.getAdminRecetas().find(x=>String(x.id||x._docId)===String(rid));
-  const sel=document.getElementById('ep-config-'+idx);
-  if(r&&r.configs&&r.configs.length){
-    sel.innerHTML='<option value="">— Sin config —</option>'+
-      r.configs.map((c,i)=>`<option value="${i}" ${c.tipo===p.config?'selected':''}>${c.tipo}</option>`).join('');
-  } else {
-    sel.innerHTML='<option value="">Sin configuraciones</option>';
-  }
+  _epOpcionesConfigs(idx);
   // NOTA: a propósito NO llamamos recotizarPartida aquí — solo poblamos los selects
 }
 
 // Populate recetas by linea for edit panel
 function epCargarRecetas(idx){
-  const linea=document.getElementById('ep-linea-'+idx).value;
-  const lineaL=linea.toLowerCase();
-  const userRs=DB.get('recetas').filter(r=>(r.linea||'').toLowerCase()===lineaL);
-  const adminRs=DB.getAdminRecetas().filter(r=>(r.linea||'').toLowerCase()===lineaL);
-  const p=proyectoActivo.partidas[idx];
-  const sel=document.getElementById('ep-receta-'+idx);
-  let opts='';
-  if(userRs.length) opts+='<optgroup label="Mis recetas">'+userRs.map(r=>`<option value="${r.id}" ${r.nombre===p.receta?'selected':''}>${r.nombre}</option>`).join('')+'</optgroup>';
-  if(adminRs.length) opts+='<optgroup label="── SCAVi ──">'+adminRs.map(r=>`<option value="${r.id||r._docId}" ${r.nombre===p.receta?'selected':''}>${r.nombre}</option>`).join('')+'</optgroup>';
-  sel.innerHTML=opts||'<option value="">Sin recetas en esta línea</option>';
+  _epOpcionesRecetas(idx);
   epCargarConfigs(idx);
 }
 
 // Populate configs for selected receta
 function epCargarConfigs(idx){
-  const ridRaw=document.getElementById('ep-receta-'+idx).value;
-  const rid=parseInt(ridRaw)||ridRaw;
-  const p=proyectoActivo.partidas[idx];
-  let r=DB.get('recetas').find(x=>x.id===rid||x.id===parseInt(rid));
-  if(!r) r=DB.getAdminRecetas().find(x=>String(x.id||x._docId)===String(rid));
-  const sel=document.getElementById('ep-config-'+idx);
-  if(r&&r.configs&&r.configs.length){
-    sel.innerHTML='<option value="">— Sin config —</option>'+
-      r.configs.map((c,i)=>`<option value="${i}" ${c.tipo===p.config?'selected':''}>${c.tipo}</option>`).join('');
-  } else {
-    sel.innerHTML='<option value="">Sin configuraciones</option>';
-  }
+  _epOpcionesConfigs(idx);
   recotizarPartida(idx);
 }
 
-// Full recalculation using same logic as calcularPartida
+// Recotiza con el mismo motor que el alta (cotizarPartida), leyendo el panel de edición.
+// Usa las condiciones, sustituciones de marca y vidrio dividido guardados en la partida.
 function recotizarPartida(idx){
   const p=proyectoActivo.partidas[idx];
   const ancho=parseFloat(document.getElementById('ep-ancho-'+idx).value)||0;
   const alto=parseFloat(document.getElementById('ep-alto-'+idx).value)||0;
   const cantidad=parseInt(document.getElementById('ep-cant-'+idx).value)||1;
   const acabado=(document.getElementById('ep-acabado-'+idx).value||'').trim();
-  const ridEl=document.getElementById('ep-receta-'+idx);
-  const rid=ridEl?parseInt(ridEl.value):null;
-  const cidxEl=document.getElementById('ep-config-'+idx);
-  const cidxRaw=cidxEl?cidxEl.value:'';
+  const ridRaw=document.getElementById('ep-receta-'+idx)?.value||'';
+  const cidxRaw=document.getElementById('ep-config-'+idx)?.value||'';
   const cidx=cidxRaw!==''?parseInt(cidxRaw):null;
-  const vidrioId=parseInt(document.getElementById('ep-vidrio-'+idx).value)||null;
+  const vSel=document.getElementById('ep-vidrio-'+idx).value;
 
-  if(!rid||!ancho||!alto) return;
+  const r=resolveReceta(ridRaw);
+  if(!r||!(ancho>0)||!(alto>0)) return;
 
-  // Look in user recetas first, then admin recetas
-  let r = DB.get('recetas').find(x=>x.id===rid);
-  if(!r) r = DB.getAdminRecetas().find(x=>String(x.id||x._docId)===String(rid));
-  if(!r) return;
-
-  // Use combined catalog (user + admin) for pricing — user prices take priority
-  const todosPerfiles=DB.getCombined('perfiles');
-  const todosHerrajes=DB.getCombined('herrajes');
-  let lineas=[];
-  let total=0;
-
-  // Detect tipo vidrio from selected vidrio
-  let tipoVidrio='SENCILLO';
-  if(vidrioId){
-    const v=DB.get('vidrios').find(x=>x.id===vidrioId);
-    if(v&&v.tipo) tipoVidrio=v.tipo.toUpperCase();
-  }
-
-  // Build condicionesActivas for edit panel using saved partida condiciones
-  const condSetEditP=new Set(['SIEMPRE']);
-  Object.entries(p.condiciones||{}).forEach(([k,v])=>{if(v)condSetEditP.add(k);});
-  if(!condSetEditP.has('CON_ZOCLO_INF'))  condSetEditP.add('SIN_ZOCLO_INF');
-  if(!condSetEditP.has('CON_ZOCLO_SUP'))  condSetEditP.add('SIN_ZOCLO_SUP');
-  if(!condSetEditP.has('CON_MOSQUITERO')) condSetEditP.add('SIN_MOSQUITERO');
-  if(!condSetEditP.has('CON_ESCALONADO_VERT')) condSetEditP.add('SIN_ESCALONADO_VERT');
-  if(!condSetEditP.has('CON_ESCALONADO_SUP'))  condSetEditP.add('SIN_ESCALONADO_SUP');
-  if(condSetEditP.has('CON_MOSQUITERO_FIJO')||condSetEditP.has('CON_MOSQUITERO_CORREDIZO'))
-    condSetEditP.add('CON_MOSQUITERO');
-  ['CON_COMERCIAL','CON_RESIDENCIAL','CON_RESIDENCIAL_Z6','CON_RESIDENCIAL_Z10','CON_DUELA_50','CON_DUELA_50_2C','CON_DUELA_1C','CON_DUELA_2C','CON_LOUVER','CON_INTERMEDIO_1H','CON_INTERMEDIO_2H','CON_INTERMEDIO_4_1H','CON_INTERMEDIO_4_2H'
-  ].forEach(id=>{ if(!condSetEditP.has(id)) condSetEditP.add(id.replace('CON_','SIN_')); });
-
-  const costoPerfil=(clave,cortesV,cortesH,tvp,grupos)=>{
-    const tv=(tvp||'AMBOS').toUpperCase();
-    if(tv!=='AMBOS'&&tv!==tipoVidrio) return null;
-    const idComp=acabado.replace(/\s+/g,'')+clave;
-    const pf=acabado?todosPerfiles.find(x=>x.idCompuesto===idComp):null;
-    let ml=0;
-    if(grupos&&grupos.length){
-      // Process grupos with conditions (same logic as calcularPartida)
-      grupos.forEach(g=>{
-        const cond=(g.condicion||'SIEMPRE').toUpperCase();
-        const cond2=(g.condicion2||'SIEMPRE').toUpperCase();
-        const cond3=(g.condicion3||'SIEMPRE').toUpperCase();
-        const activasE=[cond,cond2,cond3].filter(c=>c!=='SIEMPRE');
-        if(activasE.length>0&&!activasE.some(c=>condSetEditP.has(c))) return;
-        const div=g.divisor||1;
-        if(g.tipo==='vertical')   ml+=g.cant*(alto/div);
-        else if(g.tipo==='horizontal') ml+=g.cant*(ancho/div);
-        else if(g.tipo==='fijo')  ml+=g.cant*(g.longitud||0);
-      });
-    } else {
-      ml=(cortesV*alto)+(cortesH*ancho); // legacy fallback
-    }
-    if(!pf) return{label:clave+(acabado?` (acabado "${acabado}" no encontrado)`:''),costo:0,encontrado:false,detalle:ml>0?num(ml)+' ml':'',activo:true,tipo:'Perfil'};
-    return{label:`${pf.idCompuesto} — ${pf.nombre}`,costo:pf.precioML*ml,encontrado:true,detalle:`${num(ml)} ml × ${fmt(pf.precioML)}/ml`,activo:true,tipo:'Perfil'};
+  const est=_epEstado[idx];
+  const entrada={
+    receta:r, configIdx:cidx, ancho, alto, cantidad, acabado,
+    vidrioId:(vSel&&vSel!=='dividido'&&vSel!=='congelado')?(parseInt(vSel)||null):null,
+    vidrioDividido:vSel==='dividido'?(p.vidrioDividido||null):null,
+    vidriosCongelados:vSel==='congelado'?(p.desglose||[]).filter(l=>l.tipo==='Vidrio'):null,
+    condiciones:p.condiciones||{},
+    sustituciones:p.sustitucionesMarca||null,
+    // Preserve activo state (y extras) from the current edit state or the saved desglose
+    prevLineas:(est&&est.lineas)||p.desglose||[]
   };
+  const res=cotizarPartida(entrada);
+  if(!res) return;
 
-  const costoHerraje=(herrajeId,cant,metrosV,metrosH,tvh)=>{
-    const tv=(tvh||'AMBOS').toUpperCase();
-    if(tv!=='AMBOS'&&tv!==tipoVidrio) return null;
-    const h=todosHerrajes.find(x=>x.id===herrajeId);
-    if(!h) return null;
-    let costo=0,det='';
-    const ml=(metrosV*alto)+(metrosH*ancho);
-    if(ml>0){costo+=(h.precioML||0)*ml; det+=`${num(ml)} ml × ${fmt(h.precioML||0)}/ml`;}
-    if(cant>0){costo+=(h.precioUnitario||0)*cant; det+=(det?' + ':'')+`${cant} pzs × ${fmt(h.precioUnitario||0)}`;}
-    return{label:h.descripcion+(h.clave?' ['+h.clave+']':''),costo,encontrado:true,detalle:det,activo:true,tipo:'Herraje'};
+  _epEstado[idx]={
+    lineas:res.lineasDesglose, recalculado:true,
+    recetaId:ridRaw, recetaNombre:r.nombre, recetaEsAdmin:ridRaw.startsWith('a_'),
+    linea:document.getElementById('ep-linea-'+idx).value,
+    configIdx:cidx, config:(cidx!==null&&r.configs&&r.configs[cidx])?r.configs[cidx].tipo:'—',
+    vidrioId:entrada.vidrioId, vidrioDividido:entrada.vidrioDividido
   };
-
-  // Preserve activo state from existing desglose if possible
-  const prevDesglose=p._editDesglose||p.desglose||[];
-  const findPrev=(label)=>{const found=prevDesglose.find(l=>l.label===label);return found?found.activo!==false:true;};
-
-  if(cidx!==null&&r.configs&&r.configs[cidx]){
-    const cfg=r.configs[cidx];
-    (cfg.perfiles||[]).forEach(cp=>{
-      const res=costoPerfil(cp.clave,cp.cortesV||0,cp.cortesH||0,cp.tipoVidrio,cp.grupos);
-      if(!res) return;
-      res.activo=findPrev(res.label);
-      lineas.push(res); total+=res.activo?res.costo:0;
-    });
-    (cfg.herrajes||[]).forEach(ch=>{
-      // condicion filter using saved partida condiciones
-      const chCond2=(ch.condicion||'SIEMPRE').toUpperCase();
-      const condSetEdit=new Set(['SIEMPRE']);
-      Object.entries(p.condiciones||{}).forEach(([k,v])=>{if(v)condSetEdit.add(k);});
-      if(!condSetEdit.has('CON_ZOCLO_INF')) condSetEdit.add('SIN_ZOCLO_INF');
-      if(!condSetEdit.has('CON_ZOCLO_SUP')) condSetEdit.add('SIN_ZOCLO_SUP');
-      if(!condSetEdit.has('CON_MOSQUITERO')) condSetEdit.add('SIN_MOSQUITERO');
-      if(chCond2!=='SIEMPRE'&&!condSetEdit.has(chCond2)) return;
-      const res=costoHerraje(ch.herrajeId,ch.cantidad||0,ch.metrosV||0,ch.metrosH||0,ch.tipoVidrio);
-      if(!res) return;
-      res.activo=findPrev(res.label);
-      lineas.push(res); total+=res.activo?res.costo:0;
-    });
-  }
-
-  if(vidrioId){
-    const v=DB.get('vidrios').find(x=>x.id===vidrioId);
-    if(v){
-      const m2=ancho*alto;
-      let costoVidrio=v.precioM2*m2;
-      let detalleVidrio=`${num(m2)} m² × ${fmt(v.precioM2)}/m²`;
-      // Separador Duovent
-      if(tipoVidrio==='DUOVENT'&&cidx!==null&&r.configs&&r.configs[cidx]){
-        const cfg=r.configs[cidx];
-        if(r.separadorPrecio>0){
-          const sepV=cfg.sepV||0;
-          const sepH=cfg.sepH||0;
-          const mlSep=(sepV*alto)+(sepH*ancho);
-          if(mlSep>0){
-            const costoSep=r.separadorPrecio*mlSep;
-            costoVidrio+=costoSep;
-            detalleVidrio+=` + sep.${r.separador||''}: ${num(mlSep)} ml × ${fmt(r.separadorPrecio)}/ml`;
-          }
-        }
-      }
-      const label=v.descripcion;
-      const activo=findPrev(label);
-      lineas.push({label,tipo:'Vidrio',costo:costoVidrio,encontrado:true,detalle:detalleVidrio,activo});
-      total+=activo?costoVidrio:0;
-    }
-  }
-
-  // Add any manual extras that were previously added (marked [EXTRA])
-  (prevDesglose||[]).filter(l=>l.label&&l.label.includes('[EXTRA]')).forEach(l=>{
-    if(!lineas.find(x=>x.label===l.label)) lineas.push(l);
-    total+=l.activo?l.costo:0;
-  });
-
-  total*=cantidad;
-  p._editDesglose=lineas;
-
-  // Update receta/config names for display
-  p._editRecetaNombre=r.nombre;
-  p._editLinea=document.getElementById('ep-linea-'+idx).value;
-  p._editConfig=cidx!==null&&r.configs?r.configs[cidx].tipo:'—';
-  p._editVidrioId=vidrioId;
-
-  renderDesgloseEdicion(idx,lineas,total);
+  renderDesgloseEdicion(idx,res.lineasDesglose,res.totalSinIVA);
 }
 
 function renderDesgloseEdicion(idx, lineas, total){
   if(!lineas) {
     const p=proyectoActivo.partidas[idx];
-    lineas=p._editDesglose||p.desglose||[];
+    lineas=(_epEstado[idx]&&_epEstado[idx].lineas)||p.desglose||[];
     const cantidad=parseInt(document.getElementById('ep-cant-'+idx)?.value)||p.cantidad||1;
     total=(lineas.filter(l=>l.activo!==false).reduce((s,l)=>s+l.costo,0))*cantidad;
   }
   const el=document.getElementById('ep-desglose-'+idx);
   if(!el) return;
   el.innerHTML=lineas.length?lineas.map((l,li)=>`
-    <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);${!l.activo?'opacity:.4':''}">
+    <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);${l.activo===false?'opacity:.4':''}">
       <input type="checkbox" ${l.activo!==false?'checked':''} onchange="toggleDesgloseEdicion(${idx},${li},this.checked)"
         style="width:15px;height:15px;cursor:pointer;accent-color:var(--accent);flex-shrink:0">
       <span class="badge ${l.tipo==='Vidrio'?'badge-green':l.tipo==='Herraje'?'badge-amber':'badge-blue'}" style="font-size:10px;flex-shrink:0">${l.tipo}</span>
@@ -3887,26 +3941,20 @@ function renderDesgloseEdicion(idx, lineas, total){
   if(elTotal) elTotal.textContent=fmt(total);
 }
 
-function toggleDesgloseEdicion(partidaIdx, lineaIdx, activo){
-  const p=proyectoActivo.partidas[partidaIdx];
-  if(p._editDesglose) p._editDesglose[lineaIdx].activo=activo;
-  else if(p.desglose) p.desglose[lineaIdx].activo=activo;
-  // Recalc total
-  const cantidad=parseInt(document.getElementById('ep-cant-'+partidaIdx)?.value)||p.cantidad||1;
-  const lineas=p._editDesglose||p.desglose||[];
-  const total=lineas.filter(l=>l.activo!==false).reduce((s,l)=>s+l.costo,0)*cantidad;
-  renderDesgloseEdicion(partidaIdx, lineas, total);
-  // Persistir inmediatamente
-  const proyectos=DB.get('proyectos');
-  const pr=proyectos.find(x=>x.id===proyectoActivo.id);
-  if(pr){
-    const pa=pr.partidas?.[partidaIdx];
-    if(pa){
-      const des=p._editDesglose||p.desglose||[];
-      pa.desglose=des;
-      DB.set('proyectos',proyectos);
-    }
+// Estado de edición de una partida (copia del desglose guardado si aún no se ha recotizado)
+function _epEstadoDe(idx){
+  if(!_epEstado[idx]){
+    const p=proyectoActivo.partidas[idx];
+    _epEstado[idx]={lineas:(p.desglose||[]).map(l=>({...l})),recalculado:false};
   }
+  return _epEstado[idx];
+}
+
+function toggleDesgloseEdicion(partidaIdx, lineaIdx, activo){
+  // Solo cambia el estado local del panel — se guarda con "Guardar cambios"
+  const est=_epEstadoDe(partidaIdx);
+  if(est.lineas[lineaIdx]) est.lineas[lineaIdx].activo=activo;
+  renderDesgloseEdicion(partidaIdx);
 }
 
 // Extra perfil/herraje in edit panel
@@ -3971,20 +4019,11 @@ function epConfirmarExtraPerfil(idx){
   const lv=parseFloat(document.getElementById('ep-extra-lv-'+idx).value)||0;
   const h=parseFloat(document.getElementById('ep-extra-h-'+idx).value)||0;
   const lh=parseFloat(document.getElementById('ep-extra-lh-'+idx).value)||0;
-  const largoV=lv||alto, largoH=lh||ancho;
-  const ml=(v*largoV)+(h*largoH);
-  const idComp=acabado.replace(/\s+/g,'')+clave;
-  const pf=DB.get('perfiles').find(x=>x.idCompuesto===idComp);
-  if(!pf){toast(`Perfil ${clave} no encontrado con acabado "${acabado}"`, 'error');return;}
-  let detPartsB=[];
-  if(v>0&&largoV>0) detPartsB.push(`${v}×${largoV.toFixed(2)}m(alt)`);
-  if(h>0&&largoH>0) detPartsB.push(`${h}×${largoH.toFixed(2)}m(anch)`);
-  const detExtraB=detPartsB.length>0?detPartsB.join(' + ')+` = ${num(ml)} ml × ${fmt(pf.precioML)}/ml`:`${num(ml)} ml × ${fmt(pf.precioML)}/ml`;
-  const linea={label:`${pf.idCompuesto} — ${pf.nombre} [EXTRA]`,tipo:'Perfil',costo:pf.precioML*ml,encontrado:true,detalle:detExtraB,activo:true};
-  const p=proyectoActivo.partidas[idx];
-  p._editDesglose=p._editDesglose||[...p.desglose||[]];
-  p._editDesglose.push(linea);
+  const res=_calcLineaExtra({tipo:'perfil',clave,v,lv,h,lh},ancho,alto,acabado);
+  if(!res.encontrado){toast(`Perfil ${clave} no encontrado con acabado "${acabado}"`, 'error');return;}
+  _epEstadoDe(idx).lineas.push({...res,activo:true});
   document.getElementById('ep-extra-form-'+idx).style.display='none';
+  renderDesgloseEdicion(idx);
   recotizarPartida(idx);
   toast('Perfil extra agregado');
 }
@@ -4049,19 +4088,12 @@ function epConfirmarExtraHerraje(idx){
   const lv=parseFloat(document.getElementById('ep-extra-hlv-'+idx).value)||0;
   const h2=parseFloat(document.getElementById('ep-extra-hh-'+idx).value)||0;
   const lh=parseFloat(document.getElementById('ep-extra-hlh-'+idx).value)||0;
-  const largoV=lv||alto, largoH=lh||ancho;
-  const ml=(v*largoV)+(h2*largoH);
-  const hj=DB.get('herrajes').find(x=>x.id===id);
-  if(!hj){return;}
-  let costo=0,det='';
-  if(ml>0){costo+=(hj.precioML||0)*ml; det+=`${num(ml)} ml × ${fmt(hj.precioML||0)}/ml`;}
-  if(cant>0){costo+=(hj.precioUnitario||0)*cant; det+=(det?' + ':'')+`${cant} pzs × ${fmt(hj.precioUnitario||0)}`;}
-  if(!costo){toast('Ingresa cantidad o cortes','error');return;}
-  const linea={label:hj.descripcion+(hj.clave?' ['+hj.clave+']':'')+' [EXTRA]',tipo:'Herraje',costo,encontrado:true,detalle:det,activo:true};
-  const p=proyectoActivo.partidas[idx];
-  p._editDesglose=p._editDesglose||[...p.desglose||[]];
-  p._editDesglose.push(linea);
+  const res=_calcLineaExtra({tipo:'herraje',herrajeId:id,cant,v,lv,h:h2,lh},ancho,alto,'');
+  if(!res.encontrado){return;}
+  if(!res.costo){toast('Ingresa cantidad o cortes','error');return;}
+  _epEstadoDe(idx).lineas.push({...res,activo:true});
   document.getElementById('ep-extra-form-'+idx).style.display='none';
+  renderDesgloseEdicion(idx);
   recotizarPartida(idx);
   toast('Herraje extra agregado');
 }
@@ -4073,20 +4105,38 @@ function guardarEdicionPartida(idx){
   const vCant=Number(document.getElementById('ep-cant-'+idx).value||p.cantidad);
   if(!(vAncho>0)||!(vAlto>0)){toast('Ancho y alto deben ser mayores a 0','error');return;}
   if(!Number.isInteger(vCant)||vCant<1){toast('La cantidad debe ser un número entero de 1 o más','error');return;}
+  const acabadoEd=document.getElementById('ep-acabado-'+idx).value.trim();
+  // Si cambiaron medidas o acabado, el desglose debe estar recotizado con esos datos
+  let est=_epEstado[idx];
+  if((vAncho!==p.ancho||vAlto!==p.alto||(acabadoEd&&acabadoEd!==(p.acabado||'')))&&!(est&&est.recalculado)){
+    recotizarPartida(idx);
+    est=_epEstado[idx];
+    if(!(est&&est.recalculado)){toast('No se pudo recotizar — revisa receta, configuración y medidas','error');return;}
+  }
+  const lineas=(est&&est.lineas)||p.desglose||[];
+  const total=_validarLineasPartida(lineas,vCant);
+  if(total===null) return;
   p.ubicacion=document.getElementById('ep-ubicacion-'+idx).value.trim()||p.ubicacion;
-  p.acabado=document.getElementById('ep-acabado-'+idx).value.trim()||p.acabado;
-  p.ancho=parseFloat(document.getElementById('ep-ancho-'+idx).value)||p.ancho;
-  p.alto=parseFloat(document.getElementById('ep-alto-'+idx).value)||p.alto;
-  p.cantidad=parseInt(document.getElementById('ep-cant-'+idx).value)||p.cantidad;
-  // Update receta/config/vidrio names
-  if(p._editRecetaNombre) p.receta=p._editRecetaNombre;
-  if(p._editConfig) p.config=p._editConfig;
-  if(p._editLinea) p.linea=p._editLinea;
-  if(p._editVidrioId!==undefined) p.vidrioId=p._editVidrioId;
+  p.acabado=acabadoEd||p.acabado;
+  p.ancho=vAncho;
+  p.alto=vAlto;
+  p.cantidad=vCant;
+  // Update receta/config/línea/vidrio con lo que se usó al recotizar
+  if(est&&est.recalculado){
+    p.receta=est.recetaNombre;
+    p.recetaId=est.recetaId;
+    p.recetaEsAdmin=est.recetaEsAdmin;
+    p.linea=est.linea;
+    p.config=est.config;
+    p.configIdx=est.configIdx;
+    p.vidrioId=est.vidrioId;
+    if(est.vidrioDividido) p.vidrioDividido=est.vidrioDividido; else delete p.vidrioDividido;
+  }
   // Commit desglose
-  if(p._editDesglose) p.desglose=p._editDesglose;
-  p.totalPartida=(p.desglose||[]).filter(l=>l.activo!==false).reduce((s,l)=>s+l.costo,0)*p.cantidad;
-  delete p._editDesglose; delete p._editRecetaNombre; delete p._editConfig; delete p._editLinea; delete p._editVidrioId;
+  p.desglose=lineas;
+  p.totalPartida=total;
+  delete _epEstado[idx];
+  _limpiarCamposTemp(p);
   toast('Partida actualizada ✓');
   renderPartidas();
 }
@@ -4459,6 +4509,22 @@ function recopilarCortes(proyecto){
   const mapaHerrajes={};
   // Map: vidrioId → {vidrio, totalM2}
   const mapaVidrios={};
+  // Números es-MX generados con num()/fmt(): "1,234.50" → 1234.5 (la coma es separador de miles)
+  const nMX=s=>parseFloat(String(s==null?'':s).replace(/[$,\s]/g,''))||0;
+  // Agrega n piezas de longitud long al perfil key. Si n no es entero (ej. extra con 0.5 cortes)
+  // se agregan floor(n) piezas completas + 1 pieza con la fracción, marcada para revisar.
+  const pushPiezas=(key,long,n,ubicacion,revisar)=>{
+    if(!(long>0)||!(n>0))return;
+    const L=parseFloat(long.toFixed(4));
+    const nR=Math.round(n), entero=Math.abs(n-nR)<1e-6;
+    const completas=entero?nR:Math.floor(n);
+    for(let ci=0;ci<completas;ci++) mapaPerfiles[key].cortes.push(revisar?{longitud:L,ubicacion,revisar:true}:{longitud:L,ubicacion});
+    if(!entero){
+      mapaPerfiles[key].cortes.push({longitud:parseFloat((long*(n-completas)).toFixed(4)),ubicacion,revisar:true});
+      avisoPerfil(key,`Cantidad de cortes no entera (${n}×${num(long)} m) — revisar`);
+    }
+  };
+  const avisoPerfil=(key,txt)=>{const a=mapaPerfiles[key].avisos;if(!a.includes(txt))a.push(txt);};
 
   (proyecto.partidas||[]).forEach(partida=>{
     const ancho=partida.ancho||0;
@@ -4470,12 +4536,19 @@ function recopilarCortes(proyecto){
     (partida.desglose||[]).filter(l=>l.activo!==false).forEach(linea=>{
       if(linea.tipo==='Perfil'){
         // Extraer idCompuesto del label (formato "IdComp — Nombre" o "clave sin acabado")
-        const labelParts=linea.label.split(' — ');
-        const idComp=labelParts[0].trim();
-        const pf=todosPerfiles.find(x=>x.idCompuesto===idComp);
+        // Preferir perfilIdCompuesto guardado en la línea (partidas nuevas)
+        const idComp=linea.perfilIdCompuesto||(linea.label||'').split(' — ')[0].trim();
+        const pf=todosPerfiles.find(x=>x.idCompuesto===idComp)
+          ||(linea.perfilIdCompuesto?todosPerfiles.find(x=>x.idCompuesto===(linea.label||'').split(' — ')[0].trim()):null);
         if(!pf)return;
         const key=pf.idCompuesto;
-        if(!mapaPerfiles[key]) mapaPerfiles[key]={perfil:pf,cortes:[]};
+        if(!mapaPerfiles[key]) mapaPerfiles[key]={perfil:pf,cortes:[],avisos:[]};
+        // 1) Partidas nuevas: lista de cortes guardada en la línea (para UNA pieza del cancel)
+        if(Array.isArray(linea.cortes)&&linea.cortes.length>0){
+          linea.cortes.forEach(c=>pushPiezas(key,parseFloat(c.long)||0,(parseFloat(c.cant)||0)*cant,ubicacion,false));
+          return;
+        }
+        // 2) Partidas antiguas: reconstruir desde la receta, luego desde el detalle
         // Calcular la longitud del corte desde el detalle
         // Detalle: "X.XX ml × $Y.YY/ml" — extraer X.XX como longitud total
         // Pero necesitamos saber los cortes individuales: cortesV x alto + cortesH x ancho
@@ -4547,46 +4620,49 @@ function recopilarCortes(proyecto){
         // Si ESTA línea no generó cortes desde receta (extras manuales, o línea [EXTRA]), parsear del detalle
         const cortesGeneradosPorEstaLinea=mapaPerfiles[key].cortes.length-cortesAntesDeEstaLinea;
         if(cortesGeneradosPorEstaLinea===0 && linea.detalle){
-          // Parsear patrones como "2×2.40m(alt)" o "1×1.20m(anch)" del detalle
-          // El detalle representa UNA pieza del cancel — hay que multiplicar por cant (cantidad de la partida)
-          const patronCortes=/(\d+)×([\d.]+)m\(/g;
-          let match;
+          // Parsear patrones como "2×2.40m(alt)", "1×1.20m(anch)", "2×0.5m" (fijo), "0.5×2.40m(alt)"
+          // o legacy "2×alto"/"1×ancho". El detalle representa UNA pieza del cancel — multiplicar por cant.
+          const patronCortes=/(?<![\d.,])(\d+(?:\.\d+)?)×(?:(\d[\d,]*(?:\.\d+)?)m(?![l²])|(alto|ancho)\b)/g;
+          let match, mlPatrones=0;
           while((match=patronCortes.exec(linea.detalle))!==null){
-            const cantC=parseInt(match[1]);
-            const longC=parseFloat(match[2]);
-            for(let ci=0;ci<cantC*cant;ci++){
-              mapaPerfiles[key].cortes.push({longitud:parseFloat(longC.toFixed(4)),ubicacion});
-            }
+            const cantC=nMX(match[1]);
+            const longC=match[3]?(match[3]==='alto'?alto:ancho):nMX(match[2]);
+            mlPatrones+=cantC*longC;
+            pushPiezas(key,longC,cantC*cant,ubicacion,false);
           }
-          // Si no se encontraron patrones individuales, usar ml total como último recurso
+          const mlMatch=linea.detalle.match(/(\d[\d,]*(?:\.\d+)?)\s*ml\b/);
+          const mlTotal=mlMatch?nMX(mlMatch[1]):0;
           if(mapaPerfiles[key].cortes.length===cortesAntesDeEstaLinea){
-            const mlMatch=linea.detalle.match(/([\d,.]+)\s*ml/);
-            if(mlMatch){
-              const mlTotal=parseFloat(mlMatch[1].replace(',','.'))||0;
-              for(let ci=0;ci<cant;ci++){
-                if(mlTotal>0) mapaPerfiles[key].cortes.push({longitud:parseFloat(mlTotal.toFixed(3)),ubicacion});
-              }
+            // Sin patrones individuales: último recurso = ml total como UNA pieza, marcada para revisar
+            // (nunca contar en silencio 4×2.10 como una pieza de 8.40 m)
+            if(mlTotal>0){
+              pushPiezas(key,mlTotal,cant,ubicacion,true);
+              avisoPerfil(key,`Cortes no detallados — revisar (${num(mlTotal)} ml tomados como una sola pieza${ubicacion?' en '+ubicacion:''})`);
             }
+          } else if(mlTotal>0&&Math.abs(mlPatrones-mlTotal)>0.01){
+            avisoPerfil(key,`Los cortes del detalle (${num(mlPatrones)} ml) no suman el total cotizado (${num(mlTotal)} ml)${ubicacion?' en '+ubicacion:''} — revisar`);
           }
         }
       }
       else if(linea.tipo==='Herraje'){
-        // Buscar el herraje por nombre en el label
-        const hj=todosHerrajes.find(x=>{
-          const lbl=x.descripcion+(x.clave?' ['+x.clave+']':'');
-          return linea.label.startsWith(x.descripcion);
-        });
+        // 1) herrajeId guardado en la línea; 2) label exacto ("Desc [CLAVE]", con o sin " [EXTRA]");
+        // 3) prefijo más largo (evita que "Jaladera" absorba a "Jaladera doble")
+        const lblH=(linea.label||'').replace(/\s*\[EXTRA\]$/,'');
+        const hj=(linea.herrajeId!=null?todosHerrajes.find(x=>String(x.id)===String(linea.herrajeId)):null)
+          ||todosHerrajes.find(x=>x.descripcion+(x.clave?' ['+x.clave+']':'')===lblH)
+          ||todosHerrajes.filter(x=>x.descripcion&&lblH.startsWith(x.descripcion))
+              .sort((a,b)=>b.descripcion.length-a.descripcion.length)[0];
         if(!hj)return;
         const key=hj.id;
         if(!mapaHerrajes[key]) mapaHerrajes[key]={herraje:hj,totalPiezas:0,totalML:0,totalM2:0,costo:0};
-        // Extraer del detalle
+        // Extraer del detalle (números es-MX: "1,234.50")
         const det=linea.detalle||'';
-        const mlMatch=det.match(/([\d,.]+)\s*ml/);
-        const pzMatch=det.match(/([\d,.]+)\s*pzs/);
-        const m2Match=det.match(/([\d,.]+)\s*m²/);
-        const mlVal=mlMatch?parseFloat(mlMatch[1].replace(',','.'))*cant:0;
-        const pzVal=pzMatch?parseFloat(pzMatch[1].replace(',','.'))*cant:0;
-        const m2Val=m2Match?parseFloat(m2Match[1].replace(',','.'))*cant:0;
+        const mlMatch=det.match(/(\d[\d,]*(?:\.\d+)?)\s*ml\b/);
+        const pzMatch=det.match(/(\d[\d,]*(?:\.\d+)?)\s*pzs/);
+        const m2Match=det.match(/(\d[\d,]*(?:\.\d+)?)\s*m²/);
+        const mlVal=mlMatch?nMX(mlMatch[1])*cant:0;
+        const pzVal=(linea.cantPzas!=null&&!isNaN(parseFloat(linea.cantPzas)))?parseFloat(linea.cantPzas)*cant:(pzMatch?nMX(pzMatch[1])*cant:0);
+        const m2Val=m2Match?nMX(m2Match[1])*cant:0;
         mapaHerrajes[key].totalML+=mlVal;
         mapaHerrajes[key].totalPiezas+=pzVal;
         mapaHerrajes[key].totalM2+=m2Val;
@@ -4595,64 +4671,94 @@ function recopilarCortes(proyecto){
       else if(linea.tipo==='Vidrio'){
         const vidrioNombre=linea.label;
         const key=vidrioNombre;
-        if(!mapaVidrios[key]) mapaVidrios[key]={nombre:vidrioNombre,totalM2:0,costo:0,precioM2:0};
-        const m2=ancho*alto*cant;
-        mapaVidrios[key].totalM2+=m2;
-        mapaVidrios[key].costo+=linea.costo*cant;
-        if(ancho>0&&alto>0) mapaVidrios[key].precioM2=linea.costo/(ancho*alto);
+        if(!mapaVidrios[key]) mapaVidrios[key]={nombre:vidrioNombre,totalM2:0,costo:0,precioM2:0,costoVidrio:0,costoSep:0,sepSinDesglose:false};
+        // m² de UNA pieza: campo m2 (partidas nuevas, área propia de cada sección), si no el
+        // "X m² × $Y/m²" del detalle (vidrio normal y dividido), y solo al final ancho×alto
+        const det=linea.detalle||'';
+        const mPrecio=det.match(/(\d[\d,]*(?:\.\d+)?)\s*m²\s*×\s*\$?\s*(\d[\d,]*(?:\.\d+)?)\s*\/m²/);
+        const mM2=det.match(/(\d[\d,]*(?:\.\d+)?)\s*m²/);
+        const m2Det=mM2?nMX(mM2[1]):null; // redondeado a 2 decimales por num()
+        const m2u=(typeof linea.m2==='number'&&linea.m2>=0)?linea.m2
+          :(m2Det===null||Math.abs(m2Det-ancho*alto)<0.006)?ancho*alto:m2Det;
+        const costoU=linea.costo||0;
+        // Separar el costo del separador DUOVENT (" + sep.…") para que no infle el precio/m²
+        let costoVidrioU=costoU;
+        if(mPrecio){
+          const cv=m2u*nMX(mPrecio[2]);
+          if(/sep\./.test(det)&&cv<=costoU+0.005) costoVidrioU=cv;
+        } else if(/sep\./.test(det)) mapaVidrios[key].sepSinDesglose=true;
+        mapaVidrios[key].totalM2+=m2u*cant;
+        mapaVidrios[key].costo+=costoU*cant;
+        mapaVidrios[key].costoVidrio+=costoVidrioU*cant;
+        mapaVidrios[key].costoSep+=(costoU-costoVidrioU)*cant;
       }
     });
   });
+  Object.values(mapaVidrios).forEach(v=>{v.precioM2=v.totalM2>0?v.costoVidrio/v.totalM2:0;});
 
   return {mapaPerfiles, mapaHerrajes, mapaVidrios};
 }
 
 // ── CUTTING STOCK PROBLEM — First Fit Decreasing ────────────────
-function cuttingStockFFD(cortes, longitudTramo, kerfMm=0){
-  // kerfMm: ancho del disco de sierra en milímetros (default 5mm).
-  // El kerf se cobra UNA VEZ por cada corte de sierra dentro del tramo,
-  // NO se aplica al primer corte (el tramo ya viene cortado del proveedor).
-  // Fórmula: espacio_real_del_corte = longitud + kerf (excepto el primero de cada tramo)
-  if(!cortes||cortes.length===0) return {tramos:[],sobrante:0};
+// Ajustes de corte (mm). Por decisión del taller hoy ambos son 0.
+//  kerfMm: ancho del disco de sierra, se cobra por cada corte ADICIONAL dentro del tramo.
+//  despunteMm: recorte de escuadra en la punta del tramo → longitud útil = tramo − despunte.
+const CONFIG_CORTE={kerfMm:0,despunteMm:0};
+function cuttingStockFFD(cortes, longitudTramo, cfg=CONFIG_CORTE){
+  // Todo el acomodo se hace en MILÍMETROS ENTEROS para evitar errores de punto flotante
+  // (ej. 6 − 4×1.2 = 1.1999999999999995 < 1.2 abría un tramo de más).
+  // El kerf NO se aplica al primer corte del tramo (el tramo ya viene cortado del proveedor):
+  // espacio_real_del_corte = longitud + kerf (excepto el primero de cada tramo).
+  // Devuelve: tramos[{cortes,usado,libre,total}] (libre = retazo útil), sobrante (retazos +
+  // despuntes, m), excedentes[{longitud,ubicacion}] = piezas más largas que el tramo útil
+  // (no se acomodan ni cuentan en el sobrante), tramoInvalido = longitudTramo faltante o 0.
+  if(typeof cfg==='number') cfg={kerfMm:cfg,despunteMm:0};
+  const kerf=Math.max(0,Math.round((cfg&&cfg.kerfMm)||0));
+  const desp=Math.max(0,Math.round((cfg&&cfg.despunteMm)||0));
+  const L=parseFloat(longitudTramo)||0;
+  const Lmm=Math.round(L*1000), utilMm=Lmm-desp;
+  const res={tramos:[],sobrante:0,excedentes:[],tramoInvalido:false,longitudUtil:Math.max(0,utilMm)/1000};
+  if(!(Lmm>0)||utilMm<=0){res.tramoInvalido=true;return res;}
+  if(!cortes||cortes.length===0) return res;
 
-  const kerf=kerfMm/1000; // convertir mm → metros
+  const piezas=[];
+  cortes.forEach((c,i)=>{
+    const mm=Math.round((parseFloat(c.longitud)||0)*1000);
+    if(mm<=0)return; // piezas de longitud 0 no consumen material
+    const out={longitud:c.longitud,ubicacion:c.ubicacion};
+    if(c.revisar) out.revisar=true;
+    if(mm>utilMm) res.excedentes.push(out);
+    else piezas.push({mm,idx:i,out});
+  });
+  // Ordenar de mayor a menor (First Fit Decreasing); sort estable → empates conservan el orden
+  piezas.sort((a,b)=>b.mm-a.mm);
 
-  // Ordenar cortes de mayor a menor (First Fit Decreasing)
-  const cortesOrdenados=[...cortes].map((c,i)=>({...c,idx:i}))
-    .sort((a,b)=>b.longitud-a.longitud);
-
-  const tramos=[];
-
-  cortesOrdenados.forEach(corte=>{
-    // El espacio que ocupa este corte en el tramo:
-    // primer corte del tramo: solo su longitud (ya viene un extremo cortado)
-    // cortes siguientes: longitud + kerf (cada corte de sierra adicional)
+  const bins=[];
+  piezas.forEach(p=>{
     let colocado=false;
-    for(let t=0;t<tramos.length;t++){
-      const esElPrimero=tramos[t].cortes.length===0;
-      const espacioNecesario=corte.longitud+(esElPrimero?0:kerf);
-      if(tramos[t].libre>=espacioNecesario){
-        tramos[t].cortes.push({longitud:corte.longitud,ubicacion:corte.ubicacion});
-        tramos[t].usado+=espacioNecesario;
-        tramos[t].libre-=espacioNecesario;
-        colocado=true;
-        break;
+    for(let t=0;t<bins.length;t++){
+      const necesario=p.mm+(bins[t].cortes.length?kerf:0);
+      if(utilMm-bins[t].usadoMm>=necesario){
+        bins[t].cortes.push(p.out);bins[t].usadoMm+=necesario;colocado=true;break;
       }
     }
-    if(!colocado){
-      // Abrir nuevo tramo: primer corte sin kerf
-      const espacioNecesario=corte.longitud; // primer corte del tramo
-      tramos.push({
-        cortes:[{longitud:corte.longitud,ubicacion:corte.ubicacion}],
-        usado:espacioNecesario,
-        libre:longitudTramo-espacioNecesario,
-        total:longitudTramo
-      });
-    }
+    if(!colocado) bins.push({cortes:[p.out],usadoMm:p.mm}); // nuevo tramo: primer corte sin kerf
   });
 
-  const totalSobrante=tramos.reduce((s,t)=>s+t.libre,0);
-  return {tramos,sobrante:parseFloat(totalSobrante.toFixed(4))};
+  res.tramos=bins.map(b=>({cortes:b.cortes,usado:b.usadoMm/1000,libre:(utilMm-b.usadoMm)/1000,total:L,despunte:desp/1000}));
+  const sobMm=bins.reduce((s,b)=>s+(utilMm-b.usadoMm)+desp,0);
+  res.sobrante=sobMm/1000;
+  return res;
+}
+// Textos de advertencia de un perfil (lista de material e impresiones)
+function avisosCortePerfil(perfil,ffd,avisos){
+  const out=[];
+  if(ffd.tramoInvalido) out.push(`El perfil ${perfil.idCompuesto} no tiene longitud de tramo válida (${num(parseFloat(perfil.longitudTramo)||0)} m) — configúrala en el catálogo para calcular tramos`);
+  const exc={};
+  ffd.excedentes.forEach(c=>{const k=c.longitud.toFixed(3);exc[k]=(exc[k]||0)+1;});
+  Object.keys(exc).sort((a,b)=>b-a).forEach(k=>out.push(`Corte de ${num(+k)} m excede el tramo de ${num(ffd.longitudUtil)} m${exc[k]>1?' (×'+exc[k]+')':''} — no incluido en tramos ni sobrante`));
+  (avisos||[]).forEach(a=>out.push(a));
+  return out;
 }
 
 // ── RENDER LISTA DE MATERIAL ──────────────────────────────────────
@@ -4660,10 +4766,12 @@ function calcularListaMaterial(proyecto){
   const {mapaPerfiles,mapaHerrajes,mapaVidrios}=recopilarCortes(proyecto);
 
   // ── PERFILES ──────────────────────────────────────────────────
-  const perfilesHTML=Object.values(mapaPerfiles).map(({perfil,cortes})=>{
+  const perfilesHTML=Object.values(mapaPerfiles).map(({perfil,cortes,avisos})=>{
     if(cortes.length===0)return'';
-    const {tramos,sobrante}=cuttingStockFFD(cortes,perfil.longitudTramo);
-    const costSobrante=sobrante*perfil.precioML;
+    const ffd=cuttingStockFFD(cortes,perfil.longitudTramo,CONFIG_CORTE);
+    const {tramos,sobrante}=ffd;
+    const costSobrante=sobrante*(perfil.precioML||0);
+    const avisosTxt=avisosCortePerfil(perfil,ffd,avisos);
 
     // Agrupar cortes por longitud para resumen
     const resumenCortes={};
@@ -4687,9 +4795,10 @@ function calcularListaMaterial(proyecto){
         <div style="display:flex;gap:16px;align-items:center">
           <span style="font-size:12px;color:var(--text3)">Tramo: <strong style="color:var(--text)">${num(perfil.longitudTramo)} m</strong></span>
           <span style="font-size:12px;color:var(--text3)">Precio/ml: <strong style="color:var(--text)">${fmt(perfil.precioML)}</strong></span>
-          <span class="badge badge-purple">${tramos.length} tramo${tramos.length!==1?'s':''}</span>
+          <span class="badge badge-purple">${ffd.tramoInvalido?'Tramo sin definir':tramos.length+' tramo'+(tramos.length!==1?'s':'')}</span>
         </div>
       </div>
+      ${avisosTxt.length?`<div style="background:rgba(248,113,113,.08);border-bottom:1px solid rgba(248,113,113,.3);padding:8px 16px;font-size:12px;color:var(--red,#f87171)">${avisosTxt.map(a=>'<div>⚠ '+a+'</div>').join('')}</div>`:''}
 
       <div style="padding:14px 16px;display:grid;grid-template-columns:1fr 1fr;gap:14px">
         <!-- Resumen de cortes -->
@@ -4717,11 +4826,11 @@ function calcularListaMaterial(proyecto){
             Distribución de tramos (FFD)
           </div>
           ${tramos.map((t,ti)=>{
-            const pct=Math.round((t.usado/t.total)*100);
+            const pct=Math.min(100,Math.round((t.usado/t.total)*100));
             return `<div style="margin-bottom:8px">
               <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:3px">
                 <span>Tramo ${ti+1}</span>
-                <span>${t.cortes.map(c=>num(c.longitud)+'m').join(' + ')} = ${num(t.usado)}m usados</span>
+                <span>${t.cortes.map(c=>num(c.longitud)+'m'+(c.revisar?' ⚠':'')).join(' + ')} = ${num(t.usado)}m usados</span>
                 <span style="color:${t.libre<0.1?'var(--green)':'var(--amber)'}">sobra ${num(t.libre)}m</span>
               </div>
               <div style="height:8px;background:var(--border);border-radius:4px;overflow:hidden">
@@ -4747,8 +4856,8 @@ function calcularListaMaterial(proyecto){
   // ── HERRAJES ──────────────────────────────────────────────────
   const herrajesAll=Object.values(mapaHerrajes);
   // Separar herrajes por m2 (van a sección vidrio) del resto
-  const herrajesPorM2=herrajesAll.filter(h=>h.herraje.precioM2&&!h.herraje.precioML&&!h.herraje.precioUnit);
-  const herrajesNorm=herrajesAll.filter(h=>!(h.herraje.precioM2&&!h.herraje.precioML&&!h.herraje.precioUnit));
+  const herrajesPorM2=herrajesAll.filter(h=>h.herraje.precioM2&&!h.herraje.precioML&&!h.herraje.precioUnitario);
+  const herrajesNorm=herrajesAll.filter(h=>!(h.herraje.precioM2&&!h.herraje.precioML&&!h.herraje.precioUnitario));
   document.getElementById('mat-herrajes-tbody').innerHTML=herrajesNorm.length?
     herrajesNorm.map(({herraje,totalPiezas,totalML,costo})=>`<tr>
       <td>${herraje.descripcion}${herraje.clave?' <span class="td-mono" style="font-size:11px">['+herraje.clave+']</span>':''}</td>
@@ -4763,11 +4872,11 @@ function calcularListaMaterial(proyecto){
   const vidrioHTML=Object.values(mapaVidrios);
   // Agregar herrajes por m2 a la sección de vidrio
   const vidrioRows=[
-    ...vidrioHTML.map(({nombre,totalM2,costo,precioM2})=>`<tr>
+    ...vidrioHTML.map(({nombre,totalM2,costo,precioM2,costoSep,sepSinDesglose})=>`<tr>
       <td>${nombre}</td>
       <td style="font-family:var(--mono);font-weight:600">${num(totalM2)} m²</td>
-      <td>${fmt(precioM2)}/m²</td>
-      <td style="color:var(--green);font-weight:600">${fmt(costo)}</td>
+      <td>${fmt(precioM2)}/m²${sepSinDesglose?'<div style="font-size:10px;color:var(--amber)">incluye separador DUOVENT</div>':''}</td>
+      <td style="color:var(--green);font-weight:600">${fmt(costo)}${costoSep>0.005?'<div style="font-size:10px;color:var(--text3);font-weight:400">incl. separador '+fmt(costoSep)+'</div>':''}</td>
     </tr>`),
     ...herrajesPorM2.map(({herraje,totalM2,costo})=>`<tr>
       <td>${herraje.descripcion}${herraje.clave?' <span class="td-mono" style="font-size:11px">['+herraje.clave+']</span>':''}</td>
@@ -4921,23 +5030,25 @@ function imprimirListaMaterial(){
 
   // ── Perfiles: agrupar tramos por idCompuesto
   let perfilesRows='';
-  Object.values(mapaPerfiles).forEach(({perfil,cortes})=>{
+  Object.values(mapaPerfiles).forEach(({perfil,cortes,avisos})=>{
     if(!cortes.length)return;
-    const {tramos}=cuttingStockFFD(cortes,perfil.longitudTramo);
+    const ffd=cuttingStockFFD(cortes,perfil.longitudTramo,CONFIG_CORTE);
+    const {tramos}=ffd;
+    const avisosTxt=avisosCortePerfil(perfil,ffd,avisos);
     perfilesRows+=`<tr>
       <td style="font-family:monospace;font-weight:700;color:#1a56db">${perfil.idCompuesto}</td>
       <td>${perfil.nombre}</td>
       <td style="font-family:monospace">${num(perfil.longitudTramo)} m</td>
-      <td style="font-weight:700;text-align:center">${tramos.length}</td>
-      <td style="font-family:monospace">${num(tramos.length*perfil.longitudTramo)} m</td>
-    </tr>`;
+      <td style="font-weight:700;text-align:center">${ffd.tramoInvalido?'—':tramos.length}</td>
+      <td style="font-family:monospace">${ffd.tramoInvalido?'—':num(tramos.length*perfil.longitudTramo)+' m'}</td>
+    </tr>${avisosTxt.length?`<tr><td colspan="5" style="color:#b91c1c;font-size:11px;background:#fef2f2">${avisosTxt.map(a=>'⚠ '+a).join('<br>')}</td></tr>`:''}`;
   });
 
   // ── Herrajes por ML
   let herrajesMLRows='', herrajesPzRows='';
   // Separar herrajes m2 para sección vidrio en impresión
-  const _hjM2print=Object.values(mapaHerrajes).filter(h=>h.herraje.precioM2&&!h.herraje.precioML&&!h.herraje.precioUnit);
-  const _hjNormPrint=Object.values(mapaHerrajes).filter(h=>!(h.herraje.precioM2&&!h.herraje.precioML&&!h.herraje.precioUnit));
+  const _hjM2print=Object.values(mapaHerrajes).filter(h=>h.herraje.precioM2&&!h.herraje.precioML&&!h.herraje.precioUnitario);
+  const _hjNormPrint=Object.values(mapaHerrajes).filter(h=>!(h.herraje.precioM2&&!h.herraje.precioML&&!h.herraje.precioUnitario));
   _hjNormPrint.forEach(({herraje,totalPiezas,totalML})=>{
     if(totalML>0.01){
       herrajesMLRows+=`<tr>
@@ -5047,9 +5158,11 @@ function imprimirCortes(){
 
   let seccionesHTML='';
 
-  Object.values(mapaPerfiles).forEach(({perfil,cortes})=>{
+  Object.values(mapaPerfiles).forEach(({perfil,cortes,avisos})=>{
     if(!cortes.length)return;
-    const {tramos,sobrante}=cuttingStockFFD(cortes,perfil.longitudTramo);
+    const ffd=cuttingStockFFD(cortes,perfil.longitudTramo,CONFIG_CORTE);
+    const {tramos,sobrante}=ffd;
+    const avisosTxt=avisosCortePerfil(perfil,ffd,avisos);
 
     // Resumen de cortes agrupados por longitud
     const resumen={};
@@ -5064,7 +5177,7 @@ function imprimirCortes(){
     // Generar barras visuales de los tramos
     const tramosHTML=tramos.map((t,ti)=>{
       const pct=(t.usado/t.total*100).toFixed(1);
-      const libre=t.libre;
+      const libre=Math.max(0,t.libre);
       // Segmentos coloreados por corte
       const colores=['#1a56db','#1e7e34','#6f42c1','#fd7e14','#0dcaf0','#d63384','#198754','#dc3545'];
       let offset=0;
@@ -5080,7 +5193,7 @@ function imprimirCortes(){
       return `<div style="margin-bottom:10px">
         <div style="display:flex;justify-content:space-between;font-size:10px;color:#555;margin-bottom:3px">
           <strong>Tramo ${ti+1}</strong>
-          <span>${t.cortes.map(c=>num(c.longitud)+'m').join(' + ')}</span>
+          <span>${t.cortes.map(c=>num(c.longitud)+'m'+(c.revisar?' ⚠':'')).join(' + ')}</span>
           <span style="color:${libre<0.05?'#1e7e34':'#cc8400'}">sobra ${num(libre)}m</span>
         </div>
         <div style="height:22px;background:#e5e7eb;border-radius:4px;overflow:hidden;display:flex">
@@ -5090,7 +5203,7 @@ function imprimirCortes(){
       </div>`;
     }).join('');
 
-    const costSobrante=sobrante*perfil.precioML;
+    const costSobrante=sobrante*(perfil.precioML||0);
 
     seccionesHTML+=`
     <div style="page-break-inside:avoid;margin-bottom:24px;border:1px solid #d1d5db;border-radius:8px;overflow:hidden">
@@ -5102,9 +5215,10 @@ function imprimirCortes(){
         <div style="display:flex;gap:20px;font-size:11px">
           <span>Tramo: <strong>${num(perfil.longitudTramo)} m</strong></span>
           <span>Precio/ml: <strong>${fmt(perfil.precioML)}</strong></span>
-          <span>Tramos necesarios: <strong>${tramos.length}</strong></span>
+          <span>Tramos necesarios: <strong>${ffd.tramoInvalido?'—':tramos.length}</strong></span>
         </div>
       </div>
+      ${avisosTxt.length?`<div style="padding:8px 14px;background:#fef2f2;border-bottom:1px solid #fecaca;color:#b91c1c;font-size:11px">${avisosTxt.map(a=>'⚠ '+a).join('<br>')}</div>`:''}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:0">
         <!-- Cortes requeridos -->
         <div style="padding:12px 14px;border-right:1px solid #e5e7eb">
