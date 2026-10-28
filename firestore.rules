@@ -1,0 +1,73 @@
+rules_version = '2';
+// Reglas de seguridad de SCAVi (Cloud Firestore).
+// Se publican desde la consola de Firebase → Firestore → Reglas.
+// Este archivo es solo el respaldo/registro de lo publicado.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function adminUid()   { return 'z447DgJCSTW8xRDp8pkIZ5S1A8G3'; }
+    function signedIn()   { return request.auth != null; }
+    function isAdmin()    { return signedIn() && request.auth.uid == adminUid(); }
+    function isOwner(uid) { return signedIn() && request.auth.uid == uid; }
+    function cuenta()     { return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data; }
+
+    // Suscripción vigente, comparada con la hora del servidor (no la de la PC)
+    function activeUser() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid))
+        && cuenta().activo == true
+        && cuenta().vence is timestamp
+        && cuenta().vence > request.time;
+    }
+
+    function noBloqueado(uid) {
+      return !exists(/databases/$(database)/documents/bloqueados/$(uid));
+    }
+
+    // Registro desde login.html: solo una cuenta de prueba de máximo 7 días
+    function registroPruebaValido(uid) {
+      let d = request.resource.data;
+      return isOwner(uid) && noBloqueado(uid)
+        && d.keys().hasOnly(['nombre','email','activo','plan','vence','creadoEn','pagos'])
+        && d.keys().hasAll(['nombre','email','activo','plan','vence','creadoEn','pagos'])
+        && d.nombre is string && d.nombre.size() > 0 && d.nombre.size() <= 100
+        && d.email is string && request.auth.token.email is string
+        && d.email.lower() == request.auth.token.email.lower()
+        && d.activo == true
+        && d.plan == 'prueba'
+        && d.pagos is list && d.pagos.size() == 0
+        && d.creadoEn == request.time
+        && d.vence is timestamp
+        && d.vence > request.time
+        && d.vence <= request.time + duration.value(8, 'd'); // 7 días + 1 de tolerancia de reloj
+    }
+
+    function tablaApp(t) { return t in ['perfiles','herrajes','vidrios','recetas','proyectos']; }
+
+    // El administrador tiene acceso completo
+    match /{document=**} {
+      allow read, write: if isAdmin();
+    }
+
+    // Cuenta del usuario: puede leerla y crear su prueba; nada más.
+    // Plan, vencimiento, activo y pagos solo los cambia el administrador.
+    match /usuarios/{uid} {
+      allow get:    if isOwner(uid);
+      allow create: if registroPruebaValido(uid);
+
+      // Datos de trabajo del usuario (catálogos, recetas, proyectos)
+      match /{tabla}/{docId} {
+        allow read, write: if isOwner(uid) && tablaApp(tabla) && activeUser();
+        // Catálogo de precios del administrador, lo leen los usuarios con suscripción vigente
+        allow read: if uid == adminUid() && tabla in ['perfiles','herrajes','vidrios'] && activeUser();
+      }
+    }
+
+    // Recetas SCAVi publicadas
+    match /admin_catalogo/{col}/items/{docId} {
+      allow read: if activeUser();
+    }
+
+    // Todo lo demás queda bloqueado (incluye bloqueados/{uid}, solo admin)
+  }
+}

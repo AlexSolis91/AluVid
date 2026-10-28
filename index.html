@@ -1214,27 +1214,7 @@ onAuthStateChanged(_auth, async (user) => {
 // STORAGE — Firestore con caché local
 // ══════════════════════════════════════════════
 
-// ── FIRESTORE RULES NEEDED ────────────────────────────────────
-// rules_version = '2';
-// service cloud.firestore {
-//   match /databases/{database}/documents {
-//     // Admin full access
-//     match /{document=**} {
-//       allow read, write: if request.auth != null && request.auth.uid == 'z447DgJCSTW8xRDp8pkIZ5S1A8G3';
-//     }
-//     // Users read admin_catalogo (but can't write)
-//     match /admin_catalogo/{col}/items/{docId} {
-//       allow read: if request.auth != null;
-//     }
-//     // Users access own data only
-//     match /usuarios/{uid} {
-//       allow read, write: if request.auth != null && request.auth.uid == uid;
-//       match /{coleccion}/{docId} {
-//         allow read, write: if request.auth != null && request.auth.uid == uid;
-//       }
-//     }
-//   }
-// }
+// ── REGLAS DE FIRESTORE: ver firestore.rules (publicadas desde la consola de Firebase) ──
 
 window._cache = {};
 
