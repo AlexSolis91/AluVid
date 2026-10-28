@@ -156,7 +156,7 @@ onAuthStateChanged(auth, async user => {
   const data = snap.data();
   const venceCheck = data.vence?.toDate ? data.vence.toDate() : new Date(data.vence);
   if (!data.activo) return; // disabled, stay on login
-  if (venceCheck < new Date()) {
+  if (isNaN(venceCheck) || venceCheck < new Date()) {
     window.location.href = 'pago.html?email=' + encodeURIComponent(user.email);
     return;
   }
@@ -213,9 +213,9 @@ window.login = async () => {
     const data = snap.data();
     if (!data.activo) { showError('Tu cuenta está deshabilitada. Contacta al administrador.'); auth.signOut(); return; }
     const vence = data.vence?.toDate ? data.vence.toDate() : new Date(data.vence);
-    if (vence < new Date()) {
-      auth.signOut();
-      window.location.href = 'pago.html?email=' + encodeURIComponent(user.email);
+    if (isNaN(vence) || vence < new Date()) {
+      await auth.signOut();
+      window.location.href = 'pago.html?email=' + encodeURIComponent(cred.user.email);
       return;
     }
     window.location.href = 'index.html';

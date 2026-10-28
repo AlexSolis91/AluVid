@@ -217,7 +217,7 @@ input:focus,select:focus{border-color:var(--accent)}
           </div>
           <div class="form-actions">
             <button class="btn btn-ghost" onclick="navTo(document.querySelector('[onclick*=usuarios]'),'usuarios')">Cancelar</button>
-            <button class="btn btn-primary" onclick="crearUsuario()">Crear usuario</button>
+            <button class="btn btn-primary" id="btn-crear" onclick="crearUsuario()">Crear usuario</button>
           </div>
         </div>
       </div>
@@ -308,7 +308,7 @@ input:focus,select:focus{border-color:var(--accent)}
     <div class="form-actions">
       <button class="btn btn-danger" onclick="confirmarEliminar()">Eliminar cuenta</button>
       <button class="btn btn-ghost" onclick="cerrarModal()">Cancelar</button>
-      <button class="btn btn-primary" onclick="guardarUsuario()">Guardar cambios</button>
+      <button class="btn btn-primary" id="btn-guardar" onclick="guardarUsuario()">Guardar cambios</button>
     </div>
   </div>
 </div>
@@ -338,13 +338,18 @@ const ADMIN_UID = 'z447DgJCSTW8xRDp8pkIZ5S1A8G3';
 const app  = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db   = getFirestore(app);
+// App secundaria: crear usuarios sin cerrar la sesión del admin
+const secondaryApp  = initializeApp(firebaseConfig, 'secondary');
+const secondaryAuth = getAuth(secondaryApp);
+
+const esc = s => s == null ? '' : String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 let usuarios = [];
 let currentUser = null;
 
 // ── AUTH ───────────────────────────────────────────────────────
 onAuthStateChanged(auth, async user => {
-  if (user && (user.uid === ADMIN_UID || ADMIN_UID === 'REEMPLAZA_CON_TU_UID')) {
+  if (user && user.uid === ADMIN_UID) {
     currentUser = user;
     document.getElementById('auth-wall').style.display = 'none';
     document.getElementById('app').style.display = 'grid';
@@ -366,7 +371,7 @@ window.adminLogin = async () => {
   }
 };
 
-window.cerrarSesion = () => { signOut(auth); location.reload(); };
+window.cerrarSesion = async () => { try { await signOut(auth); } finally { location.reload(); } };
 
 // ── DATOS ──────────────────────────────────────────────────────
 async function cargarDatos() {
@@ -378,22 +383,29 @@ async function cargarDatos() {
   renderLogs();
 }
 
-function diasRestantes(vence) {
-  if (!vence) return -999;
+function toFecha(vence) {
+  if (!vence) return null;
   const v = vence.toDate ? vence.toDate() : new Date(vence);
+  return isNaN(v) ? null : v;
+}
+
+function diasRestantes(vence) {
+  const v = toFecha(vence);
+  if (!v) return -999; // sin fecha o inválida = vencido
   return Math.ceil((v - new Date()) / (1000*60*60*24));
 }
 
 function fechaStr(vence) {
-  if (!vence) return '—';
-  const v = vence.toDate ? vence.toDate() : new Date(vence);
-  return v.toLocaleDateString('es-MX');
+  const v = toFecha(vence);
+  return v ? v.toLocaleDateString('es-MX') : '—';
 }
 
+// YYYY-MM-DD en hora local (toISOString usa UTC y en MX puede dar el día siguiente)
+const ymdLocal = v => `${v.getFullYear()}-${String(v.getMonth()+1).padStart(2,'0')}-${String(v.getDate()).padStart(2,'0')}`;
+
 function toDateInput(vence) {
-  if (!vence) return '';
-  const v = vence.toDate ? vence.toDate() : new Date(vence);
-  return v.toISOString().slice(0,10);
+  const v = toFecha(vence);
+  return v ? ymdLocal(v) : '';
 }
 
 // ── STATS ──────────────────────────────────────────────────────
@@ -428,13 +440,13 @@ window.renderUsuarios = () => {
     const diasColor = dias <= 3 ? 'var(--red)' : dias <= 7 ? 'var(--amber)' : 'var(--green)';
     const planBadge = {mensual:'badge-blue',trimestral:'badge-purple',anual:'badge-green',prueba:'badge-amber'}[u.plan]||'badge-blue';
     return `<tr>
-      <td style="font-weight:500">${u.nombre||'—'}</td>
-      <td class="td-mono">${u.email}</td>
-      <td><span class="badge ${planBadge}">${u.plan||'mensual'}</span></td>
+      <td style="font-weight:500">${esc(u.nombre||'—')}</td>
+      <td class="td-mono">${esc(u.email)}</td>
+      <td><span class="badge ${planBadge}">${esc(u.plan||'mensual')}</span></td>
       <td>${estadoBadge}</td>
       <td>${fechaStr(u.vence)}</td>
       <td><span style="font-weight:600;color:${diasColor}">${dias > 0 ? dias+' días' : 'Vencido'}</span></td>
-      <td><button class="btn btn-ghost btn-sm" onclick="abrirModal('${u.uid}')">Gestionar</button></td>
+      <td><button class="btn btn-ghost btn-sm" data-uid="${esc(u.uid)}" onclick="abrirModal(this.dataset.uid)">Gestionar</button></td>
     </tr>`;
   }).join('') : '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:24px">Sin usuarios</td></tr>';
 };
@@ -446,11 +458,11 @@ function renderVencimientos() {
   document.getElementById('tabla-vencimientos').innerHTML = proximos.length ? proximos.map(u => {
     const dias = diasRestantes(u.vence);
     return `<tr>
-      <td style="font-weight:500">${u.nombre||'—'}</td>
-      <td class="td-mono">${u.email}</td>
+      <td style="font-weight:500">${esc(u.nombre||'—')}</td>
+      <td class="td-mono">${esc(u.email)}</td>
       <td>${fechaStr(u.vence)}</td>
       <td><span style="font-weight:700;color:${dias<=3?'var(--red)':'var(--amber)'}">${dias} días</span></td>
-      <td><button class="btn btn-success btn-sm" onclick="abrirModal('${u.uid}')">Renovar</button></td>
+      <td><button class="btn btn-success btn-sm" data-uid="${esc(u.uid)}" onclick="abrirModal(this.dataset.uid)">Renovar</button></td>
     </tr>`;
   }).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--green);padding:24px">✓ Sin vencimientos próximos</td></tr>';
 }
@@ -463,12 +475,12 @@ async function renderLogs() {
   }
   logs.sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
   document.getElementById('tabla-logs').innerHTML = logs.length ? logs.map(l => `<tr>
-    <td class="td-mono">${l.fecha ? new Date(l.fecha).toLocaleDateString('es-MX') : '—'}</td>
-    <td>${l.nombre||'—'}</td>
-    <td class="td-mono">${l.email||'—'}</td>
-    <td><span class="badge badge-blue">${l.plan||'—'}</span></td>
-    <td style="color:var(--green);font-weight:600">$${l.monto||0}</td>
-    <td>${l.metodo||'—'}</td>
+    <td class="td-mono">${fechaStr(l.fecha)}</td>
+    <td>${esc(l.nombre||'—')}</td>
+    <td class="td-mono">${esc(l.email||'—')}</td>
+    <td><span class="badge badge-blue">${esc(l.plan||'—')}</span></td>
+    <td style="color:var(--green);font-weight:600">$${esc(l.monto||0)}</td>
+    <td>${esc(l.metodo||'—')}</td>
   </tr>`).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px">Sin pagos registrados</td></tr>';
 }
 
@@ -483,19 +495,23 @@ window.crearUsuario = async () => {
   if (!nombre||!email||!pass) { toast('Completa nombre, email y contraseña','error'); return; }
   const dias = {mensual:30,trimestral:90,anual:365,prueba:7}[plan]||30;
   const vence = new Date(); vence.setDate(vence.getDate()+dias);
+  const btn = document.getElementById('btn-crear');
+  btn.disabled = true;
   try {
-    const cred = await createUserWithEmailAndPassword(auth, email, pass);
-    await setDoc(doc(db,'usuarios',cred.user.uid), {
-      nombre, email, activo:true, plan, vence,
-      creadoEn: serverTimestamp(),
-      pagos: monto > 0 ? [{fecha: new Date().toISOString(), plan, monto, metodo}] : []
-    });
+    const cred = await createUserWithEmailAndPassword(secondaryAuth, email, pass);
+    try {
+      await setDoc(doc(db,'usuarios',cred.user.uid), {
+        nombre, email, activo:true, plan, vence,
+        creadoEn: serverTimestamp(),
+        pagos: monto > 0 ? [{fecha: new Date().toISOString(), plan, monto, metodo}] : []
+      });
+    } finally { await signOut(secondaryAuth); }
     toast('Usuario creado correctamente');
     await cargarDatos();
     navTo(document.querySelector('.nav-item'), 'usuarios');
   } catch(e) {
     toast('Error: '+(e.code==='auth/email-already-in-use'?'Ya existe una cuenta con ese email':e.message),'error');
-  }
+  } finally { btn.disabled = false; }
 };
 
 // ── MODAL ──────────────────────────────────────────────────────
@@ -519,7 +535,7 @@ window.extenderDias = (dias) => {
   const input = document.getElementById('modal-vence');
   const base = input.value ? new Date(input.value+'T12:00:00') : new Date();
   base.setDate(base.getDate()+dias);
-  input.value = base.toISOString().slice(0,10);
+  input.value = ymdLocal(base);
 };
 
 window.guardarUsuario = async () => {
@@ -529,15 +545,20 @@ window.guardarUsuario = async () => {
   const vence  = new Date(document.getElementById('modal-vence').value+'T12:00:00');
   const monto  = parseFloat(document.getElementById('modal-monto').value)||0;
   const metodo = document.getElementById('modal-metodo').value;
+  if (isNaN(vence)) { toast('Selecciona una fecha de vencimiento válida','error'); return; }
   const u = usuarios.find(x=>x.uid===uid);
   const pagos = u ? [...(u.pagos||[])] : [];
   if (monto > 0) pagos.push({fecha:new Date().toISOString(), plan, monto, metodo});
+  const btn = document.getElementById('btn-guardar');
+  if (btn.disabled) return;
+  btn.disabled = true;
   try {
     await updateDoc(doc(db,'usuarios',uid), {activo, plan, vence, pagos});
     toast(activo ? 'Usuario actualizado y activado' : 'Usuario deshabilitado');
     cerrarModal();
     await cargarDatos();
   } catch(e) { toast('Error al guardar: '+e.message,'error'); }
+  finally { btn.disabled = false; }
 };
 
 window.confirmarEliminar = async () => {

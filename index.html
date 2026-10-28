@@ -242,42 +242,45 @@ window._fsSignOut    = signOut;
 // Auth guard
 onAuthStateChanged(_auth, async (user) => {
   if (!user) { window.location.href = 'login.html'; return; }
-  window._uid = user.uid;
+  try {
 
   // Check subscription
   const snap = await getDoc(doc(_db, 'usuarios', user.uid));
-  if (!snap.exists()) { signOut(_auth); window.location.href = 'login.html'; return; }
+  if (!snap.exists()) { await signOut(_auth); window.location.href = 'login.html'; return; }
   const data = snap.data();
   window._userData = data;
   const vence = data.vence?.toDate ? data.vence.toDate() : new Date(data.vence);
   if (!data.activo) {
-    signOut(_auth);
+    await signOut(_auth);
     alert('Tu cuenta está deshabilitada. Contacta al administrador.');
     window.location.href = 'login.html';
     return;
   }
-  if (vence < new Date()) {
-    signOut(_auth);
+  // Fecha inválida o faltante = vencida
+  if (isNaN(vence) || vence < new Date()) {
+    await signOut(_auth);
     window.location.href = 'pago.html?email=' + encodeURIComponent(user.email);
     return;
   }
 
   // Show user info in sidebar footer
   const dias = Math.ceil((vence - new Date())/(1000*60*60*24));
-  const footer = document.getElementById('version-footer');
+  const footer = document.getElementById('sidebar-user');
   if (footer) {
-    footer.innerHTML = `<span>${data.nombre || user.email}</span>
+    const nombre = String(data.nombre || user.email).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    footer.innerHTML = `<span style="display:block;color:var(--text2)">${nombre}</span>
       <span style="display:block;margin-top:2px;color:${dias<=7?'var(--amber)':'inherit'}">
-        ${dias} días restantes · <a href="#" onclick="window._fsSignOut(window._auth);window.location.href='login.html'" style="color:var(--accent2)">Salir</a>
+        ${dias} ${dias===1?'día restante':'días restantes'} · <a href="#" onclick="cerrarSesionApp();return false" style="color:var(--accent2)">Cerrar sesión</a>
       </span>`;
   }
 
-  // Load user's own data
+  // Load user's own data (en paralelo). _uid se asigna hasta terminar la carga
+  // para que nada se sincronice a Firestore con el caché aún vacío.
   const tablas = ['perfiles','herrajes','vidrios','recetas','proyectos'];
-  for (const tabla of tablas) {
-    const s = await getDocs(collection(_db, 'usuarios', user.uid, tabla));
-    window._cache[tabla] = s.docs.map(d => ({ _docId: d.id, ...d.data() }));
-  }
+  const snaps = await Promise.all(tablas.map(t => getDocs(collection(_db, 'usuarios', user.uid, t))));
+  tablas.forEach((tabla, i) => {
+    window._cache[tabla] = snaps[i].docs.map(d => ({ _docId: d.id, ...d.data() }));
+  });
   // Load admin catalogo for pricing (perfiles/herrajes/vidrios from admin's own catalog)
   window._adminCache = {};
   // Load recetas from admin_catalogo collection (published SCAVi recetas)
@@ -296,9 +299,19 @@ onAuthStateChanged(_auth, async (user) => {
     }
   }
 
+  window._uid = user.uid;
   // Signal app that Firebase is ready
   window._fbReady = true;
   if (window._onFbReady) window._onFbReady();
+
+  } catch (e) {
+    console.error('Error al cargar datos:', e);
+    document.body.innerHTML = `<div style="font-family:sans-serif;max-width:420px;margin:80px auto;padding:24px;text-align:center">
+      <h2 style="margin-bottom:10px">No se pudieron cargar tus datos</h2>
+      <p style="color:#666;margin-bottom:18px">Revisa tu conexión a internet e inténtalo de nuevo. Para proteger tu información, la aplicación no se abrirá hasta cargar tus datos correctamente.</p>
+      <button onclick="location.reload()" style="padding:10px 22px;font-size:15px;cursor:pointer">Reintentar</button>
+    </div>`;
+  }
 });
 </script>
 </head>
@@ -356,7 +369,7 @@ onAuthStateChanged(_auth, async (user) => {
       <span class="nav-badge" id="badge-alertas">0</span>
     </div>
   </nav>
-  <div class="sidebar-footer" id="sidebar-version">Datos guardados localmente</div>
+  <div class="sidebar-footer"><div id="sidebar-user" style="margin-bottom:6px"></div><div id="sidebar-version"></div></div>
 </aside>
 
 <!-- MAIN -->
@@ -1222,7 +1235,7 @@ onAuthStateChanged(_auth, async (user) => {
 window._cache = {};
 
 // ── Versión de la app (subir en cada deploy con fixes) ─────────
-const APP_VERSION = '1.17.0';
+const APP_VERSION = '1.18.0';
 
 window.cerrarSesionApp = function() {
   if (window._fsSignOut && window._auth) {
@@ -2921,7 +2934,11 @@ function calcularPartida(){
   const vidrioId=parseInt(document.getElementById('cot-vidrio').value)||null;
 
   // Mostrar desglose aunque no haya acabado, para ver los perfiles pendientes
-  if(!rid||!ancho||!alto){document.getElementById('cot-preview').style.display='none';return;}
+  if(!rid||!(ancho>0)||!(alto>0)||!(cantidad>=1)){
+    document.getElementById('cot-preview').style.display='none';
+    if(proyectoActivo) delete proyectoActivo._temp; // evita agregar con un cálculo viejo
+    return;
+  }
 
   const r=isAdminReceta
     ? DB.getAdminRecetas().find(x=>String(x.id||x._docId)===String(rid))
@@ -3214,6 +3231,13 @@ function agregarPartida(){
   const rid=isAdminReceta ? ridRaw.slice(2) : isUserReceta2 ? parseInt(ridRaw.slice(2)) : parseInt(ridRaw);
   if(!desc){toast('Ingresa la ubicación','error');return;}
   if(!rid){toast('Selecciona una receta','error');return;}
+  const vAncho=parseFloat(document.getElementById('cot-ancho').value);
+  const vAlto=parseFloat(document.getElementById('cot-alto').value);
+  const vCantRaw=document.getElementById('cot-cantidad').value;
+  const vCant=Number(vCantRaw||1);
+  if(!(vAncho>0)||!(vAlto>0)){toast('Ancho y alto deben ser mayores a 0','error');return;}
+  if(!Number.isInteger(vCant)||vCant<1){toast('La cantidad debe ser un número entero de 1 o más','error');return;}
+  if((vAncho>15||vAlto>15)&&!confirm(`Las medidas se capturan en metros (ej. 1.20).\n¿Confirmas ${vAncho} m × ${vAlto} m?`))return;
   if(!proyectoActivo._temp){toast('Configura las medidas primero','error');return;}
 
   const ridRawA=document.getElementById('cot-receta').value;
@@ -4044,6 +4068,11 @@ function epConfirmarExtraHerraje(idx){
 
 function guardarEdicionPartida(idx){
   const p=proyectoActivo.partidas[idx];
+  const vAncho=parseFloat(document.getElementById('ep-ancho-'+idx).value);
+  const vAlto=parseFloat(document.getElementById('ep-alto-'+idx).value);
+  const vCant=Number(document.getElementById('ep-cant-'+idx).value||p.cantidad);
+  if(!(vAncho>0)||!(vAlto>0)){toast('Ancho y alto deben ser mayores a 0','error');return;}
+  if(!Number.isInteger(vCant)||vCant<1){toast('La cantidad debe ser un número entero de 1 o más','error');return;}
   p.ubicacion=document.getElementById('ep-ubicacion-'+idx).value.trim()||p.ubicacion;
   p.acabado=document.getElementById('ep-acabado-'+idx).value.trim()||p.acabado;
   p.ancho=parseFloat(document.getElementById('ep-ancho-'+idx).value)||p.ancho;
@@ -4873,6 +4902,7 @@ function imprimirCotizacion(detallado){
   </body></html>`;
 
   const win=window.open('','_blank','width=900,height=700');
+  if(!win){toast('Permite las ventanas emergentes (pop-ups) para imprimir','error');return;}
   win.document.write(html);
   win.document.close();
   win.focus();
@@ -4998,6 +5028,7 @@ function imprimirListaMaterial(){
   </body></html>`;
 
   const win=window.open('','_blank','width=900,height=700');
+  if(!win){toast('Permite las ventanas emergentes (pop-ups) para imprimir','error');return;}
   win.document.write(html);
   win.document.close();
   win.focus();
@@ -5132,6 +5163,7 @@ function imprimirCortes(){
   </body></html>`;
 
   const win=window.open('','_blank','width=1100,height=750');
+  if(!win){toast('Permite las ventanas emergentes (pop-ups) para imprimir','error');return;}
   win.document.write(html);
   win.document.close();
   win.focus();
@@ -5145,7 +5177,7 @@ function _appInit() {
   const topbarV=document.getElementById('topbar-version');
   if(topbarV) topbarV.textContent='v'+APP_VERSION;
   const sidebarV=document.getElementById('sidebar-version');
-  if(sidebarV) sidebarV.textContent='v'+APP_VERSION+' — Datos guardados localmente';
+  if(sidebarV) sidebarV.textContent='v'+APP_VERSION+' — Datos guardados en la nube';
   // Migrate any existing localStorage data to Firestore
   const tablas = ['perfiles','herrajes','vidrios','recetas','proyectos'];
   let migrado = 0;
