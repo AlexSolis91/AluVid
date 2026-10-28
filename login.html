@@ -157,7 +157,7 @@ onAuthStateChanged(auth, async user => {
   const venceCheck = data.vence?.toDate ? data.vence.toDate() : new Date(data.vence);
   if (!data.activo) return; // disabled, stay on login
   if (isNaN(venceCheck) || venceCheck < new Date()) {
-    window.location.href = 'pago.html?email=' + encodeURIComponent(user.email);
+    window.location.href = 'pago.html?email=' + encodeURIComponent(user.email) + '&uid=' + encodeURIComponent(user.uid);
     return;
   }
   window.location.href = 'index.html';
@@ -215,7 +215,7 @@ window.login = async () => {
     const vence = data.vence?.toDate ? data.vence.toDate() : new Date(data.vence);
     if (isNaN(vence) || vence < new Date()) {
       await auth.signOut();
-      window.location.href = 'pago.html?email=' + encodeURIComponent(cred.user.email);
+      window.location.href = 'pago.html?email=' + encodeURIComponent(cred.user.email) + '&uid=' + encodeURIComponent(cred.user.uid);
       return;
     }
     window.location.href = 'index.html';

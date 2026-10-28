@@ -101,22 +101,28 @@ h1{font-size:22px;font-weight:700;margin-bottom:8px;color:var(--text)}
 
     <div class="nota">
       Una vez realizado el pago, tu acceso será activado en un plazo máximo de <strong>24 horas</strong>.<br>
-      ¿Dudas? Escríbenos directamente.
+      ¿Dudas? Llámanos o escríbenos por WhatsApp al <a href="https://wa.me/528111785641" target="_blank" style="color:inherit">81 1178 5641</a>.
     </div>
     <div class="seguro">🔒 Pago seguro procesado por Stripe</div>
   </div>
 </div>
 
 <script>
-// Show email from URL param
+// Enlace de pago de Stripe (Payment Link). Cambiar aquí al enlace en modo real (sin "test_").
+const STRIPE_LINK = 'https://buy.stripe.com/test_14AdR83Nnayc4h7eIo2VG01';
+
 const params = new URLSearchParams(window.location.search);
 const email = params.get('email');
+const uid = params.get('uid');
+const btn = document.getElementById('btn-pagar');
+const url = new URL(STRIPE_LINK);
 if (email) {
   document.getElementById('email-display').textContent = email;
-  // Add email to Stripe payment link as prefill
-  const btn = document.getElementById('btn-pagar');
-  btn.href = 'https://buy.stripe.com/test_14AdR83Nnayc4h7eIo2VG01?prefilled_email=' + encodeURIComponent(email);
+  url.searchParams.set('prefilled_email', email);
 }
+// Liga el pago con la cuenta: aparece como "client_reference_id" en el pago de Stripe
+if (uid && /^[A-Za-z0-9_-]{1,200}$/.test(uid)) url.searchParams.set('client_reference_id', uid);
+btn.href = url.toString();
 </script>
 </body>
 </html>

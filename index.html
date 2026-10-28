@@ -205,6 +205,98 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
 .pill{padding:5px 12px;border-radius:99px;border:1px solid var(--border);font-size:12px;cursor:pointer;color:var(--text2);transition:all .15s;background:var(--surface)}
 .pill:hover{border-color:var(--accent2);color:var(--accent2)}
 .pill.active{background:rgba(79,142,247,.15);border-color:var(--accent);color:var(--accent2);font-weight:500}
+
+/* ── RESPONSIVE (teléfonos y tabletas) ── */
+/* Botón ☰ y fondo del menú: ocultos en escritorio (no ocupan espacio) */
+.nav-toggle{display:none;align-items:center;justify-content:center;width:40px;height:40px;flex-shrink:0;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);font-size:20px;line-height:1;cursor:pointer;font-family:var(--font)}
+.nav-toggle:hover{background:var(--surface2)}
+#nav-backdrop{display:none}
+.table-wrap{-webkit-overflow-scrolling:touch}
+
+@media (max-width:900px){
+  /* Layout: la página completa hace scroll (sin la trampa de 100vh + overflow:hidden) */
+  #app{display:block;height:auto;min-height:100vh;min-height:100dvh;overflow:visible}
+  #main{overflow:visible;min-height:100vh;min-height:100dvh;min-width:0}
+  #topbar{position:sticky;top:0;z-index:50;padding:0 12px;gap:10px}
+  #page-title{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #content{overflow:visible;padding:16px}
+  .nav-toggle{display:inline-flex}
+
+  /* Sidebar → menú lateral deslizable */
+  #sidebar{position:fixed;top:0;left:0;bottom:0;height:100vh;height:100dvh;width:min(280px,85vw);z-index:950;transform:translateX(-100%);transition:transform .25s ease,visibility 0s linear .25s;box-shadow:none;visibility:hidden}
+  body.nav-open #sidebar{transform:none;box-shadow:var(--shadow);visibility:visible;transition:transform .25s ease,visibility 0s}
+  #sidebar nav{-webkit-overflow-scrolling:touch}
+  .sidebar-footer{padding-bottom:max(14px,env(safe-area-inset-bottom))}
+  .nav-item{padding:11px 12px}
+  #nav-backdrop{display:block;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:940;opacity:0;pointer-events:none;transition:opacity .25s}
+  body.nav-open #nav-backdrop{opacity:1;pointer-events:auto}
+  body.nav-open{overflow:hidden}
+
+  /* Columnas */
+  .split,.split-3{grid-template-columns:minmax(0,1fr)}
+  .form-group.col3{grid-column:1/-1}
+
+  /* Tablas: scroll horizontal en lugar de aplastar columnas */
+  .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
+  .table-wrap>table{width:max-content;min-width:100%}
+
+  /* Modales dentro de la pantalla */
+  .modal{max-width:calc(100vw - 24px);max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px);overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+
+  /* Encabezados y barras con botones: que bajen de línea en lugar de desbordarse */
+  .section-header,.form-actions,.total-bar,.cotizar-step-header,.list-panel-header{flex-wrap:wrap;gap:10px}
+  .dashboard-welcome{flex-wrap:wrap}
+  .folio-card{flex-wrap:wrap}
+}
+
+@media (max-width:600px){
+  #content{padding:12px}
+  #topbar-version{font-size:10px;padding:2px 6px}
+
+  /* Formularios a una columna */
+  .form-grid{grid-template-columns:minmax(0,1fr)}
+  .form-group.col2,.form-group.col3{grid-column:1/-1}
+  #cot-condiciones-grid{grid-template-columns:minmax(0,1fr)!important}
+  #content [style*="grid-template-columns:1fr 1fr"],.modal [style*="grid-template-columns:1fr 1fr"]{grid-template-columns:minmax(0,1fr)!important}
+  .stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+
+  /* Controles táctiles: ≥40px y 16px de fuente (evita el zoom automático de iOS) */
+  input:not([type=checkbox]):not([type=radio]):not([type=hidden]):not([type=range]),select,textarea{font-size:16px;min-height:40px}
+  input[readonly]{font-size:16px}
+  .btn{min-height:40px;padding:8px 14px}
+  .btn-sm{font-size:13px;padding:8px 12px}
+  .btn-icon{min-width:40px;justify-content:center;padding:8px}
+  .tab{padding:10px 8px;min-height:40px;display:flex;align-items:center;justify-content:center}
+  .pill{padding:8px 12px}
+  .config-tag{padding:8px 12px}
+
+  /* Filas flexibles con estilos en línea (también las generadas por JS) */
+  #content [style*="display:flex"]:not(label),.modal [style*="display:flex"]:not(label){flex-wrap:wrap}
+  .partida-row .partida-info{flex:1 1 180px!important;min-width:0}
+  label>input[type=checkbox]:not([style*="width"]){width:18px;height:18px;flex:0 0 auto}
+  .badge{max-width:100%}
+  .section-header .search-wrap{flex:1 1 100%}
+  .section-header .search-wrap input{width:100%!important}
+
+  /* Tarjetas */
+  .card,.cotizar-step{padding:14px}
+  .dashboard-welcome{padding:16px;gap:14px}
+  .dashboard-welcome .btn{margin-left:0!important;width:100%;justify-content:center}
+  .folio-card{flex-direction:column;align-items:stretch;padding:16px}
+  .folio-card>div{align-items:stretch!important}
+  .folio-card .form-group{min-width:0!important}
+  .folio-number{font-size:24px}
+  .total-bar{padding:14px}
+  .total-value{font-size:20px}
+  .partida-row [id^="edit-panel-"]{padding:14px!important}
+
+  /* Modales */
+  .modal{padding:16px}
+
+  /* Avisos */
+  #toast-container{left:12px;right:12px;bottom:12px}
+  .toast{min-width:0}
+}
 </style>
 
 <!-- Firebase: loaded as module, exposes _fbReady promise to window -->
@@ -259,7 +351,7 @@ onAuthStateChanged(_auth, async (user) => {
   // Fecha inválida o faltante = vencida
   if (isNaN(vence) || vence < new Date()) {
     await signOut(_auth);
-    window.location.href = 'pago.html?email=' + encodeURIComponent(user.email);
+    window.location.href = 'pago.html?email=' + encodeURIComponent(user.email) + '&uid=' + encodeURIComponent(user.uid);
     return;
   }
 
@@ -375,10 +467,12 @@ onAuthStateChanged(_auth, async (user) => {
   </nav>
   <div class="sidebar-footer"><div id="sidebar-user" style="margin-bottom:6px"></div><div id="sidebar-version"></div></div>
 </aside>
+<div id="nav-backdrop" onclick="cerrarMenuMovil()"></div>
 
 <!-- MAIN -->
 <div id="main">
   <header id="topbar">
+    <button type="button" class="nav-toggle" id="nav-toggle" aria-label="Abrir menú" aria-controls="sidebar" aria-expanded="false" onclick="toggleMenuMovil()">☰</button>
     <span id="page-title">Dashboard</span>
     <div class="topbar-actions" id="topbar-actions"></div>
     <span id="topbar-version" style="margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--text3);background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:3px 8px;white-space:nowrap"></span>
@@ -1219,7 +1313,7 @@ onAuthStateChanged(_auth, async (user) => {
 window._cache = {};
 
 // ── Versión de la app (subir en cada deploy con fixes) ─────────
-const APP_VERSION = '1.20.0';
+const APP_VERSION = '1.21.0';
 
 window.cerrarSesionApp = function() {
   if ((DB._pending > 0 || _proyHayCambios()) &&
@@ -1439,6 +1533,19 @@ function nav(el){
   if(v==='cotizar')renderCotizarInicio();
   updateBadges();
 }
+
+// ── Menú lateral en teléfonos/tabletas (≤900px): solo UI, no toca nav() ──
+function _menuMovilAbierto(abrir){
+  document.body.classList.toggle('nav-open',abrir);
+  const b=document.getElementById('nav-toggle');
+  if(b){b.setAttribute('aria-expanded',abrir?'true':'false');b.setAttribute('aria-label',abrir?'Cerrar menú':'Abrir menú');}
+}
+function toggleMenuMovil(){_menuMovilAbierto(!document.body.classList.contains('nav-open'));}
+function cerrarMenuMovil(){if(document.body.classList.contains('nav-open'))_menuMovilAbierto(false);}
+// Al tocar una opción del menú se cierra (el onclick="nav(this)" ya corrió antes por burbujeo)
+document.querySelector('#sidebar nav')?.addEventListener('click',e=>{if(e.target.closest('.nav-item'))cerrarMenuMovil();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')cerrarMenuMovil();});
+window.matchMedia&&matchMedia('(min-width:901px)').addEventListener?.('change',m=>{if(m.matches)cerrarMenuMovil();});
 
 function switchTab(el,targetId){
   // Deactivate all tabs in the same tab bar
