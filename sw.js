@@ -2,7 +2,7 @@
 // Páginas: siempre de la red (para tener la versión más nueva); copia guardada solo si no hay internet.
 // Íconos y manifiesto: de la copia guardada.
 // No toca Firebase, Stripe ni ningún otro dominio.
-const CACHE = 'scavi-v1';
+const CACHE = 'scavi-v2';
 const ESTATICOS = ['iconos/icon-192.png', 'iconos/icon-512.png', 'iconos/apple-touch-icon.png', 'iconos/favicon-32.png', 'manifest.webmanifest'];
 
 self.addEventListener('install', e => {

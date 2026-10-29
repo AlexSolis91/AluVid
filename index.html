@@ -485,6 +485,7 @@ onAuthStateChanged(_auth, async (user) => {
     <span id="page-title">Dashboard</span>
     <div class="topbar-actions" id="topbar-actions"></div>
     <span id="topbar-version" style="margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--text3);background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:3px 8px;white-space:nowrap"></span>
+    <button type="button" class="btn-instalar" onclick="instalarApp()" style="display:none;margin-left:8px;white-space:nowrap;background:var(--accent-g);color:#fff;border:0;border-radius:8px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer">📲 Instalar</button>
   </header>
   <div id="content">
 
@@ -1322,7 +1323,7 @@ onAuthStateChanged(_auth, async (user) => {
 window._cache = {};
 
 // ── Versión de la app (subir en cada deploy con fixes) ─────────
-const APP_VERSION = '1.23.0';
+const APP_VERSION = '1.23.1';
 
 window.cerrarSesionApp = function() {
   if ((DB._pending > 0 || _proyHayCambios()) &&
