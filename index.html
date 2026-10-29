@@ -1322,7 +1322,7 @@ onAuthStateChanged(_auth, async (user) => {
 window._cache = {};
 
 // ── Versión de la app (subir en cada deploy con fixes) ─────────
-const APP_VERSION = '1.22.0';
+const APP_VERSION = '1.23.0';
 
 window.cerrarSesionApp = function() {
   if ((DB._pending > 0 || _proyHayCambios()) &&
@@ -2577,6 +2577,41 @@ function nuevoProyecto(){
   mostrarEditorCotizacion();
 }
 
+// ── Vidrios para cotizar: los del usuario + los de SCAVi (catálogo del administrador) ──
+// Referencia única: número = vidrio propio; 'a_<id>' = vidrio SCAVi (los ids pueden repetirse entre catálogos)
+function vidriosParaCotizar(){
+  const propios=DB.get('vidrios').map(v=>({...v,_ref:String(v.id)}));
+  if(window._uid==='z447DgJCSTW8xRDp8pkIZ5S1A8G3') return propios; // el admin ya ve su catálogo como propio
+  const scavi=((window._adminCache&&window._adminCache.vidrios)||[])
+    .map(v=>({...v,_ref:'a_'+String(v.id||v._docId),_esScavi:true}));
+  return [...propios,...scavi];
+}
+function refVidrio(valor){
+  if(valor==null||valor==='')return null;
+  const t=String(valor);
+  return t.startsWith('a_')?t:(parseInt(t)||null);
+}
+function buscarVidrio(ref){
+  if(ref==null||ref==='')return null;
+  const t=String(ref);
+  if(t.startsWith('a_')){
+    const id=t.slice(2);
+    return ((window._adminCache&&window._adminCache.vidrios)||[]).find(v=>String(v.id||v._docId)===id)||null;
+  }
+  const n=parseInt(t);
+  return DB.get('vidrios').find(v=>v.id===n)||DB.getCombined('vidrios').find(v=>v.id===n)||null;
+}
+function etiquetaVidrio(v){
+  return `${v._esScavi?'SCAVi · ':''}[${v.tipo||'SENCILLO'}] ${v.descripcion} — ${fmt(v.precioM2)}/m²`;
+}
+function opcionesVidrio(vs){
+  const op=v=>`<option value="${v._ref}">${etiquetaVidrio(v)}</option>`;
+  const propios=vs.filter(v=>!v._esScavi), scavi=vs.filter(v=>v._esScavi);
+  if(!scavi.length) return propios.map(op).join('');
+  return (propios.length?`<optgroup label="Mis vidrios">${propios.map(op).join('')}</optgroup>`:'')+
+    `<optgroup label="Vidrios SCAVi">${scavi.map(op).join('')}</optgroup>`;
+}
+
 function mostrarEditorCotizacion(){
   document.getElementById('cot-inicio').style.display='none';
   document.getElementById('cot-editor').style.display='';
@@ -2585,14 +2620,13 @@ function mostrarEditorCotizacion(){
   document.getElementById('cot-cliente').value=proyectoActivo.cliente||'';
   renderPartidas();
   // Cargar vidrios en select
-  const vs=DB.get('vidrios');
+  const vs=vidriosParaCotizar();
   window._vidriosComboData=vs;
-  document.getElementById('cot-vidrio').innerHTML='<option value="">— Sin vidrio —</option>'+
-    vs.map(v=>`<option value="${v.id}">[${v.tipo||'SENCILLO'}] ${v.descripcion} — ${fmt(v.precioM2)}/m²</option>`).join('');
+  document.getElementById('cot-vidrio').innerHTML='<option value="">— Sin vidrio —</option>'+opcionesVidrio(vs);
   document.getElementById('cot-vidrio-buscar').value='';
   document.getElementById('cot-vidrio-buscar').placeholder='— Sin vidrio — (escribe para buscar)';
   // Cargar selects de vidrio dividido (sección superior / inferior)
-  const optsVidrioDividido=vs.map(v=>`<option value="${v.id}">[${v.tipo||'SENCILLO'}] ${v.descripcion} — ${fmt(v.precioM2)}/m²</option>`).join('');
+  const optsVidrioDividido=opcionesVidrio(vs);
   const selSup=document.getElementById('cot-vidrio-sup');
   const selInf=document.getElementById('cot-vidrio-inf');
   if(selSup) selSup.innerHTML='<option value="">— Selecciona —</option>'+optsVidrioDividido;
@@ -2616,7 +2650,7 @@ function filtrarComboVidrio(){
   const q=(document.getElementById('cot-vidrio-buscar').value||'').trim().toLowerCase();
   const vs=window._vidriosComboData||[];
   const filtrados=q?vs.filter(v=>{
-    const texto=`[${v.tipo||'SENCILLO'}] ${v.descripcion}`.toLowerCase();
+    const texto=etiquetaVidrio(v).toLowerCase();
     return texto.includes(q);
   }):vs;
   const dd=document.getElementById('cot-vidrio-dropdown');
@@ -2625,8 +2659,8 @@ function filtrarComboVidrio(){
     html+=`<div class="combo-item" onmousedown="seleccionarVidrioCombo('')" style="padding:8px 12px;cursor:pointer;font-size:13px;color:var(--text2)">— Sin vidrio —</div>`;
   }
   html+=filtrados.map(v=>{
-    const label=`[${v.tipo||'SENCILLO'}] ${v.descripcion} — ${fmt(v.precioM2)}/m²`;
-    return `<div class="combo-item" onmousedown="seleccionarVidrioCombo(${v.id})" style="padding:8px 12px;cursor:pointer;font-size:13px" onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background=''">${label}</div>`;
+    const label=etiquetaVidrio(v);
+    return `<div class="combo-item" onmousedown="seleccionarVidrioCombo('${v._ref}')" style="padding:8px 12px;cursor:pointer;font-size:13px" onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background=''">${label}</div>`;
   }).join('');
   if(!filtrados.length && q){
     html+=`<div style="padding:8px 12px;font-size:13px;color:var(--text3)">Sin resultados para "${q}"</div>`;
@@ -2643,8 +2677,8 @@ function seleccionarVidrioCombo(id){
     buscar.value='';
     buscar.placeholder='— Sin vidrio — (escribe para buscar)';
   }else{
-    const v=(window._vidriosComboData||[]).find(x=>x.id===id);
-    buscar.value=v?`[${v.tipo||'SENCILLO'}] ${v.descripcion} — ${fmt(v.precioM2)}/m²`:'';
+    const v=(window._vidriosComboData||[]).find(x=>x._ref===String(id));
+    buscar.value=v?etiquetaVidrio(v):'';
   }
   cerrarComboVidrio();
   alCambiarVidrio();
@@ -3270,16 +3304,16 @@ function cotizarPartida(o){
 
   // Tipo de vidrio: del vidrio elegido; en vidrio dividido, de las secciones (DUOVENT si alguna lo es)
   let tipoVidrioSeleccionado='SENCILLO'; // default
-  const vSup=div&&div.supId&&div.altoSup>0?todosVidrios.find(x=>x.id===div.supId):null;
-  const vInf=div&&div.infId&&div.altoInf>0?todosVidrios.find(x=>x.id===div.infId):null;
+  const vSup=div&&div.supId&&div.altoSup>0?buscarVidrio(div.supId):null;
+  const vInf=div&&div.infId&&div.altoInf>0?buscarVidrio(div.infId):null;
   if(div||o.vidriosCongelados){
-    const vsSecc=div?[vSup,vInf]:(o.vidriosCongelados||[]).map(l=>l.vidrioId?todosVidrios.find(x=>x.id===l.vidrioId):
+    const vsSecc=div?[vSup,vInf]:(o.vidriosCongelados||[]).map(l=>l.vidrioId?buscarVidrio(l.vidrioId):
       todosVidrios.find(x=>x.descripcion===String(l.label||'').replace(/ \(sección (superior|inferior)\)$/,'')));
     const tipos=vsSecc.filter(v=>v&&v.tipo).map(v=>v.tipo.toUpperCase());
     if(tipos.includes('DUOVENT')) tipoVidrioSeleccionado='DUOVENT';
     else if(tipos.length) tipoVidrioSeleccionado=tipos[0];
   } else if(vidrioId){
-    const vSel=todosVidrios.find(x=>x.id===vidrioId);
+    const vSel=buscarVidrio(vidrioId);
     if(vSel&&vSel.tipo) tipoVidrioSeleccionado=vSel.tipo.toUpperCase();
   }
 
@@ -3454,7 +3488,7 @@ function cotizarPartida(o){
 
   // ── Vidrio + Separador (o vidrio dividido en dos secciones) ───
   if(div){
-    [[vSup,div.altoSup,'superior','sup'],[vInf,div.altoInf,'inferior','inf']].forEach(([vs,altoS,nom,secc])=>{
+    [[vSup,div.altoSup,'superior','sup',div.supId],[vInf,div.altoInf,'inferior','inf',div.infId]].forEach(([vs,altoS,nom,secc,ref])=>{
       if(!vs) return;
       const m2=ancho*altoS;
       let costo=vs.precioM2*m2;
@@ -3464,13 +3498,13 @@ function cotizarPartida(o){
         if(sep){costo+=sep.costoSep;detalle+=sep.texto;}
       }
       lineasDesglose.push({label:vs.descripcion+` (sección ${nom})`,tipo:'Vidrio',costo,encontrado:true,detalle,
-        vidrioId:vs.id,m2,seccion:secc,altoSeccion:altoS});
+        vidrioId:ref,m2,seccion:secc,altoSeccion:altoS});
     });
   } else if(o.vidriosCongelados){
     // Vidrio dividido de partidas antiguas (sin datos de secciones): se conserva tal cual se cotizó
     o.vidriosCongelados.forEach(l=>lineasDesglose.push({...l}));
   } else if(vidrioId){
-    const v=todosVidrios.find(x=>x.id===vidrioId);
+    const v=buscarVidrio(vidrioId);
     if(v){
       const m2=ancho*alto;
       let costoVidrio=v.precioM2*m2;
@@ -3481,7 +3515,7 @@ function cotizarPartida(o){
         if(sep){costoVidrio+=sep.costoSep;detalleVidrio+=sep.texto;}
       }
       lineasDesglose.push({label:v.descripcion,tipo:'Vidrio',costo:costoVidrio,encontrado:true,
-        detalle:detalleVidrio,vidrioId:v.id,m2});
+        detalle:detalleVidrio,vidrioId,m2});
     }
   }
 
@@ -3544,10 +3578,10 @@ function _leerEntradaCotizar(){
     ancho:parseFloat(document.getElementById('cot-ancho').value)||0,
     alto:parseFloat(document.getElementById('cot-alto').value)||0,
     cantidad:parseInt(document.getElementById('cot-cantidad').value)||1,
-    vidrioId:dividido?null:(parseInt(document.getElementById('cot-vidrio').value)||null),
+    vidrioId:dividido?null:refVidrio(document.getElementById('cot-vidrio').value),
     vidrioDividido:dividido?{
-      supId:parseInt(document.getElementById('cot-vidrio-sup').value)||null,
-      infId:parseInt(document.getElementById('cot-vidrio-inf').value)||null,
+      supId:refVidrio(document.getElementById('cot-vidrio-sup').value),
+      infId:refVidrio(document.getElementById('cot-vidrio-inf').value),
       altoSup:parseFloat(document.getElementById('cot-alto-sup').value)||0,
       altoInf:parseFloat(document.getElementById('cot-alto-inf').value)||0
     }:null,
@@ -3785,7 +3819,7 @@ function renderPartidas(){
             <select id="ep-vidrio-${i}" onchange="recotizarPartida(${i})">
               <option value="">— Sin vidrio —</option>
               ${p.vidrioDividido?`<option value="dividido">Vidrio dividido en 2 secciones (guardado)</option>`:_epTieneDivididoAntiguo(p)?`<option value="congelado">Vidrio dividido en 2 secciones (sin cambios)</option>`:''}
-              ${DB.get('vidrios').map(v=>`<option value="${v.id}">[${v.tipo||'SENCILLO'}] ${v.descripcion} — ${fmt(v.precioM2)}/m²</option>`).join('')}
+              ${opcionesVidrio(vidriosParaCotizar())}
             </select>
           </div>
         </div>
@@ -4045,8 +4079,8 @@ function _epVidrioValor(p){
   if(p.vidrioId) return String(p.vidrioId);
   const lv=(p.desglose||[]).filter(l=>l.tipo==='Vidrio');
   if(lv.length!==1) return '';
-  const v=DB.get('vidrios').find(x=>x.descripcion===lv[0].label);
-  return v?String(v.id):'';
+  const v=vidriosParaCotizar().find(x=>x.descripcion===lv[0].label);
+  return v?v._ref:'';
 }
 
 function toggleEditPartida(idx){
@@ -4159,7 +4193,7 @@ function recotizarPartida(idx){
   const est=_epEstado[idx];
   const entrada={
     receta:r, configIdx:cidx, ancho, alto, cantidad, acabado,
-    vidrioId:(vSel&&vSel!=='dividido'&&vSel!=='congelado')?(parseInt(vSel)||null):null,
+    vidrioId:(vSel&&vSel!=='dividido'&&vSel!=='congelado')?refVidrio(vSel):null,
     vidrioDividido:vSel==='dividido'?(p.vidrioDividido||null):null,
     vidriosCongelados:vSel==='congelado'?(p.desglose||[]).filter(l=>l.tipo==='Vidrio'):null,
     condiciones:p.condiciones||{},
