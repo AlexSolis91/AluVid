@@ -4,6 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SCAVi — Sistema de Cotización</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0d0f14">
+<link rel="icon" type="image/png" href="iconos/favicon-32.png">
+<link rel="apple-touch-icon" href="iconos/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="SCAVi">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<script src="pwa.js" defer></script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -465,7 +474,7 @@ onAuthStateChanged(_auth, async (user) => {
       <span class="nav-badge" id="badge-alertas">0</span>
     </div>
   </nav>
-  <div class="sidebar-footer"><div id="sidebar-user" style="margin-bottom:6px"></div><div id="sidebar-version"></div></div>
+  <div class="sidebar-footer"><div id="sidebar-user" style="margin-bottom:6px"></div><a href="#" class="btn-instalar" onclick="instalarApp();return false" style="display:none;margin-bottom:6px;color:var(--accent2)">📲 Instalar app</a><div id="sidebar-version"></div></div>
 </aside>
 <div id="nav-backdrop" onclick="cerrarMenuMovil()"></div>
 
@@ -1313,7 +1322,7 @@ onAuthStateChanged(_auth, async (user) => {
 window._cache = {};
 
 // ── Versión de la app (subir en cada deploy con fixes) ─────────
-const APP_VERSION = '1.21.0';
+const APP_VERSION = '1.22.0';
 
 window.cerrarSesionApp = function() {
   if ((DB._pending > 0 || _proyHayCambios()) &&

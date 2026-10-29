@@ -4,6 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AluVid — Acceso</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0d0f14">
+<link rel="icon" type="image/png" href="iconos/favicon-32.png">
+<link rel="apple-touch-icon" href="iconos/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="SCAVi">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<script src="pwa.js" defer></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -123,6 +132,7 @@ input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,142,247,.15)
       <button class="btn btn-primary" onclick="recuperar()">Enviar enlace</button>
       <a class="link" onclick="switchTab('login')">← Volver al login</a>
     </div>
+    <button type="button" class="btn-instalar" onclick="instalarApp()" style="display:none;width:100%;margin-top:16px;padding:11px;border-radius:10px;border:1px solid rgba(79,142,247,.5);background:transparent;color:#7fb0ff;font-size:14px;font-weight:600;cursor:pointer">📲 Instalar SCAVi en este equipo</button>
   </div>
 </div>
 
