@@ -739,7 +739,10 @@ onAuthStateChanged(_auth, async (user) => {
               <div class="step-num">2</div>
               <div class="step-title">Partidas del proyecto</div>
             </div>
-            <button class="btn btn-ghost btn-sm" onclick="abrirCambiarMarcaPerfiles()" title="Sustituye los perfiles de todas las partidas por su equivalente de otra marca/proveedor">⇄ Cambiar marca de perfiles</button>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+              <button class="btn btn-ghost btn-sm" onclick="abrirActualizarRecetas()" title="Agrega a las partidas los perfiles/herrajes que se añadieron después a su receta. No cambia precios ni cantidades de lo que ya tienen">⟳ Actualizar con recetas actuales</button>
+              <button class="btn btn-ghost btn-sm" onclick="abrirCambiarMarcaPerfiles()" title="Sustituye los perfiles de todas las partidas por su equivalente de otra marca/proveedor">⇄ Cambiar marca de perfiles</button>
+            </div>
           </div>
           <div class="search-wrap" style="margin-bottom:12px">
             <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -1311,6 +1314,31 @@ onAuthStateChanged(_auth, async (user) => {
   </div>
 </div>
 
+<!-- MODAL actualizar partidas con recetas actuales -->
+<div class="modal-overlay" id="modal-actualizar-recetas">
+  <div class="modal" style="width:680px">
+    <div class="modal-header">
+      <span class="modal-title">⟳ Actualizar con recetas actuales</span>
+      <button class="btn btn-ghost btn-icon" onclick="cerrarModal('modal-actualizar-recetas')">✕</button>
+    </div>
+    <div style="background:rgba(79,142,247,0.06);border:1px solid rgba(79,142,247,0.15);border-radius:var(--radius);padding:12px 14px;margin-bottom:14px;font-size:12px;color:var(--text2)">
+      Solo se <strong style="color:var(--accent2)">agregan</strong> los perfiles y herrajes que hoy tiene la receta y la partida no tiene, con el <strong style="color:var(--accent2)">precio actual del catálogo</strong>. Las líneas existentes conservan su precio y cantidad. Vidrio y [EXTRA] no se tocan.
+    </div>
+    <div id="ar-resumen" style="font-size:13px;margin-bottom:8px"></div>
+    <div id="ar-preview" style="max-height:420px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg3);margin-bottom:14px;padding:4px"></div>
+    <div class="form-actions" style="justify-content:space-between">
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-ghost btn-sm" onclick="arMarcarTodas(true)">Todas</button>
+        <button class="btn btn-ghost btn-sm" onclick="arMarcarTodas(false)">Ninguna</button>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost" onclick="cerrarModal('modal-actualizar-recetas')">Cancelar</button>
+        <button class="btn btn-primary" id="ar-btn-aplicar" onclick="aplicarActualizarRecetas()">Agregar a partidas</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="toast-container"></div>
 
 <script>
@@ -1323,7 +1351,7 @@ onAuthStateChanged(_auth, async (user) => {
 window._cache = {};
 
 // ── Versión de la app (subir en cada deploy con fixes) ─────────
-const APP_VERSION = '1.23.2';
+const APP_VERSION = '1.24.0';
 
 window.cerrarSesionApp = function() {
   if ((DB._pending > 0 || _proyHayCambios()) &&
@@ -4062,6 +4090,225 @@ function repararCortesCambioMarca(){
   } else {
     toast(`${reparadas} línea(s) reparada(s) ✓ — revisa la Lista de Material`);
   }
+}
+
+// ══════════════════════════════════════════════
+// ACTUALIZAR CON RECETAS ACTUALES: agrega a las partidas los perfiles/herrajes que la
+// receta tiene hoy y la partida no (precio de hoy). NO toca las líneas existentes.
+// ══════════════════════════════════════════════
+const _escH=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const _arNorm=s=>String(s||'').trim().toLowerCase();
+const _arEsLineaReceta=l=>!!l&&(l.tipo==='Perfil'||l.tipo==='Herraje')&&!l.esExtra&&!String(l.label||'').includes('[EXTRA]');
+
+// Entrada de cotizarPartida con los datos GUARDADOS de la partida (igual que recotizarPartida, sin el panel)
+function _entradaGuardadaPartida(p){
+  const {r}=_recetaDePartida(p);
+  if(!r) return {error:`Receta "${p.receta||p.recetaId||'?'}" no encontrada`};
+  if(!r.configs||!r.configs.length) return {error:'La receta no tiene configuraciones'};
+  const cidx=_configIdxDePartida(p,r);
+  if(cidx===null) return {error:`Configuración "${p.config||'?'}" no encontrada en la receta`};
+  if(p.config&&p.config!=='—'&&r.configs[cidx].tipo!==p.config) return {error:`La configuración "${p.config}" ya no existe con ese nombre en la receta`};
+  const ancho=parseFloat(p.ancho)||0, alto=parseFloat(p.alto)||0;
+  if(!(ancho>0)||!(alto>0)) return {error:'Medidas inválidas'};
+  const vSel=_epVidrioValor(p);
+  return {r,cidx,entrada:{
+    receta:r, configIdx:cidx, ancho, alto, cantidad:parseInt(p.cantidad)||1, acabado:(p.acabado||'').trim(),
+    vidrioId:(vSel&&vSel!=='dividido'&&vSel!=='congelado')?refVidrio(vSel):null,
+    vidrioDividido:vSel==='dividido'?(p.vidrioDividido||null):null,
+    vidriosCongelados:vSel==='congelado'?(p.desglose||[]).filter(l=>l.tipo==='Vidrio'):null,
+    condiciones:p.condiciones||{},
+    sustituciones:p.sustitucionesMarca||null,
+    prevLineas:p.desglose||[]
+  }};
+}
+
+// Analiza UNA partida (sin mutar nada): {nuevas, avisos, quitadas, totalActual, totalNuevo, nota} o {error}
+function _arAnalizarPartida(p){
+  const e=_entradaGuardadaPartida(p);
+  if(e.error) return {error:e.error};
+  const desg=p.desglose||[];
+  // Sin el vidrio no se sabe el tipo (SENCILLO/DUOVENT), que decide qué perfiles/herrajes aplican
+  const vidGuard=desg.filter(l=>l.tipo==='Vidrio');
+  if(vidGuard.length){
+    const ok=e.entrada.vidriosCongelados
+      ? vidGuard.every(l=>l.vidrioId?buscarVidrio(l.vidrioId):DB.getCombined('vidrios').find(x=>x.descripcion===String(l.label||'').replace(/ \(sección (superior|inferior)\)$/,'')))
+      : e.entrada.vidrioDividido
+        ? [e.entrada.vidrioDividido.supId,e.entrada.vidrioDividido.infId].filter(Boolean).every(id=>buscarVidrio(id))
+        : !!(e.entrada.vidrioId&&buscarVidrio(e.entrada.vidrioId));
+    if(!ok) return {error:'Su vidrio ya no está en el catálogo (no se puede saber si es sencillo o DUOVENT)'};
+  }
+  const res=cotizarPartida(e.entrada);
+  if(!res) return {error:'No se pudo cotizar con la receta actual'};
+
+  const perfiles=DB.getCombined('perfiles'), herrajes=DB.getCombined('herrajes');
+  const acab=(p.acabado||'').replace(/\s+/g,'');
+  const pfDe=id=>id?perfiles.find(x=>x.idCompuesto===id)||null:null;
+  const hjLabel=h=>h.descripcion+(h.clave?' ['+h.clave+']':'');
+  // Identidad de una línea de perfil/herraje (guardada o de la receta)
+  const ident=(l,guardada)=>{
+    if(l.tipo==='Herraje'){
+      let hid=l.herrajeId;
+      if(hid==null&&guardada&&l.label!=='Herraje no encontrado'){
+        const h=herrajes.find(x=>hjLabel(x)===l.label);
+        if(h) hid=h.id!==undefined?h.id:h._docId;
+      }
+      return {hid:hid==null?null:String(hid),conocida:hid!=null||l.label==='Herraje no encontrado'};
+    }
+    const idComp=l.perfilIdCompuesto||_cmExtraerIdComp(l.label);
+    const pf=pfDe(idComp);
+    let clave=l.claveOriginal||l.claveReceta||null;
+    if(!clave&&guardada){
+      if(idComp&&acab&&idComp.startsWith(acab)&&idComp.length>acab.length) clave=idComp.slice(acab.length);
+      else if(pf) clave=pf.clave;
+      else if(l.perfilClave) clave=l.perfilClave;
+      else { const m=String(l.label||'').match(/^(\S+) (\(acabado|← elige)/); if(m) clave=m[1]; }
+    }
+    return {idComp:idComp||null,pf,clave,conocida:!!(clave||pf)};
+  };
+  const guard=desg.map((l,i)=>({l,i})).filter(x=>_arEsLineaReceta(x.l)).map(x=>({...x,id:ident(x.l,true),usada:false}));
+  const rec=res.lineasDesglose.filter(_arEsLineaReceta).map(l=>({l,id:ident(l,false),par:null}));
+  // Emparejar uno a uno, de la regla más estricta a la más laxa
+  const reglas=[
+    (g,r)=>g.l.label===r.l.label,
+    (g,r)=>r.l.tipo==='Herraje'?(g.id.hid!=null&&g.id.hid===r.id.hid)
+      :((g.id.idComp&&g.id.idComp===r.id.idComp)||(g.id.clave&&g.id.clave===r.id.clave)),
+    // Cambio de marca antiguo (sin claveOriginal): mismo nombre + acabado en otra marca
+    (g,r)=>r.l.tipo==='Perfil'&&!!(g.id.pf&&r.id.pf)&&_arNorm(g.id.pf.nombre)===_arNorm(r.id.pf.nombre)&&_arNorm(g.id.pf.acabado)===_arNorm(r.id.pf.acabado)
+  ];
+  reglas.forEach(regla=>rec.forEach(r=>{
+    if(r.par) return;
+    const g=guard.find(g=>!g.usada&&g.l.tipo===r.l.tipo&&regla(g,r));
+    if(g){g.usada=true;r.par=g;}
+  }));
+  const sobrantes=guard.filter(g=>!g.usada);
+  const dudosos=new Set(sobrantes.filter(g=>!g.id.conocida).map(g=>g.l.tipo));
+  const nuevas=[], avisos=[];
+  rec.filter(r=>!r.par).forEach(r=>{
+    const l=r.l;
+    if(l.encontrado===false) avisos.push({label:l.label,tipo:l.tipo,motivo:'No está en el catálogo para este acabado — no se agrega'});
+    else if(!Number.isFinite(l.costo)) avisos.push({label:l.label,tipo:l.tipo,motivo:'Precio inválido en el catálogo — no se agrega'});
+    else if(dudosos.has(l.tipo)) avisos.push({label:l.label,tipo:l.tipo,motivo:'La partida tiene líneas que no se pudieron identificar (podría ya estar con otro nombre) — no se agrega'});
+    else { const n={...l}; delete n.idx; nuevas.push(n); }
+  });
+  const quitadas=sobrantes.map(g=>({label:g.l.label,tipo:g.l.tipo}));
+  const cant=p.cantidad||1;
+  const sumaAct=desg.filter(l=>l.activo!==false).reduce((s,l)=>s+l.costo,0);
+  const totalActual=p.totalPartida||0;
+  const totalNuevo=(sumaAct+nuevas.reduce((s,l)=>s+l.costo,0))*cant;
+  let nota='';
+  if(!Number.isFinite(totalNuevo)) return {error:'Hay líneas guardadas con precio inválido'};
+  if(nuevas.length&&Math.abs(sumaAct*cant-totalActual)>0.005) nota=`El total guardado (${fmt(totalActual)}) no coincide con la suma de sus líneas (${fmt(sumaAct*cant)}) — al aplicar se recalcula desde las líneas`;
+  return {nuevas,avisos,quitadas,totalActual,totalNuevo,nota,cfgNombre:res.receta.configs[e.cidx].tipo,recetaNombre:res.receta.nombre};
+}
+
+// Analiza todas las partidas del proyecto activo (puro)
+function _arAnalizar(){
+  const out={afectadas:[],sinCambios:0,omitidas:[],avisos:[],quitadas:[]};
+  ((proyectoActivo&&proyectoActivo.partidas)||[]).forEach((p,i)=>{
+    const a=_arAnalizarPartida(p);
+    const nom=`${i+1}. ${p.ubicacion||p.descripcion||''}`;
+    if(a.error){out.omitidas.push({i,nom,motivo:a.error});return;}
+    a.avisos.forEach(x=>out.avisos.push({i,nom,...x}));
+    a.quitadas.forEach(x=>out.quitadas.push({i,nom,...x}));
+    if(a.nuevas.length) out.afectadas.push({i,id:p.id,nom,p,...a});
+    else out.sinCambios++;
+  });
+  return out;
+}
+// Firma de lo que se mostró en la vista previa (para no aplicar algo distinto)
+const _arFirma=af=>JSON.stringify(af.map(a=>[a.i,a.id,a.nuevas.map(l=>[l.label,l.costo])]));
+var _arVista=null;
+
+function abrirActualizarRecetas(){
+  if(!proyectoActivo||!proyectoActivo.partidas||!proyectoActivo.partidas.length){
+    toast('No hay partidas en este proyecto','error');return;
+  }
+  const an=_arAnalizar();
+  // Nada que agregar: solo el aviso (si hay componentes sin catálogo u omitidas, se muestra el modal para que se sepa)
+  if(!an.afectadas.length&&!an.avisos.length&&!an.omitidas.length){
+    toast('Todas las partidas ya tienen los componentes de su receta','info');return;
+  }
+  _arVista={firma:_arFirma(an.afectadas),an};
+  const sec=(color,txt)=>`<div style="padding:8px 10px;font-size:11px;color:${color};text-transform:uppercase;letter-spacing:.5px;margin-top:6px">${txt}</div>`;
+  const fila='padding:6px 10px;font-size:12px;border-top:1px solid var(--border)';
+  let html='';
+  if(an.afectadas.length){
+    html+=sec('var(--green)',`✓ Partidas con componentes nuevos (${an.afectadas.length})`);
+    html+=an.afectadas.map(a=>`<div style="${fila};padding:10px">
+      <label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer">
+        <input type="checkbox" class="ar-chk" data-i="${a.i}" ${a.nota?'':'checked'} onchange="_arResumen()" style="width:15px;height:15px;margin-top:2px;accent-color:var(--accent);flex-shrink:0">
+        <span style="flex:1">
+          <strong>${_escH(a.nom)}</strong>
+          <span style="color:var(--text3)"> — ${_escH(a.recetaNombre)} · ${_escH(a.cfgNombre)} · cant ${_escH(a.p.cantidad||1)}</span>
+          ${a.nuevas.map(l=>`<div style="display:flex;justify-content:space-between;gap:8px;margin-top:4px">
+            <span><span class="badge ${l.tipo==='Herraje'?'badge-amber':'badge-blue'}" style="font-size:10px">${_escH(l.tipo)}</span> + ${_escH(l.label)}</span>
+            <span style="font-family:var(--mono);color:var(--green);white-space:nowrap">${fmt(l.costo)}</span></div>`).join('')}
+          <div style="margin-top:6px;color:var(--text2)">Total partida: <span style="font-family:var(--mono)">${fmt(a.totalActual)}</span> → <strong style="font-family:var(--mono);color:var(--green)">${fmt(a.totalNuevo)}</strong></div>
+          ${a.nota?`<div style="margin-top:4px;color:var(--amber)">⚠ ${_escH(a.nota)} (desmarcada; márcala si estás de acuerdo)</div>`:''}
+        </span>
+      </label></div>`).join('');
+  }
+  if(an.sinCambios) html+=`<div style="${fila};color:var(--text3)">${an.sinCambios} partida(s) ya tienen todos los componentes de su receta</div>`;
+  if(an.avisos.length){
+    html+=sec('var(--amber)',`⚠ No se agregarán (${an.avisos.length})`);
+    html+=an.avisos.map(x=>`<div style="${fila};color:var(--text2)">Partida ${_escH(x.nom)}: ${_escH(x.label)} — <span style="color:var(--amber)">${_escH(x.motivo)}</span></div>`).join('');
+  }
+  if(an.omitidas.length){
+    html+=sec('var(--red)',`✕ Partidas omitidas (${an.omitidas.length})`);
+    html+=an.omitidas.map(x=>`<div style="${fila};color:var(--text2)">${_escH(x.nom)}: ${_escH(x.motivo)}</div>`).join('');
+  }
+  if(an.quitadas.length){
+    html+=sec('var(--text3)',`ℹ Ya no están en la receta — se conservan (${an.quitadas.length})`);
+    html+=an.quitadas.map(x=>`<div style="${fila};color:var(--text3)">Partida ${_escH(x.nom)}: ${_escH(x.label)}</div>`).join('');
+  }
+  document.getElementById('ar-preview').innerHTML=html;
+  document.getElementById('modal-actualizar-recetas').classList.add('open');
+  _arResumen();
+}
+
+function _arMarcadas(){
+  return [...document.querySelectorAll('#ar-preview .ar-chk')].filter(c=>c.checked).map(c=>parseInt(c.dataset.i));
+}
+function _arResumen(){
+  const el=document.getElementById('ar-resumen'), btn=document.getElementById('ar-btn-aplicar');
+  const af=_arVista?_arVista.an.afectadas:[];
+  const marc=new Set(_arMarcadas());
+  const sel=af.filter(a=>marc.has(a.i));
+  const delta=sel.reduce((s,a)=>s+(a.totalNuevo-a.totalActual),0);
+  el.innerHTML=af.length
+    ?`<strong>${sel.length}</strong> de ${af.length} partida(s) seleccionada(s), <strong style="color:var(--green);font-family:var(--mono)">${delta>=0?'+':'−'}${fmt(Math.abs(delta))}</strong> sin IVA`
+    :'<span style="color:var(--text3)">No hay componentes para agregar</span>';
+  btn.disabled=!sel.length;
+}
+function arMarcarTodas(v){
+  document.querySelectorAll('#ar-preview .ar-chk').forEach(c=>{c.checked=v;});
+  _arResumen();
+}
+
+function aplicarActualizarRecetas(){
+  if(!_arVista||!proyectoActivo) return;
+  const marc=new Set(_arMarcadas());
+  if(!marc.size){toast('Selecciona al menos una partida','error');return;}
+  // Volver a analizar: debe ser exactamente lo que se mostró
+  const an=_arAnalizar();
+  if(_arFirma(an.afectadas)!==_arVista.firma){
+    toast('El proyecto o el catálogo cambió — vuelve a abrir "Actualizar con recetas actuales"','error');
+    cerrarModal('modal-actualizar-recetas');_arVista=null;return;
+  }
+  const fecha=new Date().toISOString();
+  let n=0;
+  an.afectadas.filter(a=>marc.has(a.i)).forEach(a=>{
+    const p=proyectoActivo.partidas[a.i];
+    if(!p||p.id!==a.id) return;
+    p.desglose=p.desglose||[];
+    a.nuevas.forEach(l=>p.desglose.push({...l,activo:true,idx:p.desglose.length,agregadaEl:fecha}));
+    // Mismo cálculo que al guardar la edición de una partida: líneas activas × cantidad
+    p.totalPartida=p.desglose.filter(l=>l.activo!==false).reduce((s,l)=>s+l.costo,0)*(p.cantidad||1);
+    n++;
+  });
+  cerrarModal('modal-actualizar-recetas');_arVista=null;
+  renderPartidas();
+  toast(`${n} partida${n===1?'':'s'} actualizada${n===1?'':'s'}. Presiona Guardar para conservar los cambios.`,'success',5000);
 }
 
 // Estado local del panel de edición por índice de partida: {lineas, recalculado, recetaId, ...}.
