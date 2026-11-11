@@ -742,6 +742,7 @@ onAuthStateChanged(_auth, async (user) => {
             <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
               <button class="btn btn-ghost btn-sm" onclick="abrirActualizarRecetas()" title="Agrega a las partidas los perfiles/herrajes que se añadieron después a su receta. No cambia precios ni cantidades de lo que ya tienen">⟳ Actualizar con recetas actuales</button>
               <button class="btn btn-ghost btn-sm" onclick="abrirCambiarMarcaPerfiles()" title="Sustituye los perfiles de todas las partidas por su equivalente de otra marca/proveedor">⇄ Cambiar marca de perfiles</button>
+              <button class="btn btn-ghost btn-sm" onclick="abrirActualizarPrecios()" title="Vuelve a calcular el costo de cada línea con el precio actual del catálogo (vidrio, perfiles y herrajes). Conserva cantidades, líneas y marcas">$ Actualizar precios</button>
             </div>
           </div>
           <div class="search-wrap" style="margin-bottom:12px">
@@ -1339,6 +1340,25 @@ onAuthStateChanged(_auth, async (user) => {
   </div>
 </div>
 
+<!-- MODAL actualizar precios de la cotización con el catálogo actual -->
+<div class="modal-overlay" id="modal-actualizar-precios">
+  <div class="modal" style="width:720px">
+    <div class="modal-header">
+      <span class="modal-title">$ Actualizar precios</span>
+      <button class="btn btn-ghost btn-icon" onclick="cerrarModal('modal-actualizar-precios')">✕</button>
+    </div>
+    <div style="background:rgba(79,142,247,0.06);border:1px solid rgba(79,142,247,0.15);border-radius:var(--radius);padding:12px 14px;margin-bottom:14px;font-size:12px;color:var(--text2)">
+      Cada línea se recalcula con el <strong style="color:var(--accent2)">precio actual del catálogo</strong> (vidrio, perfiles, herrajes y [EXTRA]). Se <strong style="color:var(--accent2)">conservan las cantidades</strong> (m², ml, piezas), las líneas, las desmarcadas y las marcas sustituidas.
+    </div>
+    <div id="ap-resumen" style="font-size:13px;margin-bottom:8px"></div>
+    <div id="ap-preview" style="max-height:420px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg3);margin-bottom:14px;padding:4px"></div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="cerrarModal('modal-actualizar-precios')">Cancelar</button>
+      <button class="btn btn-primary" id="ap-btn-aplicar" onclick="aplicarActualizarPrecios()">Actualizar precios</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast-container"></div>
 
 <script>
@@ -1351,7 +1371,7 @@ onAuthStateChanged(_auth, async (user) => {
 window._cache = {};
 
 // ── Versión de la app (subir en cada deploy con fixes) ─────────
-const APP_VERSION = '1.24.0';
+const APP_VERSION = '1.25.0';
 
 window.cerrarSesionApp = function() {
   if ((DB._pending > 0 || _proyHayCambios()) &&
@@ -1531,6 +1551,8 @@ window.addEventListener('beforeunload', ev => {
 const fmt=v=>new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN'}).format(v||0);
 const num=v=>new Intl.NumberFormat('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2}).format(v||0);
 const now=()=>new Date().toISOString().slice(0,19).replace('T',' ');
+// Números es-MX generados con num()/fmt(): "1,234.50" → 1234.5 (la coma es separador de miles)
+const _nMX=s=>parseFloat(String(s==null?'':s).replace(/[$,\s]/g,''))||0;
 
 function toast(msg,type='success',ms=3000){
   const t=document.createElement('div');
@@ -4311,6 +4333,307 @@ function aplicarActualizarRecetas(){
   toast(`${n} partida${n===1?'':'s'} actualizada${n===1?'':'s'}. Presiona Guardar para conservar los cambios.`,'success',5000);
 }
 
+// ══════════════════════════════════════════════
+// ACTUALIZAR PRECIOS: vuelve a calcular el costo de CADA línea guardada (vidrio, perfiles,
+// herrajes y [EXTRA]) con el precio actual del catálogo. Conserva la cantidad de cada línea
+// (ml, m², piezas) tal como se guardó: NO recotiza con la receta (no agrega ni quita líneas),
+// conserva activo/inactivo, la marca sustituida (se precia el perfil que tiene la línea) y etiquetas.
+// ══════════════════════════════════════════════
+const _AP_NUM='([\\d,]+(?:\\.\\d+)?)';
+// Componentes con precio del texto de detalle (formatos de cotizarPartida / _calcLineaExtra)
+const _AP_COMP={
+  ml:{re:`${_AP_NUM} ml × \\$${_AP_NUM}/ml`,suf:'/ml',campo:'ml',precio:'precioML'},
+  pzs:{re:`(\\d+(?:\\.\\d+)?) pzs × \\$${_AP_NUM}`,suf:'/pza',campo:'cantPzas',precio:'precioUnitario'},
+  m2:{re:`=${_AP_NUM}m² × \\$${_AP_NUM}/m²`,suf:'/m²',campo:'m2',precio:'precioM2'}
+};
+function _apBuscarComps(det,tipo){
+  const re=new RegExp(_AP_COMP[tipo].re,'g'), out=[];
+  let m;
+  while((m=re.exec(det))) out.push({tipo,i:m.index,txt:m[0],qtyTxt:m[1],qty:_nMX(m[1]),unitTxt:m[2],unitAnt:_nMX(m[2])});
+  return out;
+}
+// Sustituye en el texto el precio unitario de cada componente (de atrás hacia adelante)
+function _apReescribir(det,comps){
+  let s=det;
+  [...comps].sort((a,b)=>b.i-a.i).forEach(c=>{
+    s=s.slice(0,c.i)+c.txt.replace('$'+c.unitTxt,fmt(c.unitNuevo))+s.slice(c.i+c.txt.length);
+  });
+  return s;
+}
+const _apPrecioOk=v=>Number.isFinite(v)&&v>0;
+const _apIdHerraje=h=>h.id!==undefined?h.id:h._docId;
+const _apHjLabel=h=>h.descripcion+(h.clave?' ['+h.clave+']':'');
+
+function _apBuscarHerraje(l,ctx){
+  const hid=l.herrajeId;
+  if(hid!=null&&hid!==''){
+    const h=ctx.herrajes.find(x=>_apIdHerraje(x)===hid)||ctx.herrajes.find(x=>String(_apIdHerraje(x))===String(hid));
+    return h?{h}:{error:'El herraje ya no está en el catálogo'};
+  }
+  // Partidas antiguas: por etiqueta (descripción [clave])
+  const lab=String(l.label||'').replace(/ \[EXTRA\]$/,'');
+  let c=ctx.herrajes.filter(x=>_apHjLabel(x)===lab);
+  if(!c.length) c=ctx.herrajes.filter(x=>x.descripcion===lab);
+  if(!c.length) return {error:'No se encontró en el catálogo de herrajes'};
+  if(new Set(c.map(x=>[x.precioML||0,x.precioUnitario||0,x.precioM2||0].join('|'))).size>1)
+    return {error:'Hay varios herrajes con ese nombre y distinto precio'};
+  return {h:c[0]};
+}
+function _apBuscarVidrio(l,p,ctx){
+  if(l.vidrioId!=null&&l.vidrioId!==''){
+    const v=buscarVidrio(l.vidrioId);
+    return v?{v}:{error:'El vidrio ya no está en el catálogo'};
+  }
+  // Partidas antiguas: por descripción (sin el sufijo de sección)
+  const desc=String(l.label||'').replace(/ \(sección (superior|inferior)\)$/,'');
+  if(p.vidrioId&&desc===l.label){
+    const v=buscarVidrio(p.vidrioId);
+    if(v&&v.descripcion===desc) return {v};
+  }
+  const c=ctx.vidrios.filter(x=>x.descripcion===desc);
+  if(!c.length) return {error:'No se encontró en el catálogo de vidrios'};
+  if(new Set(c.map(x=>x.precioM2)).size>1) return {error:'Hay varios vidrios con esa descripción y distinto precio'};
+  return {v:c[0]};
+}
+// Precio del separador DUOVENT de la receta actual de la partida (o null si no se puede resolver)
+function _apSeparador(p,ctx){
+  if(ctx._sep&&ctx._sep.p===p) return ctx._sep.val;
+  let val=null;
+  const {r}=_recetaDePartida(p);
+  if(r&&r.separadorPrecio>0){
+    const cidx=_configIdxDePartida(p,r);
+    val={precio:r.separadorPrecio,cfg:cidx!==null?r.configs[cidx]:null};
+  }
+  ctx._sep={p,val};
+  return val;
+}
+
+// Re-precia UNA línea (sin mutar). Devuelve {cambio:bool, costo, detalle, unidades:[{ant,nuevo}], avisos:[]}
+function _apLinea(l,p,ctx){
+  const sin=motivo=>({cambio:false,avisos:[motivo]});
+  if(!l||!['Perfil','Herraje','Vidrio'].includes(l.tipo)) return sin('Sin precio unitario que actualizar — se conserva');
+  if(l.encontrado===false) return sin('No tenía precio en la cotización (no estaba en el catálogo) — se conserva');
+  if(!Number.isFinite(l.costo)) return sin('Costo guardado inválido — se conserva');
+  const det=String(l.detalle||'');
+  const avisos=[];
+  let comps=[], sep=null, costo, estructurada=true;
+  const qtyDe=(c,campo)=>{
+    const v=l[campo];
+    if(Number.isFinite(v)&&v>0) return v;
+    estructurada=false; return c.qty;
+  };
+
+  if(l.tipo==='Perfil'){
+    const idComp=l.perfilIdCompuesto||_cmExtraerIdComp(l.label);
+    const pf=idComp?ctx.perfiles.find(x=>x.idCompuesto===idComp):null;
+    if(!pf) return sin(`Perfil "${idComp||'?'}" no encontrado en el catálogo — se conserva`);
+    comps=_apBuscarComps(det,'ml');
+    if(comps.length!==1||_apBuscarComps(det,'pzs').length||_apBuscarComps(det,'m2').length)
+      return sin('No se pudo leer la cantidad (ml) de su detalle — se conserva');
+    const c=comps[0];
+    c.q=qtyDe(c,'ml'); c.unitNuevo=pf.precioML;
+    if(!_apPrecioOk(c.unitNuevo)) return sin('Precio inválido o en $0 en el catálogo — se conserva');
+    costo=c.unitNuevo*c.q;
+  } else if(l.tipo==='Herraje'){
+    const b=_apBuscarHerraje(l,ctx);
+    if(b.error) return sin(b.error+' — se conserva');
+    const bm=_apBuscarComps(det,'ml'), bp=_apBuscarComps(det,'pzs'), bm2=_apBuscarComps(det,'m2');
+    if(bm.length>1||bp.length>1||bm2.length>1||!(bm.length+bp.length+bm2.length))
+      return sin('No se pudo leer la cantidad de su detalle — se conserva');
+    comps=[...bm,...bp,...bm2]; // mismo orden de suma que cotizarPartida: ml, piezas, m²
+    for(const c of comps){
+      const def=_AP_COMP[c.tipo];
+      c.q=qtyDe(c,def.campo); c.unitNuevo=b.h[def.precio]||0;
+      // Componente que ya valía $0 (ej. "1 pzs × $0.00" en la tela mosquitera) y sigue sin precio: se queda en $0
+      if(!_apPrecioOk(c.unitNuevo)&&c.unitAnt===0) continue;
+      if(!_apPrecioOk(c.unitNuevo)) return sin(`Precio${def.suf} inválido o en $0 en el catálogo — se conserva`);
+    }
+    costo=0;
+    comps.forEach(c=>{costo+=c.unitNuevo*c.q;});
+  } else {
+    const b=_apBuscarVidrio(l,p,ctx);
+    if(b.error) return sin(b.error+' — se conserva');
+    const iSep=det.indexOf(' + sep.');
+    const principal=iSep>=0?det.slice(0,iSep):det;
+    const m=principal.match(new RegExp(`^${_AP_NUM} m² × \\$${_AP_NUM}/m²$`));
+    if(!m) return sin('No se pudo leer los m² de su detalle — se conserva');
+    const c={tipo:'m2v',i:0,txt:m[0],qtyTxt:m[1],qty:_nMX(m[1]),unitTxt:m[2],unitAnt:_nMX(m[2])};
+    c.q=qtyDe(c,'m2'); c.unitNuevo=b.v.precioM2;
+    if(!_apPrecioOk(c.unitNuevo)) return sin('Precio inválido o en $0 en el catálogo — se conserva');
+    comps=[c];
+    costo=c.unitNuevo*c.q;
+    if(iSep>=0){
+      const st=det.slice(iSep);
+      const ms=st.match(new RegExp(`: ${_AP_NUM} ml × \\$${_AP_NUM}/ml(?: = \\$${_AP_NUM})?$`));
+      if(!ms) return sin('No se pudo leer el separador de su detalle — se conserva');
+      const mlTxt=_nMX(ms[1]), pAnt=_nMX(ms[2]);
+      const cAnt=ms[3]!==undefined?_nMX(ms[3]):mlTxt*pAnt;
+      sep={i:iSep+ms.index,txt:ms[0],unitTxt:ms[2],unitAnt:pAnt,qty:mlTxt,costoAnt:cAnt,costoTxt:ms[3]};
+      const rs=_apSeparador(p,ctx);
+      if(rs){
+        // ml del separador: el exacto de la configuración si coincide con el guardado; si no, el guardado
+        let mlSep=mlTxt, exacto=false;
+        const altoVid=Number.isFinite(l.altoSeccion)?l.altoSeccion:(l.seccion?null:parseFloat(p.alto));
+        if(rs.cfg&&Number.isFinite(altoVid)){
+          const calc=((rs.cfg.sepV||0)*altoVid)+((rs.cfg.sepH||0)*(parseFloat(p.ancho)||0));
+          if(calc>0&&Math.abs(calc-mlTxt)<0.006){mlSep=calc;exacto=true;}
+        }
+        if(!exacto) estructurada=false;
+        sep.unitNuevo=rs.precio; sep.costo=rs.precio*mlSep;
+      } else {
+        estructurada=false;
+        sep.unitNuevo=null; sep.costo=cAnt;
+        avisos.push('Separador sin precio en la receta actual — se conserva su costo');
+      }
+      costo+=sep.costo;
+    }
+  }
+
+  // El costo guardado debe corresponder a su detalle (cantidad × precio); si no, no se toca
+  let recon=0, tol=0.01;
+  comps.forEach(c=>{recon+=c.q*c.unitAnt; tol+=c.q*0.005+c.unitAnt*0.005;});
+  if(sep){recon+=sep.costoAnt; tol+=sep.qty*0.005+sep.unitAnt*0.005+0.005;}
+  if(Math.abs(recon-l.costo)>tol) return sin('El costo guardado no coincide con su detalle — se conserva');
+  if(!Number.isFinite(costo)) return sin('No se pudo calcular el nuevo costo — se conserva');
+
+  const unidades=comps.map(c=>({ant:'$'+c.unitTxt+(_AP_COMP[c.tipo]||{suf:'/m²'}).suf,nuevo:fmt(c.unitNuevo)+(_AP_COMP[c.tipo]||{suf:'/m²'}).suf}));
+  let textoCambia=comps.some(c=>fmt(c.unitNuevo)!=='$'+c.unitTxt);
+  let detalle=det;
+  if(sep){
+    const sepN=sep.unitNuevo===null?sep.txt
+      :sep.txt.replace('$'+sep.unitTxt,fmt(sep.unitNuevo)).replace(/ = \$[\d,]+(?:\.\d+)?$/,sep.costoTxt!==undefined?' = '+fmt(sep.costo):'');
+    if(sep.unitNuevo!==null){
+      unidades.push({ant:'$'+sep.unitTxt+'/ml sep.',nuevo:fmt(sep.unitNuevo)+'/ml sep.'});
+      if(fmt(sep.unitNuevo)!=='$'+sep.unitTxt) textoCambia=true;
+    }
+    detalle=detalle.slice(0,sep.i)+sepN+detalle.slice(sep.i+sep.txt.length);
+  }
+  detalle=_apReescribir(detalle,comps);
+  // Cambia si cambia el precio que se muestra, o (cantidades exactas) si cambia el costo en ≥ medio centavo
+  const cambio=textoCambia||(estructurada&&Math.abs(costo-l.costo)>=0.005);
+  return {cambio,costo,detalle,unidades,avisos};
+}
+
+// Analiza una partida (sin mutar): {cambios:[...], avisos, totalActual, totalNuevo, nota} o {error}
+function _apAnalizarPartida(p,ctx){
+  const desg=p.desglose||[];
+  const cambios=[], avisos=[], costos=desg.map(l=>l&&l.costo);
+  desg.forEach((l,li)=>{
+    const r=_apLinea(l,p,ctx);
+    const etiqueta=(l&&l.label)||'(sin nombre)';
+    (r.avisos||[]).forEach(motivo=>avisos.push({label:etiqueta,tipo:(l&&l.tipo)||'',motivo,inactiva:!!l&&l.activo===false}));
+    if(r.cambio){
+      cambios.push({li,label:etiqueta,tipo:l.tipo,activo:l.activo!==false,costoAnt:l.costo,costoNuevo:r.costo,
+        detalleAnt:l.detalle||'',detalleNuevo:r.detalle,unidades:r.unidades});
+      costos[li]=r.costo;
+    }
+  });
+  const cant=p.cantidad||1;
+  // Mismo cálculo que al guardar una partida: líneas activas × cantidad
+  const sumaAct=desg.filter(l=>l.activo!==false).reduce((s,l)=>s+l.costo,0);
+  const totalNuevo=desg.map((l,li)=>({l,c:costos[li]})).filter(x=>x.l.activo!==false).reduce((s,x)=>s+x.c,0)*cant;
+  const totalActual=p.totalPartida||0;
+  if(cambios.length&&!Number.isFinite(totalNuevo)) return {error:'Hay líneas con precio inválido — no se actualiza'};
+  let nota='';
+  if(cambios.length&&Math.abs(sumaAct*cant-totalActual)>0.005)
+    nota=`El total guardado (${fmt(totalActual)}) no coincidía con la suma de sus líneas (${fmt(sumaAct*cant)}) — se recalcula desde las líneas`;
+  return {cambios,avisos,totalActual,totalNuevo,nota};
+}
+
+// Analiza todas las partidas del proyecto activo (puro)
+function _apAnalizar(){
+  const ctx={perfiles:DB.getCombined('perfiles'),herrajes:DB.getCombined('herrajes'),vidrios:DB.getCombined('vidrios')};
+  const out={afectadas:[],sinCambios:0,omitidas:[],avisos:[],totalAntes:0,totalDespues:0};
+  ((proyectoActivo&&proyectoActivo.partidas)||[]).forEach((p,i)=>{
+    const nom=`${i+1}. ${p.ubicacion||p.descripcion||''}`;
+    const tAct=p.totalPartida||0;
+    out.totalAntes+=tAct;
+    const a=_apAnalizarPartida(p,ctx);
+    if(a.error){out.omitidas.push({i,nom,motivo:a.error});out.totalDespues+=tAct;return;}
+    a.avisos.forEach(x=>out.avisos.push({i,nom,...x}));
+    if(a.cambios.length){out.afectadas.push({i,id:p.id,nom,p,...a});out.totalDespues+=a.totalNuevo;}
+    else {out.sinCambios++;out.totalDespues+=tAct;}
+  });
+  return out;
+}
+const _apFirma=af=>JSON.stringify(af.map(a=>[a.i,a.id,(a.p.desglose||[]).length,a.cambios.map(c=>[c.li,c.costoAnt,c.costoNuevo,c.detalleNuevo])]));
+var _apVista=null;
+
+function abrirActualizarPrecios(){
+  if(!proyectoActivo||!proyectoActivo.partidas||!proyectoActivo.partidas.length){
+    toast('No hay partidas en este proyecto','error');return;
+  }
+  const an=_apAnalizar();
+  if(!an.afectadas.length){
+    toast('Los precios de la cotización ya están actualizados','info');
+    // Si hay líneas que no se pudieron revisar, se muestran para que se sepa
+    if(!an.avisos.length&&!an.omitidas.length) return;
+  }
+  _apVista={firma:_apFirma(an.afectadas),an};
+  const sec=(color,txt)=>`<div style="padding:8px 10px;font-size:11px;color:${color};text-transform:uppercase;letter-spacing:.5px;margin-top:6px">${txt}</div>`;
+  const fila='padding:6px 10px;font-size:12px;border-top:1px solid var(--border)';
+  const mono='font-family:var(--mono);white-space:nowrap';
+  let html='';
+  if(an.afectadas.length){
+    html+=sec('var(--green)',`✓ Partidas con precios nuevos (${an.afectadas.length})`);
+    html+=an.afectadas.map(a=>`<div style="${fila};padding:10px">
+      <strong>${_escH(a.nom)}</strong>
+      <span style="color:var(--text3)"> — ${_escH(a.p.receta||'')}${a.p.config?' · '+_escH(a.p.config):''} · cant ${_escH(a.p.cantidad||1)}</span>
+      <div style="margin-top:4px;color:var(--text2)">Total partida: <span style="${mono}">${fmt(a.totalActual)}</span> → <strong style="${mono};color:var(--green)">${fmt(a.totalNuevo)}</strong></div>
+      ${a.cambios.map(c=>`<div style="display:flex;justify-content:space-between;gap:8px;margin-top:4px${c.activo?'':';opacity:.6'}">
+        <span><span class="badge ${c.tipo==='Herraje'?'badge-amber':c.tipo==='Vidrio'?'badge-green':'badge-blue'}" style="font-size:10px">${_escH(c.tipo)}</span> ${_escH(c.label)}${c.activo?'':' <span style="color:var(--text3)">(desmarcada, no suma)</span>'}
+          <div style="color:var(--text3);font-size:11px">${c.unidades.map(u=>`<span style="${mono}">${_escH(u.ant)} → ${_escH(u.nuevo)}</span>`).join(' · ')}</div></span>
+        <span style="${mono};text-align:right">${fmt(c.costoAnt)} → <strong style="color:var(--green)">${fmt(c.costoNuevo)}</strong></span></div>`).join('')}
+      ${a.nota?`<div style="margin-top:4px;color:var(--amber)">⚠ ${_escH(a.nota)}</div>`:''}
+    </div>`).join('');
+  }
+  if(an.sinCambios) html+=`<div style="${fila};color:var(--text3)">${an.sinCambios} partida(s) sin cambios de precio</div>`;
+  if(an.avisos.length){
+    html+=sec('var(--amber)',`⚠ Líneas que no se pudieron revisar o se conservan (${an.avisos.length})`);
+    html+=an.avisos.map(x=>`<div style="${fila};color:var(--text2)">Partida ${_escH(x.nom)}: ${_escH(x.label)}${x.inactiva?' (desmarcada)':''} — <span style="color:var(--amber)">${_escH(x.motivo)}</span></div>`).join('');
+  }
+  if(an.omitidas.length){
+    html+=sec('var(--red)',`✕ Partidas omitidas (${an.omitidas.length})`);
+    html+=an.omitidas.map(x=>`<div style="${fila};color:var(--text2)">${_escH(x.nom)}: ${_escH(x.motivo)}</div>`).join('');
+  }
+  const d=an.totalDespues-an.totalAntes;
+  const pct=an.totalAntes>0?`, ${d>=0?'+':'−'}${Math.abs(d/an.totalAntes*100).toFixed(1)}%`:'';
+  document.getElementById('ap-resumen').innerHTML=an.afectadas.length
+    ?`<strong>${an.afectadas.length}</strong> partida${an.afectadas.length===1?'':'s'} cambia${an.afectadas.length===1?'':'n'} · total sin IVA <span style="font-family:var(--mono)">${fmt(an.totalAntes)}</span> → <strong style="font-family:var(--mono);color:var(--green)">${fmt(an.totalDespues)}</strong> <span style="font-family:var(--mono);color:var(--text2)">(${d>=0?'+':'−'}${fmt(Math.abs(d))}${pct})</span>`
+    :'<span style="color:var(--text3)">Los precios de la cotización ya están actualizados</span>';
+  document.getElementById('ap-preview').innerHTML=html;
+  document.getElementById('ap-btn-aplicar').disabled=!an.afectadas.length;
+  document.getElementById('modal-actualizar-precios').classList.add('open');
+}
+
+function aplicarActualizarPrecios(){
+  if(!_apVista||!proyectoActivo) return;
+  // Volver a analizar: debe ser exactamente lo que se mostró
+  const an=_apAnalizar();
+  if(_apFirma(an.afectadas)!==_apVista.firma){
+    toast('El proyecto o el catálogo cambió — vuelve a abrir "Actualizar precios"','error');
+    cerrarModal('modal-actualizar-precios');_apVista=null;return;
+  }
+  if(!an.afectadas.length){cerrarModal('modal-actualizar-precios');_apVista=null;return;}
+  let n=0;
+  an.afectadas.forEach(a=>{
+    const p=proyectoActivo.partidas[a.i];
+    if(!p||p.id!==a.id) return;
+    a.cambios.forEach(c=>{
+      const l=p.desglose[c.li];
+      l.costo=c.costoNuevo;
+      l.detalle=c.detalleNuevo;
+    });
+    // Mismo cálculo que al guardar la edición de una partida: líneas activas × cantidad
+    p.totalPartida=p.desglose.filter(l=>l.activo!==false).reduce((s,l)=>s+l.costo,0)*(p.cantidad||1);
+    n++;
+  });
+  proyectoActivo.preciosActualizadosEl=new Date().toISOString();
+  cerrarModal('modal-actualizar-precios');_apVista=null;
+  renderPartidas();
+  toast(`Precios actualizados en ${n} partida${n===1?'':'s'}. Presiona Guardar para conservar los cambios.`,'success',5000);
+}
+
 // Estado local del panel de edición por índice de partida: {lineas, recalculado, recetaId, ...}.
 // No toca la partida hasta "Guardar cambios"; "Cancelar" lo descarta.
 var _epEstado={};
@@ -5092,8 +5415,7 @@ function recopilarCortes(proyecto){
   const mapaHerrajes={};
   // Map: vidrioId → {vidrio, totalM2}
   const mapaVidrios={};
-  // Números es-MX generados con num()/fmt(): "1,234.50" → 1234.5 (la coma es separador de miles)
-  const nMX=s=>parseFloat(String(s==null?'':s).replace(/[$,\s]/g,''))||0;
+  const nMX=_nMX;
   // Agrega n piezas de longitud long al perfil key. Si n no es entero (ej. extra con 0.5 cortes)
   // se agregan floor(n) piezas completas + 1 pieza con la fracción, marcada para revisar.
   const pushPiezas=(key,long,n,ubicacion,revisar)=>{
