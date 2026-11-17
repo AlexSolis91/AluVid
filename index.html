@@ -1214,7 +1214,7 @@ onAuthStateChanged(_auth, async (user) => {
               <option value="SIN_ESCALONADO_VERT">Sin escalonado vertical</option>
               <option value="CON_ESCALONADO_SUP">Con escalonado superior</option>
               <option value="SIN_ESCALONADO_SUP">Sin escalonado superior</option><option value="CON_ESCALONADO_VERT">Con escalonado vertical</option><option value="SIN_ESCALONADO_VERT">Sin escalonado vertical</option><option value="CON_ESCALONADO_SUP">Con escalonado superior</option><option value="SIN_ESCALONADO_SUP">Sin escalonado superior</option>
-        <option value="CON_COMERCIAL">Comercial</option><option value="CON_RESIDENCIAL">Residencial</option><option value="CON_RESIDENCIAL_Z6">Residencial Z6</option><option value="CON_RESIDENCIAL_Z10">Residencial Z10</option><option value="CON_DUELA_50">Duela 50%</option><option value="CON_DUELA_50_2C">Duela 50% 2 caras</option><option value="CON_DUELA_1C">Duela 1 Cara</option><option value="CON_DUELA_2C">Duela 2 caras</option><option value="CON_LOUVER">Louver</option><option value="CON_INTERMEDIO_1H">Intermedio 1H</option><option value="CON_INTERMEDIO_2H">Intermedio 2H</option><option value="CON_INTERMEDIO_4_1H">Intermedio 4" 1H</option><option value="CON_INTERMEDIO_4_2H">Intermedio 4" 2H</option>
+        <option value="CON_COMERCIAL">Comercial</option><option value="CON_RESIDENCIAL">Residencial</option><option value="CON_RESIDENCIAL_Z6">Residencial Z6</option><option value="CON_RESIDENCIAL_Z10">Residencial Z10</option><option value="CON_DUELA_50">Duela 50%</option><option value="CON_DUELA_50_2C">Duela 50% 2 caras</option><option value="CON_DUELA_1C">Duela 1 Cara</option><option value="CON_DUELA_2C">Duela 2 caras</option><option value="CON_DUELA_HORIZONTAL">Duela horizontal</option><option value="CON_DUELA_VERTICAL">Duela vertical</option><option value="CON_LOUVER">Louver</option><option value="CON_INTERMEDIO_1H">Intermedio 1H</option><option value="CON_INTERMEDIO_2H">Intermedio 2H</option><option value="CON_INTERMEDIO_4_1H">Intermedio 4" 1H</option><option value="CON_INTERMEDIO_4_2H">Intermedio 4" 2H</option>
         <option value="SIN_COMERCIAL">Sin Comercial</option><option value="SIN_RESIDENCIAL">Sin Residencial</option><option value="SIN_RESIDENCIAL_Z6">Sin Residencial Z6</option><option value="SIN_RESIDENCIAL_Z10">Sin Residencial Z10</option><option value="SIN_DUELA_50">Sin Duela 50%</option><option value="SIN_DUELA_50_2C">Sin Duela 50% 2 caras</option><option value="SIN_DUELA_1C">Sin Duela 1 Cara</option><option value="SIN_DUELA_2C">Sin Duela 2 caras</option><option value="SIN_LOUVER">Sin Louver</option><option value="SIN_INTERMEDIO_1H">Sin Intermedio 1H</option><option value="SIN_INTERMEDIO_2H">Sin Intermedio 2H</option><option value="SIN_INTERMEDIO_4_1H">Sin Intermedio 4" 1H</option><option value="SIN_INTERMEDIO_4_2H">Sin Intermedio 4" 2H</option>
         </select>
       </div>
@@ -1228,7 +1228,21 @@ onAuthStateChanged(_auth, async (user) => {
         </div>
         <div class="form-group">
           <label>Condición</label>
-          <select id="mh-cond-cantidad" style="border-color:rgba(167,139,250,.3);background:rgba(167,139,250,.05)"><option value="SIEMPRE">Siempre</option><option value="SIN_ZOCLO_INF">Sin zoclo inferior</option><option value="CON_ZOCLO_INF">Con zoclo inferior</option><option value="SIN_ZOCLO_SUP">Sin zoclo superior</option><option value="CON_ZOCLO_SUP">Con zoclo superior</option><option value="SIN_MOSQUITERO">Sin mosquitero</option><option value="CON_MOSQUITERO">Con mosquitero (cualquier tipo)</option><option value="CON_MOSQUITERO_FIJO">Con mosquitero fijo</option><option value="CON_MOSQUITERO_CORREDIZO">Con mosquitero corredizo</option><option value="CON_ESCALONADO_VERT">Con escalonado vertical</option><option value="SIN_ESCALONADO_VERT">Sin escalonado vertical</option><option value="CON_ESCALONADO_SUP">Con escalonado superior</option><option value="SIN_ESCALONADO_SUP">Sin escalonado superior</option><option value="CON_COMERCIAL">Comercial</option><option value="CON_RESIDENCIAL">Residencial</option><option value="CON_RESIDENCIAL_Z6">Residencial Z6</option><option value="CON_RESIDENCIAL_Z10">Residencial Z10</option><option value="CON_DUELA_50">Duela 50%</option><option value="CON_DUELA_50_2C">Duela 50% 2 caras</option><option value="CON_DUELA_1C">Duela 1 Cara</option><option value="CON_DUELA_2C">Duela 2 caras</option><option value="CON_LOUVER">Louver</option><option value="CON_INTERMEDIO_1H">Intermedio 1H</option><option value="CON_INTERMEDIO_2H">Intermedio 2H</option><option value="CON_INTERMEDIO_4_1H">Intermedio 4" 1H</option><option value="CON_INTERMEDIO_4_2H">Intermedio 4" 2H</option><option value="SIN_COMERCIAL">Sin Comercial</option><option value="SIN_RESIDENCIAL">Sin Residencial</option><option value="SIN_RESIDENCIAL_Z6">Sin Residencial Z6</option><option value="SIN_RESIDENCIAL_Z10">Sin Residencial Z10</option><option value="SIN_DUELA_50">Sin Duela 50%</option><option value="SIN_DUELA_50_2C">Sin Duela 50% 2 caras</option><option value="SIN_DUELA_1C">Sin Duela 1 Cara</option><option value="SIN_DUELA_2C">Sin Duela 2 caras</option><option value="SIN_LOUVER">Sin Louver</option><option value="SIN_INTERMEDIO_1H">Sin Intermedio 1H</option><option value="SIN_INTERMEDIO_2H">Sin Intermedio 2H</option><option value="SIN_INTERMEDIO_4_1H">Sin Intermedio 4" 1H</option><option value="SIN_INTERMEDIO_4_2H">Sin Intermedio 4" 2H</option></select>
+          <select id="mh-cond-cantidad" style="border-color:rgba(167,139,250,.3);background:rgba(167,139,250,.05)"><option value="SIEMPRE">Siempre</option><option value="SIN_ZOCLO_INF">Sin zoclo inferior</option><option value="CON_ZOCLO_INF">Con zoclo inferior</option><option value="SIN_ZOCLO_SUP">Sin zoclo superior</option><option value="CON_ZOCLO_SUP">Con zoclo superior</option><option value="SIN_MOSQUITERO">Sin mosquitero</option><option value="CON_MOSQUITERO">Con mosquitero (cualquier tipo)</option><option value="CON_MOSQUITERO_FIJO">Con mosquitero fijo</option><option value="CON_MOSQUITERO_CORREDIZO">Con mosquitero corredizo</option><option value="CON_ESCALONADO_VERT">Con escalonado vertical</option><option value="SIN_ESCALONADO_VERT">Sin escalonado vertical</option><option value="CON_ESCALONADO_SUP">Con escalonado superior</option><option value="SIN_ESCALONADO_SUP">Sin escalonado superior</option><option value="CON_COMERCIAL">Comercial</option><option value="CON_RESIDENCIAL">Residencial</option><option value="CON_RESIDENCIAL_Z6">Residencial Z6</option><option value="CON_RESIDENCIAL_Z10">Residencial Z10</option><option value="CON_DUELA_50">Duela 50%</option><option value="CON_DUELA_50_2C">Duela 50% 2 caras</option><option value="CON_DUELA_1C">Duela 1 Cara</option><option value="CON_DUELA_2C">Duela 2 caras</option><option value="CON_DUELA_HORIZONTAL">Duela horizontal</option><option value="CON_DUELA_VERTICAL">Duela vertical</option><option value="CON_LOUVER">Louver</option><option value="CON_INTERMEDIO_1H">Intermedio 1H</option><option value="CON_INTERMEDIO_2H">Intermedio 2H</option><option value="CON_INTERMEDIO_4_1H">Intermedio 4" 1H</option><option value="CON_INTERMEDIO_4_2H">Intermedio 4" 2H</option><option value="SIN_COMERCIAL">Sin Comercial</option><option value="SIN_RESIDENCIAL">Sin Residencial</option><option value="SIN_RESIDENCIAL_Z6">Sin Residencial Z6</option><option value="SIN_RESIDENCIAL_Z10">Sin Residencial Z10</option><option value="SIN_DUELA_50">Sin Duela 50%</option><option value="SIN_DUELA_50_2C">Sin Duela 50% 2 caras</option><option value="SIN_DUELA_1C">Sin Duela 1 Cara</option><option value="SIN_DUELA_2C">Sin Duela 2 caras</option><option value="SIN_LOUVER">Sin Louver</option><option value="SIN_INTERMEDIO_1H">Sin Intermedio 1H</option><option value="SIN_INTERMEDIO_2H">Sin Intermedio 2H</option><option value="SIN_INTERMEDIO_4_1H">Sin Intermedio 4" 1H</option><option value="SIN_INTERMEDIO_4_2H">Sin Intermedio 4" 2H</option></select>
+        </div>
+      </div>
+    </div>
+    <div style="background:var(--bg3);border:1px solid rgba(79,142,247,.25);border-radius:var(--radius);padding:10px 12px;margin-bottom:12px">
+      <div style="font-size:11px;color:var(--accent2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Piezas por corte de perfil</div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Ej. 4 remaches por cada corte de duela: la cantidad se calcula con los cortes del perfil en cada partida. Se suma a la cantidad fija.</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Piezas por corte</label>
+          <input id="mh-pc-pzas" type="number" step="1" value="0" min="0" placeholder="0 = no aplica">
+        </div>
+        <div class="form-group">
+          <label>Del perfil</label>
+          <select id="mh-pc-clave"><option value="">— Ninguno —</option></select>
         </div>
       </div>
     </div>
@@ -1241,7 +1255,7 @@ onAuthStateChanged(_auth, async (user) => {
         </div>
         <div class="form-group">
           <label>Condición</label>
-          <select id="mh-cond-v" style="border-color:rgba(167,139,250,.3);background:rgba(167,139,250,.05)"><option value="SIEMPRE">Siempre</option><option value="SIN_ZOCLO_INF">Sin zoclo inferior</option><option value="CON_ZOCLO_INF">Con zoclo inferior</option><option value="SIN_ZOCLO_SUP">Sin zoclo superior</option><option value="CON_ZOCLO_SUP">Con zoclo superior</option><option value="SIN_MOSQUITERO">Sin mosquitero</option><option value="CON_MOSQUITERO">Con mosquitero (cualquier tipo)</option><option value="CON_MOSQUITERO_FIJO">Con mosquitero fijo</option><option value="CON_MOSQUITERO_CORREDIZO">Con mosquitero corredizo</option><option value="CON_ESCALONADO_VERT">Con escalonado vertical</option><option value="SIN_ESCALONADO_VERT">Sin escalonado vertical</option><option value="CON_ESCALONADO_SUP">Con escalonado superior</option><option value="SIN_ESCALONADO_SUP">Sin escalonado superior</option><option value="CON_COMERCIAL">Comercial</option><option value="CON_RESIDENCIAL">Residencial</option><option value="CON_RESIDENCIAL_Z6">Residencial Z6</option><option value="CON_RESIDENCIAL_Z10">Residencial Z10</option><option value="CON_DUELA_50">Duela 50%</option><option value="CON_DUELA_50_2C">Duela 50% 2 caras</option><option value="CON_DUELA_1C">Duela 1 Cara</option><option value="CON_DUELA_2C">Duela 2 caras</option><option value="CON_LOUVER">Louver</option><option value="CON_INTERMEDIO_1H">Intermedio 1H</option><option value="CON_INTERMEDIO_2H">Intermedio 2H</option><option value="CON_INTERMEDIO_4_1H">Intermedio 4" 1H</option><option value="CON_INTERMEDIO_4_2H">Intermedio 4" 2H</option><option value="SIN_COMERCIAL">Sin Comercial</option><option value="SIN_RESIDENCIAL">Sin Residencial</option><option value="SIN_RESIDENCIAL_Z6">Sin Residencial Z6</option><option value="SIN_RESIDENCIAL_Z10">Sin Residencial Z10</option><option value="SIN_DUELA_50">Sin Duela 50%</option><option value="SIN_DUELA_50_2C">Sin Duela 50% 2 caras</option><option value="SIN_DUELA_1C">Sin Duela 1 Cara</option><option value="SIN_DUELA_2C">Sin Duela 2 caras</option><option value="SIN_LOUVER">Sin Louver</option><option value="SIN_INTERMEDIO_1H">Sin Intermedio 1H</option><option value="SIN_INTERMEDIO_2H">Sin Intermedio 2H</option><option value="SIN_INTERMEDIO_4_1H">Sin Intermedio 4" 1H</option><option value="SIN_INTERMEDIO_4_2H">Sin Intermedio 4" 2H</option></select>
+          <select id="mh-cond-v" style="border-color:rgba(167,139,250,.3);background:rgba(167,139,250,.05)"><option value="SIEMPRE">Siempre</option><option value="SIN_ZOCLO_INF">Sin zoclo inferior</option><option value="CON_ZOCLO_INF">Con zoclo inferior</option><option value="SIN_ZOCLO_SUP">Sin zoclo superior</option><option value="CON_ZOCLO_SUP">Con zoclo superior</option><option value="SIN_MOSQUITERO">Sin mosquitero</option><option value="CON_MOSQUITERO">Con mosquitero (cualquier tipo)</option><option value="CON_MOSQUITERO_FIJO">Con mosquitero fijo</option><option value="CON_MOSQUITERO_CORREDIZO">Con mosquitero corredizo</option><option value="CON_ESCALONADO_VERT">Con escalonado vertical</option><option value="SIN_ESCALONADO_VERT">Sin escalonado vertical</option><option value="CON_ESCALONADO_SUP">Con escalonado superior</option><option value="SIN_ESCALONADO_SUP">Sin escalonado superior</option><option value="CON_COMERCIAL">Comercial</option><option value="CON_RESIDENCIAL">Residencial</option><option value="CON_RESIDENCIAL_Z6">Residencial Z6</option><option value="CON_RESIDENCIAL_Z10">Residencial Z10</option><option value="CON_DUELA_50">Duela 50%</option><option value="CON_DUELA_50_2C">Duela 50% 2 caras</option><option value="CON_DUELA_1C">Duela 1 Cara</option><option value="CON_DUELA_2C">Duela 2 caras</option><option value="CON_DUELA_HORIZONTAL">Duela horizontal</option><option value="CON_DUELA_VERTICAL">Duela vertical</option><option value="CON_LOUVER">Louver</option><option value="CON_INTERMEDIO_1H">Intermedio 1H</option><option value="CON_INTERMEDIO_2H">Intermedio 2H</option><option value="CON_INTERMEDIO_4_1H">Intermedio 4" 1H</option><option value="CON_INTERMEDIO_4_2H">Intermedio 4" 2H</option><option value="SIN_COMERCIAL">Sin Comercial</option><option value="SIN_RESIDENCIAL">Sin Residencial</option><option value="SIN_RESIDENCIAL_Z6">Sin Residencial Z6</option><option value="SIN_RESIDENCIAL_Z10">Sin Residencial Z10</option><option value="SIN_DUELA_50">Sin Duela 50%</option><option value="SIN_DUELA_50_2C">Sin Duela 50% 2 caras</option><option value="SIN_DUELA_1C">Sin Duela 1 Cara</option><option value="SIN_DUELA_2C">Sin Duela 2 caras</option><option value="SIN_LOUVER">Sin Louver</option><option value="SIN_INTERMEDIO_1H">Sin Intermedio 1H</option><option value="SIN_INTERMEDIO_2H">Sin Intermedio 2H</option><option value="SIN_INTERMEDIO_4_1H">Sin Intermedio 4" 1H</option><option value="SIN_INTERMEDIO_4_2H">Sin Intermedio 4" 2H</option></select>
         </div>
       </div>
     </div>
@@ -1254,7 +1268,7 @@ onAuthStateChanged(_auth, async (user) => {
         </div>
         <div class="form-group">
           <label>Condición</label>
-          <select id="mh-cond-h" style="border-color:rgba(167,139,250,.3);background:rgba(167,139,250,.05)"><option value="SIEMPRE">Siempre</option><option value="SIN_ZOCLO_INF">Sin zoclo inferior</option><option value="CON_ZOCLO_INF">Con zoclo inferior</option><option value="SIN_ZOCLO_SUP">Sin zoclo superior</option><option value="CON_ZOCLO_SUP">Con zoclo superior</option><option value="SIN_MOSQUITERO">Sin mosquitero</option><option value="CON_MOSQUITERO">Con mosquitero (cualquier tipo)</option><option value="CON_MOSQUITERO_FIJO">Con mosquitero fijo</option><option value="CON_MOSQUITERO_CORREDIZO">Con mosquitero corredizo</option><option value="CON_ESCALONADO_VERT">Con escalonado vertical</option><option value="SIN_ESCALONADO_VERT">Sin escalonado vertical</option><option value="CON_ESCALONADO_SUP">Con escalonado superior</option><option value="SIN_ESCALONADO_SUP">Sin escalonado superior</option><option value="CON_COMERCIAL">Comercial</option><option value="CON_RESIDENCIAL">Residencial</option><option value="CON_RESIDENCIAL_Z6">Residencial Z6</option><option value="CON_RESIDENCIAL_Z10">Residencial Z10</option><option value="CON_DUELA_50">Duela 50%</option><option value="CON_DUELA_50_2C">Duela 50% 2 caras</option><option value="CON_DUELA_1C">Duela 1 Cara</option><option value="CON_DUELA_2C">Duela 2 caras</option><option value="CON_LOUVER">Louver</option><option value="CON_INTERMEDIO_1H">Intermedio 1H</option><option value="CON_INTERMEDIO_2H">Intermedio 2H</option><option value="CON_INTERMEDIO_4_1H">Intermedio 4" 1H</option><option value="CON_INTERMEDIO_4_2H">Intermedio 4" 2H</option><option value="SIN_COMERCIAL">Sin Comercial</option><option value="SIN_RESIDENCIAL">Sin Residencial</option><option value="SIN_RESIDENCIAL_Z6">Sin Residencial Z6</option><option value="SIN_RESIDENCIAL_Z10">Sin Residencial Z10</option><option value="SIN_DUELA_50">Sin Duela 50%</option><option value="SIN_DUELA_50_2C">Sin Duela 50% 2 caras</option><option value="SIN_DUELA_1C">Sin Duela 1 Cara</option><option value="SIN_DUELA_2C">Sin Duela 2 caras</option><option value="SIN_LOUVER">Sin Louver</option><option value="SIN_INTERMEDIO_1H">Sin Intermedio 1H</option><option value="SIN_INTERMEDIO_2H">Sin Intermedio 2H</option><option value="SIN_INTERMEDIO_4_1H">Sin Intermedio 4" 1H</option><option value="SIN_INTERMEDIO_4_2H">Sin Intermedio 4" 2H</option></select>
+          <select id="mh-cond-h" style="border-color:rgba(167,139,250,.3);background:rgba(167,139,250,.05)"><option value="SIEMPRE">Siempre</option><option value="SIN_ZOCLO_INF">Sin zoclo inferior</option><option value="CON_ZOCLO_INF">Con zoclo inferior</option><option value="SIN_ZOCLO_SUP">Sin zoclo superior</option><option value="CON_ZOCLO_SUP">Con zoclo superior</option><option value="SIN_MOSQUITERO">Sin mosquitero</option><option value="CON_MOSQUITERO">Con mosquitero (cualquier tipo)</option><option value="CON_MOSQUITERO_FIJO">Con mosquitero fijo</option><option value="CON_MOSQUITERO_CORREDIZO">Con mosquitero corredizo</option><option value="CON_ESCALONADO_VERT">Con escalonado vertical</option><option value="SIN_ESCALONADO_VERT">Sin escalonado vertical</option><option value="CON_ESCALONADO_SUP">Con escalonado superior</option><option value="SIN_ESCALONADO_SUP">Sin escalonado superior</option><option value="CON_COMERCIAL">Comercial</option><option value="CON_RESIDENCIAL">Residencial</option><option value="CON_RESIDENCIAL_Z6">Residencial Z6</option><option value="CON_RESIDENCIAL_Z10">Residencial Z10</option><option value="CON_DUELA_50">Duela 50%</option><option value="CON_DUELA_50_2C">Duela 50% 2 caras</option><option value="CON_DUELA_1C">Duela 1 Cara</option><option value="CON_DUELA_2C">Duela 2 caras</option><option value="CON_DUELA_HORIZONTAL">Duela horizontal</option><option value="CON_DUELA_VERTICAL">Duela vertical</option><option value="CON_LOUVER">Louver</option><option value="CON_INTERMEDIO_1H">Intermedio 1H</option><option value="CON_INTERMEDIO_2H">Intermedio 2H</option><option value="CON_INTERMEDIO_4_1H">Intermedio 4" 1H</option><option value="CON_INTERMEDIO_4_2H">Intermedio 4" 2H</option><option value="SIN_COMERCIAL">Sin Comercial</option><option value="SIN_RESIDENCIAL">Sin Residencial</option><option value="SIN_RESIDENCIAL_Z6">Sin Residencial Z6</option><option value="SIN_RESIDENCIAL_Z10">Sin Residencial Z10</option><option value="SIN_DUELA_50">Sin Duela 50%</option><option value="SIN_DUELA_50_2C">Sin Duela 50% 2 caras</option><option value="SIN_DUELA_1C">Sin Duela 1 Cara</option><option value="SIN_DUELA_2C">Sin Duela 2 caras</option><option value="SIN_LOUVER">Sin Louver</option><option value="SIN_INTERMEDIO_1H">Sin Intermedio 1H</option><option value="SIN_INTERMEDIO_2H">Sin Intermedio 2H</option><option value="SIN_INTERMEDIO_4_1H">Sin Intermedio 4" 1H</option><option value="SIN_INTERMEDIO_4_2H">Sin Intermedio 4" 2H</option></select>
         </div>
       </div>
     </div>
@@ -1272,7 +1286,7 @@ onAuthStateChanged(_auth, async (user) => {
         </div>
         <div class="form-group">
           <label>Condición</label>
-          <select id="mh-cond-m2" style="border-color:rgba(52,211,153,.3);background:rgba(52,211,153,.04)"><option value="SIEMPRE">Siempre</option><option value="SIN_ZOCLO_INF">Sin zoclo inferior</option><option value="CON_ZOCLO_INF">Con zoclo inferior</option><option value="SIN_ZOCLO_SUP">Sin zoclo superior</option><option value="CON_ZOCLO_SUP">Con zoclo superior</option><option value="SIN_MOSQUITERO">Sin mosquitero</option><option value="CON_MOSQUITERO">Con mosquitero (cualquier tipo)</option><option value="CON_MOSQUITERO_FIJO">Con mosquitero fijo</option><option value="CON_MOSQUITERO_CORREDIZO">Con mosquitero corredizo</option><option value="CON_ESCALONADO_VERT">Con escalonado vertical</option><option value="SIN_ESCALONADO_VERT">Sin escalonado vertical</option><option value="CON_ESCALONADO_SUP">Con escalonado superior</option><option value="SIN_ESCALONADO_SUP">Sin escalonado superior</option><option value="CON_COMERCIAL">Comercial</option><option value="CON_RESIDENCIAL">Residencial</option><option value="CON_RESIDENCIAL_Z6">Residencial Z6</option><option value="CON_RESIDENCIAL_Z10">Residencial Z10</option><option value="CON_DUELA_50">Duela 50%</option><option value="CON_DUELA_50_2C">Duela 50% 2 caras</option><option value="CON_DUELA_1C">Duela 1 Cara</option><option value="CON_DUELA_2C">Duela 2 caras</option><option value="CON_LOUVER">Louver</option><option value="CON_INTERMEDIO_1H">Intermedio 1H</option><option value="CON_INTERMEDIO_2H">Intermedio 2H</option><option value="CON_INTERMEDIO_4_1H">Intermedio 4" 1H</option><option value="CON_INTERMEDIO_4_2H">Intermedio 4" 2H</option><option value="SIN_COMERCIAL">Sin Comercial</option><option value="SIN_RESIDENCIAL">Sin Residencial</option><option value="SIN_RESIDENCIAL_Z6">Sin Residencial Z6</option><option value="SIN_RESIDENCIAL_Z10">Sin Residencial Z10</option><option value="SIN_DUELA_50">Sin Duela 50%</option><option value="SIN_DUELA_50_2C">Sin Duela 50% 2 caras</option><option value="SIN_DUELA_1C">Sin Duela 1 Cara</option><option value="SIN_DUELA_2C">Sin Duela 2 caras</option><option value="SIN_LOUVER">Sin Louver</option><option value="SIN_INTERMEDIO_1H">Sin Intermedio 1H</option><option value="SIN_INTERMEDIO_2H">Sin Intermedio 2H</option><option value="SIN_INTERMEDIO_4_1H">Sin Intermedio 4" 1H</option><option value="SIN_INTERMEDIO_4_2H">Sin Intermedio 4" 2H</option></select>
+          <select id="mh-cond-m2" style="border-color:rgba(52,211,153,.3);background:rgba(52,211,153,.04)"><option value="SIEMPRE">Siempre</option><option value="SIN_ZOCLO_INF">Sin zoclo inferior</option><option value="CON_ZOCLO_INF">Con zoclo inferior</option><option value="SIN_ZOCLO_SUP">Sin zoclo superior</option><option value="CON_ZOCLO_SUP">Con zoclo superior</option><option value="SIN_MOSQUITERO">Sin mosquitero</option><option value="CON_MOSQUITERO">Con mosquitero (cualquier tipo)</option><option value="CON_MOSQUITERO_FIJO">Con mosquitero fijo</option><option value="CON_MOSQUITERO_CORREDIZO">Con mosquitero corredizo</option><option value="CON_ESCALONADO_VERT">Con escalonado vertical</option><option value="SIN_ESCALONADO_VERT">Sin escalonado vertical</option><option value="CON_ESCALONADO_SUP">Con escalonado superior</option><option value="SIN_ESCALONADO_SUP">Sin escalonado superior</option><option value="CON_COMERCIAL">Comercial</option><option value="CON_RESIDENCIAL">Residencial</option><option value="CON_RESIDENCIAL_Z6">Residencial Z6</option><option value="CON_RESIDENCIAL_Z10">Residencial Z10</option><option value="CON_DUELA_50">Duela 50%</option><option value="CON_DUELA_50_2C">Duela 50% 2 caras</option><option value="CON_DUELA_1C">Duela 1 Cara</option><option value="CON_DUELA_2C">Duela 2 caras</option><option value="CON_DUELA_HORIZONTAL">Duela horizontal</option><option value="CON_DUELA_VERTICAL">Duela vertical</option><option value="CON_LOUVER">Louver</option><option value="CON_INTERMEDIO_1H">Intermedio 1H</option><option value="CON_INTERMEDIO_2H">Intermedio 2H</option><option value="CON_INTERMEDIO_4_1H">Intermedio 4" 1H</option><option value="CON_INTERMEDIO_4_2H">Intermedio 4" 2H</option><option value="SIN_COMERCIAL">Sin Comercial</option><option value="SIN_RESIDENCIAL">Sin Residencial</option><option value="SIN_RESIDENCIAL_Z6">Sin Residencial Z6</option><option value="SIN_RESIDENCIAL_Z10">Sin Residencial Z10</option><option value="SIN_DUELA_50">Sin Duela 50%</option><option value="SIN_DUELA_50_2C">Sin Duela 50% 2 caras</option><option value="SIN_DUELA_1C">Sin Duela 1 Cara</option><option value="SIN_DUELA_2C">Sin Duela 2 caras</option><option value="SIN_LOUVER">Sin Louver</option><option value="SIN_INTERMEDIO_1H">Sin Intermedio 1H</option><option value="SIN_INTERMEDIO_2H">Sin Intermedio 2H</option><option value="SIN_INTERMEDIO_4_1H">Sin Intermedio 4" 1H</option><option value="SIN_INTERMEDIO_4_2H">Sin Intermedio 4" 2H</option></select>
         </div>
       </div>
       <div style="font-size:11px;color:var(--text3);margin-top:6px" id="mh-m2-preview"></div>
@@ -1371,7 +1385,7 @@ onAuthStateChanged(_auth, async (user) => {
 window._cache = {};
 
 // ── Versión de la app (subir en cada deploy con fixes) ─────────
-const APP_VERSION = '1.25.0';
+const APP_VERSION = '1.26.0';
 
 window.cerrarSesionApp = function() {
   if ((DB._pending > 0 || _proyHayCambios()) &&
@@ -2121,9 +2135,10 @@ function renderComponentesConfig(){
       const grupos=cp.grupos||[{tipo:cp.cortesV>0?'vertical':'horizontal',cant:cp.cortesV||cp.cortesH||0,divisor:1}];
       const resGrupos=grupos.map(g=>{
         let base='';
+        const nTxt=_esGrupoAuto(g)?`(${_txtAutoGrupo(g)})`:g.cant;
         if(g.tipo==='fijo') base=`${g.cant}×${g.long}m`;
-        else if(g.tipo==='vertical') base=`${g.cant}×alto${g.divisor>1?'/'+g.divisor:''}`;
-        else base=`${g.cant}×ancho${g.divisor>1?'/'+g.divisor:''}`;
+        else if(g.tipo==='vertical') base=`${nTxt}×alto${g.divisor>1?'/'+g.divisor:''}`;
+        else base=`${nTxt}×ancho${g.divisor>1?'/'+g.divisor:''}`;
         const c1=g.condicion&&g.condicion!=='SIEMPRE'?g.condicion:'';
         const c2=g.condicion2&&g.condicion2!=='SIEMPRE'?g.condicion2:'';
         const c3=g.condicion3&&g.condicion3!=='SIEMPRE'?g.condicion3:'';
@@ -2145,7 +2160,7 @@ function renderComponentesConfig(){
   document.getElementById('rc-herrajes-tabla').innerHTML=(c.herrajes||[]).length?
     c.herrajes.map((ch,i)=>`<tr>
       <td>${ch.nombreHerraje||''}</td>
-      <td>${ch.cantidad||0}</td>
+      <td>${ch.cantidad||0}${ch.porCortePzas>0?`<div style="font-size:10px;color:var(--accent2)">+${ch.porCortePzas}/corte ${_escH(ch.porCorteClave||'')}</div>`:''}</td>
       <td>${ch.metrosV||0}</td>
       <td>${ch.metrosH||0}</td>
       <td>
@@ -2233,7 +2248,11 @@ function editarPerfilConfig(idx){
         if(cond2El) cond2El.value=g.condicion2||'SIEMPRE';
         const cond3El=document.getElementById('gc-cond3-'+gid);
         if(cond3El) cond3El.value=g.condicion3||'SIEMPRE';
-        previewGrupo(gid);
+        const autoEl=document.getElementById('gc-auto-'+gid);
+        if(autoEl) autoEl.checked=_esGrupoAuto(g);
+        const pasoEl=document.getElementById('gc-paso-'+gid);
+        if(pasoEl&&g.paso>0) pasoEl.value=g.paso;
+        toggleGrupoAuto(gid);
       },80);
     });
     // Store edit index so confirmarComponente replaces instead of appends
@@ -2278,6 +2297,8 @@ function editarHerrajeConfig(idx){
     if(mhM2da) mhM2da.value=ch.m2DivAncho||1;
     const mhM2dh=document.getElementById('mh-m2-div-alto');
     if(mhM2dh) mhM2dh.value=ch.m2DivAlto||1;
+    _mhPoblarPerfilesPorCorte(ch.porCorteClave||'');
+    document.getElementById('mh-pc-pzas').value=ch.porCortePzas||0;
     // Store edit index
     window._mhEditIdx=idx;
   },50);
@@ -2441,6 +2462,14 @@ function agregarGrupoCorte(){
       <div class="form-group">
         <label>Cantidad de cortes</label>
         <input id="gc-cant-${id}" type="number" step="1" min="1" value="1" placeholder="Ej. 4">
+        <div id="gc-paso-wrap-${id}" style="display:none">
+          <input id="gc-paso-${id}" type="number" step="0.001" min="0.001" value="0.10" title="Ancho de la duela (m)">
+          <div style="font-size:10px;color:var(--text3);margin-top:3px">Ancho de la duela (m)</div>
+        </div>
+        <div id="gc-auto-wrap-${id}" style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:11px;color:var(--text2);cursor:pointer" onclick="if(event.target.tagName!=='INPUT'){const c=document.getElementById('gc-auto-${id}');c.checked=!c.checked;toggleGrupoAuto(${id});}">
+          <input type="checkbox" id="gc-auto-${id}" onchange="toggleGrupoAuto(${id})" style="width:14px;height:14px;accent-color:var(--accent)">
+          <span>Automática por ancho de duela</span>
+        </div>
       </div>
       <div class="form-group" id="gc-long-wrap-${id}" style="display:none">
         <label>Longitud del corte (m)</label>
@@ -2454,7 +2483,7 @@ function agregarGrupoCorte(){
         <label>Condición 1</label>
         <select id="gc-cond-${id}" style="border-color:rgba(167,139,250,.4);background:rgba(167,139,250,.06)">
           <option value="SIEMPRE">Siempre</option><option value="SIN_ZOCLO_INF">Sin zoclo inferior</option><option value="CON_ZOCLO_INF">Con zoclo inferior</option><option value="SIN_ZOCLO_SUP">Sin zoclo superior</option><option value="CON_ZOCLO_SUP">Con zoclo superior</option><option value="SIN_MOSQUITERO">Sin mosquitero</option><option value="CON_MOSQUITERO">Con mosquitero (cualquier tipo)</option><option value="CON_MOSQUITERO_FIJO">Con mosquitero fijo</option><option value="CON_MOSQUITERO_CORREDIZO">Con mosquitero corredizo</option><option value="CON_ESCALONADO_VERT">Con escalonado vertical</option><option value="SIN_ESCALONADO_VERT">Sin escalonado vertical</option><option value="CON_ESCALONADO_SUP">Con escalonado superior</option><option value="SIN_ESCALONADO_SUP">Sin escalonado superior</option>
-        <option value="CON_COMERCIAL">Comercial</option><option value="CON_RESIDENCIAL">Residencial</option><option value="CON_RESIDENCIAL_Z6">Residencial Z6</option><option value="CON_RESIDENCIAL_Z10">Residencial Z10</option><option value="CON_DUELA_50">Duela 50%</option><option value="CON_DUELA_50_2C">Duela 50% 2 caras</option><option value="CON_DUELA_1C">Duela 1 Cara</option><option value="CON_DUELA_2C">Duela 2 caras</option><option value="CON_LOUVER">Louver</option><option value="CON_INTERMEDIO_1H">Intermedio 1H</option><option value="CON_INTERMEDIO_2H">Intermedio 2H</option><option value="CON_INTERMEDIO_4_1H">Intermedio 4" 1H</option><option value="CON_INTERMEDIO_4_2H">Intermedio 4" 2H</option>
+        <option value="CON_COMERCIAL">Comercial</option><option value="CON_RESIDENCIAL">Residencial</option><option value="CON_RESIDENCIAL_Z6">Residencial Z6</option><option value="CON_RESIDENCIAL_Z10">Residencial Z10</option><option value="CON_DUELA_50">Duela 50%</option><option value="CON_DUELA_50_2C">Duela 50% 2 caras</option><option value="CON_DUELA_1C">Duela 1 Cara</option><option value="CON_DUELA_2C">Duela 2 caras</option><option value="CON_DUELA_HORIZONTAL">Duela horizontal</option><option value="CON_DUELA_VERTICAL">Duela vertical</option><option value="CON_LOUVER">Louver</option><option value="CON_INTERMEDIO_1H">Intermedio 1H</option><option value="CON_INTERMEDIO_2H">Intermedio 2H</option><option value="CON_INTERMEDIO_4_1H">Intermedio 4" 1H</option><option value="CON_INTERMEDIO_4_2H">Intermedio 4" 2H</option>
         <option value="SIN_COMERCIAL">Sin Comercial</option><option value="SIN_RESIDENCIAL">Sin Residencial</option><option value="SIN_RESIDENCIAL_Z6">Sin Residencial Z6</option><option value="SIN_RESIDENCIAL_Z10">Sin Residencial Z10</option><option value="SIN_DUELA_50">Sin Duela 50%</option><option value="SIN_DUELA_50_2C">Sin Duela 50% 2 caras</option><option value="SIN_DUELA_1C">Sin Duela 1 Cara</option><option value="SIN_DUELA_2C">Sin Duela 2 caras</option><option value="SIN_LOUVER">Sin Louver</option><option value="SIN_INTERMEDIO_1H">Sin Intermedio 1H</option><option value="SIN_INTERMEDIO_2H">Sin Intermedio 2H</option><option value="SIN_INTERMEDIO_4_1H">Sin Intermedio 4" 1H</option><option value="SIN_INTERMEDIO_4_2H">Sin Intermedio 4" 2H</option>
         </select>
       </div>
@@ -2462,7 +2491,7 @@ function agregarGrupoCorte(){
         <label>Condición 2 (OR)</label>
         <select id="gc-cond2-${id}" style="border-color:rgba(167,139,250,.2);background:rgba(167,139,250,.04)">
           <option value="SIEMPRE">Siempre</option><option value="SIN_ZOCLO_INF">Sin zoclo inferior</option><option value="CON_ZOCLO_INF">Con zoclo inferior</option><option value="SIN_ZOCLO_SUP">Sin zoclo superior</option><option value="CON_ZOCLO_SUP">Con zoclo superior</option><option value="SIN_MOSQUITERO">Sin mosquitero</option><option value="CON_MOSQUITERO">Con mosquitero (cualquier tipo)</option><option value="CON_MOSQUITERO_FIJO">Con mosquitero fijo</option><option value="CON_MOSQUITERO_CORREDIZO">Con mosquitero corredizo</option><option value="CON_ESCALONADO_VERT">Con escalonado vertical</option><option value="SIN_ESCALONADO_VERT">Sin escalonado vertical</option><option value="CON_ESCALONADO_SUP">Con escalonado superior</option><option value="SIN_ESCALONADO_SUP">Sin escalonado superior</option>
-        <option value="CON_COMERCIAL">Comercial</option><option value="CON_RESIDENCIAL">Residencial</option><option value="CON_RESIDENCIAL_Z6">Residencial Z6</option><option value="CON_RESIDENCIAL_Z10">Residencial Z10</option><option value="CON_DUELA_50">Duela 50%</option><option value="CON_DUELA_50_2C">Duela 50% 2 caras</option><option value="CON_DUELA_1C">Duela 1 Cara</option><option value="CON_DUELA_2C">Duela 2 caras</option><option value="CON_LOUVER">Louver</option><option value="CON_INTERMEDIO_1H">Intermedio 1H</option><option value="CON_INTERMEDIO_2H">Intermedio 2H</option><option value="CON_INTERMEDIO_4_1H">Intermedio 4" 1H</option><option value="CON_INTERMEDIO_4_2H">Intermedio 4" 2H</option>
+        <option value="CON_COMERCIAL">Comercial</option><option value="CON_RESIDENCIAL">Residencial</option><option value="CON_RESIDENCIAL_Z6">Residencial Z6</option><option value="CON_RESIDENCIAL_Z10">Residencial Z10</option><option value="CON_DUELA_50">Duela 50%</option><option value="CON_DUELA_50_2C">Duela 50% 2 caras</option><option value="CON_DUELA_1C">Duela 1 Cara</option><option value="CON_DUELA_2C">Duela 2 caras</option><option value="CON_DUELA_HORIZONTAL">Duela horizontal</option><option value="CON_DUELA_VERTICAL">Duela vertical</option><option value="CON_LOUVER">Louver</option><option value="CON_INTERMEDIO_1H">Intermedio 1H</option><option value="CON_INTERMEDIO_2H">Intermedio 2H</option><option value="CON_INTERMEDIO_4_1H">Intermedio 4" 1H</option><option value="CON_INTERMEDIO_4_2H">Intermedio 4" 2H</option>
         <option value="SIN_COMERCIAL">Sin Comercial</option><option value="SIN_RESIDENCIAL">Sin Residencial</option><option value="SIN_RESIDENCIAL_Z6">Sin Residencial Z6</option><option value="SIN_RESIDENCIAL_Z10">Sin Residencial Z10</option><option value="SIN_DUELA_50">Sin Duela 50%</option><option value="SIN_DUELA_50_2C">Sin Duela 50% 2 caras</option><option value="SIN_DUELA_1C">Sin Duela 1 Cara</option><option value="SIN_DUELA_2C">Sin Duela 2 caras</option><option value="SIN_LOUVER">Sin Louver</option><option value="SIN_INTERMEDIO_1H">Sin Intermedio 1H</option><option value="SIN_INTERMEDIO_2H">Sin Intermedio 2H</option><option value="SIN_INTERMEDIO_4_1H">Sin Intermedio 4" 1H</option><option value="SIN_INTERMEDIO_4_2H">Sin Intermedio 4" 2H</option>
         </select>
       </div>
@@ -2470,7 +2499,7 @@ function agregarGrupoCorte(){
         <label>Condición 3 (OR)</label>
         <select id="gc-cond3-${id}" style="border-color:rgba(167,139,250,.1);background:rgba(167,139,250,.02)">
           <option value="SIEMPRE">Siempre</option><option value="SIN_ZOCLO_INF">Sin zoclo inferior</option><option value="CON_ZOCLO_INF">Con zoclo inferior</option><option value="SIN_ZOCLO_SUP">Sin zoclo superior</option><option value="CON_ZOCLO_SUP">Con zoclo superior</option><option value="SIN_MOSQUITERO">Sin mosquitero</option><option value="CON_MOSQUITERO">Con mosquitero (cualquier tipo)</option><option value="CON_MOSQUITERO_FIJO">Con mosquitero fijo</option><option value="CON_MOSQUITERO_CORREDIZO">Con mosquitero corredizo</option><option value="CON_ESCALONADO_VERT">Con escalonado vertical</option><option value="SIN_ESCALONADO_VERT">Sin escalonado vertical</option><option value="CON_ESCALONADO_SUP">Con escalonado superior</option><option value="SIN_ESCALONADO_SUP">Sin escalonado superior</option>
-        <option value="CON_COMERCIAL">Comercial</option><option value="CON_RESIDENCIAL">Residencial</option><option value="CON_RESIDENCIAL_Z6">Residencial Z6</option><option value="CON_RESIDENCIAL_Z10">Residencial Z10</option><option value="CON_DUELA_50">Duela 50%</option><option value="CON_DUELA_50_2C">Duela 50% 2 caras</option><option value="CON_DUELA_1C">Duela 1 Cara</option><option value="CON_DUELA_2C">Duela 2 caras</option><option value="CON_LOUVER">Louver</option><option value="CON_INTERMEDIO_1H">Intermedio 1H</option><option value="CON_INTERMEDIO_2H">Intermedio 2H</option><option value="CON_INTERMEDIO_4_1H">Intermedio 4" 1H</option><option value="CON_INTERMEDIO_4_2H">Intermedio 4" 2H</option>
+        <option value="CON_COMERCIAL">Comercial</option><option value="CON_RESIDENCIAL">Residencial</option><option value="CON_RESIDENCIAL_Z6">Residencial Z6</option><option value="CON_RESIDENCIAL_Z10">Residencial Z10</option><option value="CON_DUELA_50">Duela 50%</option><option value="CON_DUELA_50_2C">Duela 50% 2 caras</option><option value="CON_DUELA_1C">Duela 1 Cara</option><option value="CON_DUELA_2C">Duela 2 caras</option><option value="CON_DUELA_HORIZONTAL">Duela horizontal</option><option value="CON_DUELA_VERTICAL">Duela vertical</option><option value="CON_LOUVER">Louver</option><option value="CON_INTERMEDIO_1H">Intermedio 1H</option><option value="CON_INTERMEDIO_2H">Intermedio 2H</option><option value="CON_INTERMEDIO_4_1H">Intermedio 4" 1H</option><option value="CON_INTERMEDIO_4_2H">Intermedio 4" 2H</option>
         <option value="SIN_COMERCIAL">Sin Comercial</option><option value="SIN_RESIDENCIAL">Sin Residencial</option><option value="SIN_RESIDENCIAL_Z6">Sin Residencial Z6</option><option value="SIN_RESIDENCIAL_Z10">Sin Residencial Z10</option><option value="SIN_DUELA_50">Sin Duela 50%</option><option value="SIN_DUELA_50_2C">Sin Duela 50% 2 caras</option><option value="SIN_DUELA_1C">Sin Duela 1 Cara</option><option value="SIN_DUELA_2C">Sin Duela 2 caras</option><option value="SIN_LOUVER">Sin Louver</option><option value="SIN_INTERMEDIO_1H">Sin Intermedio 1H</option><option value="SIN_INTERMEDIO_2H">Sin Intermedio 2H</option><option value="SIN_INTERMEDIO_4_1H">Sin Intermedio 4" 1H</option><option value="SIN_INTERMEDIO_4_2H">Sin Intermedio 4" 2H</option>
         </select>
       </div>
@@ -2478,7 +2507,7 @@ function agregarGrupoCorte(){
     <div style="font-size:11px;color:var(--text3)" id="gc-preview-${id}"></div>`;
   document.getElementById('modal-grupos-cortes').appendChild(div);
   // Add listeners for preview
-  ['gc-tipo-'+id,'gc-cant-'+id,'gc-long-'+id,'gc-div-'+id,'gc-cond-'+id,'gc-cond2-'+id,'gc-cond3-'+id].forEach(eid=>{
+  ['gc-tipo-'+id,'gc-cant-'+id,'gc-paso-'+id,'gc-long-'+id,'gc-div-'+id,'gc-cond-'+id,'gc-cond2-'+id,'gc-cond3-'+id].forEach(eid=>{
     const el=document.getElementById(eid);
     if(el) el.addEventListener('input',()=>previewGrupo(id));
     if(el) el.addEventListener('change',()=>previewGrupo(id));
@@ -2489,6 +2518,19 @@ function toggleGrupoLongitud(id){
   const tipo=document.getElementById('gc-tipo-'+id).value;
   document.getElementById('gc-long-wrap-'+id).style.display=tipo==='fijo'?'':'none';
   document.getElementById('gc-divisor-wrap-'+id).style.display=(tipo==='vertical'||tipo==='horizontal')?'':'none';
+  toggleGrupoAuto(id);
+}
+
+// Cantidad automática (duela): oculta la cantidad fija y pide el ancho de la duela
+function toggleGrupoAuto(id){
+  const tipo=document.getElementById('gc-tipo-'+id).value;
+  const chk=document.getElementById('gc-auto-'+id);
+  const wrap=document.getElementById('gc-auto-wrap-'+id);
+  if(!chk||!wrap){previewGrupo(id);return;}
+  wrap.style.display=tipo==='fijo'?'none':'flex';
+  const auto=chk.checked&&tipo!=='fijo';
+  document.getElementById('gc-cant-'+id).style.display=auto?'none':'';
+  document.getElementById('gc-paso-wrap-'+id).style.display=auto?'':'none';
   previewGrupo(id);
 }
 
@@ -2502,8 +2544,15 @@ function previewGrupo(id){
   const cond3=document.getElementById('gc-cond3-'+id)?.value||'SIEMPRE';
   const el=document.getElementById('gc-preview-'+id);
   if(!el)return;
+  const auto=!!document.getElementById('gc-auto-'+id)?.checked&&tipo!=='fijo';
+  const paso=parseFloat(document.getElementById('gc-paso-'+id)?.value)||0;
   let desc='';
-  if(tipo==='vertical') desc=`${cant} corte${cant!==1?'s':''} × (alto ÷ ${div}) m`;
+  if(auto){
+    const dim=tipo==='horizontal'?'alto':'ancho';
+    desc=paso>0?`(${dim} ÷ ${paso}, redondeado hacia arriba) cortes × (${tipo==='horizontal'?'ancho':'alto'} ÷ ${div}) m — ej. ${dim} 2.10 → ${Math.ceil(2.1/paso-1e-6)} cortes`
+      :'<span style="color:var(--amber)">Escribe el ancho de la duela</span>';
+  }
+  else if(tipo==='vertical') desc=`${cant} corte${cant!==1?'s':''} × (alto ÷ ${div}) m`;
   else if(tipo==='horizontal') desc=`${cant} corte${cant!==1?'s':''} × (ancho ÷ ${div}) m`;
   else if(tipo==='fijo'&&long>0) desc=`${cant} corte${cant!==1?'s':''} de ${long.toFixed(3)} m fijos`;
   let condTxt='';
@@ -2533,7 +2582,10 @@ function leerGruposCortes(){
     const condicion=document.getElementById('gc-cond-'+id)?.value||'SIEMPRE';
     const condicion2=document.getElementById('gc-cond2-'+id)?.value||'SIEMPRE';
     const condicion3=document.getElementById('gc-cond3-'+id)?.value||'SIEMPRE';
-    if(cant>0) grupos.push({tipo,cant,long,divisor,condicion,condicion2,condicion3});
+    const auto=!!document.getElementById('gc-auto-'+id)?.checked&&tipo!=='fijo';
+    const paso=parseFloat(document.getElementById('gc-paso-'+id)?.value)||0;
+    if(auto){ if(paso>0) grupos.push({tipo,cant:0,auto:true,paso,long,divisor,condicion,condicion2,condicion3}); }
+    else if(cant>0) grupos.push({tipo,cant,long,divisor,condicion,condicion2,condicion3});
   });
   return grupos;
 }
@@ -2874,15 +2926,16 @@ function tipoCancelFromNombre(nombre) {
 }
 
 // ── Render dynamic checkboxes based on cancel type ─────────────
-function renderOpcionesCancel(recetaNombre) {
+function renderOpcionesCancel(recetaNombre, receta) {
   const grid = document.getElementById('cot-condiciones-grid');
   const wrap = document.getElementById('cot-opciones-cancel-wrap');
   if (!grid) return;
 
   const tipo = tipoCancelFromNombre(recetaNombre);
+  const usaDuela = recetaUsaOrientacionDuela(receta);
 
   // Hide entire opciones block if no options apply
-  if (tipo === 'NINGUNO') {
+  if (tipo === 'NINGUNO' && !usaDuela) {
     wrap.style.display = 'none';
     grid.innerHTML = '';
     return;
@@ -2940,6 +2993,13 @@ function renderOpcionesCancel(recetaNombre) {
     batienteOpts.forEach(([id, label]) => { html += cb(id, label); });
   }
 
+  // Duela horizontal o vertical (nunca ambas): solo si la receta usa esas condiciones
+  if (usaDuela) {
+    html += cb('CON_DUELA_HORIZONTAL', 'Duela horizontal', '_duelaExclusiva(this);calcularPartida()');
+    html += cb('CON_DUELA_VERTICAL', 'Duela vertical', '_duelaExclusiva(this);calcularPartida()');
+    html += '<div id="cot-duela-aviso" style="grid-column:1/-1;font-size:12px;color:var(--amber)">⚠ Elige si la duela es horizontal o vertical.</div>';
+  }
+
   grid.innerHTML = html;
 }
 
@@ -2980,7 +3040,7 @@ function cargarConfigsPorReceta(){
     '<option value="">Sin configuraciones</option>';
   // Mostrar acabados disponibles
   if(r) mostrarOpcionesAcabado(r);
-  renderOpcionesCancel(r ? r.nombre : ''); // show relevant opciones
+  renderOpcionesCancel(r ? r.nombre : '', r); // show relevant opciones
   document.getElementById('cot-opciones-wrap').style.display='';
   document.getElementById('cot-preview').style.display='none';
   const tipoCancel=tipoCancelFromNombre(r ? r.nombre : '');
@@ -3292,6 +3352,36 @@ function construirCondicionesActivas(cond){
   return set;
 }
 
+// Cantidad de cortes de un grupo. Modo automático (duela): cortes = medida perpendicular ÷ ancho de duela,
+// redondeado hacia arriba. Corte horizontal (largo = ancho) → alto ÷ paso; vertical (largo = alto) → ancho ÷ paso.
+function cantCortesGrupo(g,ancho,alto){
+  if(g&&g.auto&&g.tipo!=='fijo'&&g.paso>0){
+    const dim=g.tipo==='horizontal'?alto:ancho;
+    return dim>0?Math.ceil(dim/g.paso-1e-6):0;
+  }
+  return (g&&g.cant)||0;
+}
+const _esGrupoAuto=g=>!!(g&&g.auto&&g.tipo!=='fijo'&&g.paso>0);
+// Texto corto de la fórmula automática: "alto÷0.1"
+function _txtAutoGrupo(g){ return `${g.tipo==='horizontal'?'alto':'ancho'}÷${g.paso}`; }
+// ¿La receta usa la orientación de duela en alguna condición?
+function recetaUsaOrientacionDuela(r){
+  const t=JSON.stringify((r&&r.configs)||[]);
+  return t.includes('CON_DUELA_HORIZONTAL')||t.includes('CON_DUELA_VERTICAL');
+}
+// Duela horizontal / vertical: solo una a la vez
+function _duelaExclusiva(el){
+  if(el.checked){
+    const otra=document.getElementById(el.id==='cond-CON_DUELA_HORIZONTAL'?'cond-CON_DUELA_VERTICAL':'cond-CON_DUELA_HORIZONTAL');
+    if(otra) otra.checked=false;
+  }
+  const av=document.getElementById('cot-duela-aviso');
+  if(av){
+    const h=document.getElementById('cond-CON_DUELA_HORIZONTAL'), v=document.getElementById('cond-CON_DUELA_VERTICAL');
+    av.style.display=(h&&h.checked)||(v&&v.checked)?'none':'';
+  }
+}
+
 // Equivalente de un perfil en otra marca (mismo nombre + acabado)
 function _cmEquivalente(actual,destino,perfiles){
   return perfiles.find(x=>
@@ -3401,16 +3491,18 @@ function cotizarPartida(o){
         const activas=[cond,cond2,cond3].filter(c=>c!=='SIEMPRE');
         if(activas.length>0&&!activas.some(c=>condicionesActivas.has(c))) return;
         const divisor=g.divisor||1;
-        let longCorte=0, cantCortes=g.cant||0;
+        let longCorte=0;
+        const cantCortes=cantCortesGrupo(g,ancho,alto);
         if(g.tipo==='fijo') longCorte=g.long||0;
         else if(g.tipo==='vertical') longCorte=alto/divisor;
         else longCorte=ancho/divisor;
         const mlGrupo=cantCortes*longCorte;
         ml+=mlGrupo;
         cortes.push({long:longCorte,cant:cantCortes});
+        const auto=_esGrupoAuto(g)?` [${_txtAutoGrupo(g)}]`:'';
         if(g.tipo==='fijo') detalleGrupos.push(`${cantCortes}×${g.long}m`);
-        else if(g.tipo==='vertical') detalleGrupos.push(`${cantCortes}×${num(longCorte)}m(alt${divisor>1?'/'+divisor:''})`);
-        else detalleGrupos.push(`${cantCortes}×${num(longCorte)}m(anch${divisor>1?'/'+divisor:''})`);
+        else if(g.tipo==='vertical') detalleGrupos.push(`${cantCortes}×${num(longCorte)}m(alt${divisor>1?'/'+divisor:''})${auto}`);
+        else detalleGrupos.push(`${cantCortes}×${num(longCorte)}m(anch${divisor>1?'/'+divisor:''})${auto}`);
       });
       // Si todos los grupos fueron omitidos por condición, retornar null (perfil no aplica)
       if(ml===0 && detalleGrupos.length===0) return null;
@@ -3446,7 +3538,7 @@ function cotizarPartida(o){
   };
 
   // ── Calcular costo de un herraje (con condiciones por campo) ──
-  const costoHerraje=(herrajeId, cantPiezas, metrosV, metrosH, tipoVidH, condCantidad, condV, condH, condM2, m2DivAncho, m2DivAlto)=>{
+  const costoHerraje=(herrajeId, cantPiezas, metrosV, metrosH, tipoVidH, condCantidad, condV, condH, condM2, m2DivAncho, m2DivAlto, porCorte)=>{
     const tvh=(tipoVidH||'AMBOS').toUpperCase();
     if(tvh!=='AMBOS'&&tvh!==tipoVidrioSeleccionado) return null;
     const h=todosHerrajes.find(x=>x.id===herrajeId);
@@ -3481,10 +3573,20 @@ function cotizarPartida(o){
     // Piezas: aplican si condCantidad se cumple (default SIEMPRE)
     const condCok=condicionesActivas.has((condCantidad||'SIEMPRE').toUpperCase());
     const cantAplic=cantPiezas>0&&condCok;
-    if(cantAplic){
-      pzas=cantPiezas;
-      costo+=(h.precioUnitario||0)*cantPiezas;
-      detalle+=(detalle?'  +  ':'')+`${cantPiezas} pzs × ${fmt(h.precioUnitario||0)}`;
+    // Piezas por corte de perfil (ej. 4 remaches por cada corte de duela de esta partida)
+    let nCortesPerfil=0;
+    if(porCorte&&porCorte.pzas>0&&porCorte.clave){
+      lineasDesglose.forEach(l=>{
+        if(l.tipo==='Perfil'&&(l.claveReceta||l.perfilClave)===porCorte.clave)
+          (l.cortes||[]).forEach(c=>{ nCortesPerfil+=c.cant||0; });
+      });
+    }
+    const pzasPorCorte=nCortesPerfil>0?porCorte.pzas*nCortesPerfil:0;
+    if(cantAplic||pzasPorCorte>0){
+      pzas=(cantAplic?cantPiezas:0)+pzasPorCorte;
+      costo+=(h.precioUnitario||0)*pzas;
+      const expl=pzasPorCorte>0?`${cantAplic?cantPiezas+' + ':''}${porCorte.pzas} pzs/corte × ${nCortesPerfil} cortes (${porCorte.clave}) = `:'';
+      detalle+=(detalle?'  +  ':'')+`${expl}${pzas} pzs × ${fmt(h.precioUnitario||0)}`;
     }
 
     // M2 superficie (tela mosquitero etc.) — aplica si condM2 se cumple
@@ -3515,7 +3617,8 @@ function cotizarPartida(o){
         // Filter by general condicion (header-level)
         const chCond=(ch.condicion||'SIEMPRE').toUpperCase();
         if(chCond!=='SIEMPRE'&&!condicionesActivas.has(chCond)) return;
-        const res=costoHerraje(ch.herrajeId,ch.cantidad||0,ch.metrosV||0,ch.metrosH||0,ch.tipoVidrio,ch.condCantidad,ch.condV,ch.condH,ch.condM2,ch.m2DivAncho,ch.m2DivAlto);
+        const res=costoHerraje(ch.herrajeId,ch.cantidad||0,ch.metrosV||0,ch.metrosH||0,ch.tipoVidrio,ch.condCantidad,ch.condV,ch.condH,ch.condM2,ch.m2DivAncho,ch.m2DivAlto,
+          ch.porCortePzas>0&&ch.porCorteClave?{pzas:ch.porCortePzas,clave:ch.porCorteClave}:null);
         if(res===null)return;
         lineasDesglose.push({...res,tipo:'Herraje'});
       });
@@ -5122,6 +5225,7 @@ function abrirModalHerraje(scope) {
   const m2da=document.getElementById('mh-m2-div-ancho');if(m2da)m2da.value='1';
   const m2da2=document.getElementById('mh-m2-div-alto');if(m2da2)m2da2.value='1';
   const m2prev=document.getElementById('mh-m2-preview');if(m2prev)m2prev.textContent='';
+  _mhPoblarPerfilesPorCorte('');
   mhItemsAll = DB.get('herrajes').map(h => ({
     id: h.id,
     label: h.descripcion + (h.clave ? ' [' + h.clave + ']' : ''),
@@ -5129,6 +5233,23 @@ function abrirModalHerraje(scope) {
   }));
   poblarModalHerrajes(mhItemsAll);
   document.getElementById('modal-herraje').classList.add('open');
+}
+
+// Perfiles de la configuración actual para "Piezas por corte de perfil"
+function _mhPoblarPerfilesPorCorte(sel) {
+  const pz=document.getElementById('mh-pc-pzas'); if(pz) pz.value='0';
+  const s=document.getElementById('mh-pc-clave'); if(!s) return;
+  let perfiles=[];
+  try{
+    const r=DB.get('recetas').find(x=>x.id===recetaActual.id);
+    perfiles=(configActual&&configActual.idx!==undefined&&r&&r.configs[configActual.idx]?r.configs[configActual.idx].perfiles:null)||[];
+  }catch(e){}
+  const vistos=new Set();
+  let opts='<option value="">— Ninguno —</option>';
+  perfiles.forEach(p=>{ if(!p.clave||vistos.has(p.clave)) return; vistos.add(p.clave);
+    opts+=`<option value="${_escH(p.clave)}">${_escH(p.clave+' — '+(p.nombrePerfil||''))}</option>`; });
+  if(sel&&!vistos.has(sel)) opts+=`<option value="${_escH(sel)}">${_escH(sel)}</option>`;
+  s.innerHTML=opts; s.value=sel||'';
 }
 
 function poblarModalHerrajes(items) {
@@ -5186,6 +5307,9 @@ function confirmarHerraje() {
   const condM2=document.getElementById('mh-cond-m2')?.value||'SIEMPRE';
   const m2DivAncho=parseFloat(document.getElementById('mh-m2-div-ancho')?.value)||1;
   const m2DivAlto=parseFloat(document.getElementById('mh-m2-div-alto')?.value)||1;
+  const porCortePzas=parseFloat(document.getElementById('mh-pc-pzas')?.value)||0;
+  const porCorteClave=document.getElementById('mh-pc-clave')?.value||'';
+  if(porCortePzas>0&&!porCorteClave){ toast('Elige el perfil para "Piezas por corte"','error'); return; }
   const item = {
     herrajeId: hj.id,
     nombreHerraje: hj.descripcion + (hj.clave ? ' [' + hj.clave + ']' : ''),
@@ -5202,7 +5326,9 @@ function confirmarHerraje() {
     condCantidad,
     condV,
     condH,
-    condM2
+    condM2,
+    porCortePzas: porCorteClave?porCortePzas:0,
+    porCorteClave: porCortePzas>0?porCorteClave:''
   };
   const recetas = DB.get('recetas');
   const r = recetas.find(x => x.id === recetaActual.id);
@@ -5501,7 +5627,7 @@ function recopilarCortes(proyecto){
                   if(g.tipo==='fijo') longCorte=g.long||0;
                   else if(g.tipo==='vertical') longCorte=alto/divisor;
                   else longCorte=ancho/divisor;
-                  for(let ci=0;ci<(g.cant||0)*cant;ci++){
+                  for(let ci=0;ci<cantCortesGrupo(g,ancho,alto)*cant;ci++){
                     mapaPerfiles[key].cortes.push({longitud:parseFloat(longCorte.toFixed(4)),ubicacion});
                   }
                 });
