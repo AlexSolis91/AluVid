@@ -528,6 +528,10 @@ onAuthStateChanged(_auth, async (user) => {
               <label>Cliente</label>
               <input id="cot-cliente" placeholder="Nombre del cliente" oninput="actualizarProyecto()">
             </div>
+            <div class="form-group" style="min-width:220px">
+              <label>Proyecto / Obra</label>
+              <input id="cot-proyecto" placeholder="Ej. PA-CAV-3 · Ventanas 3" oninput="actualizarProyecto()">
+            </div>
             <div style="display:flex;gap:8px">
               <button class="btn btn-ghost btn-sm" onclick="cerrarCotizacion()">← Volver</button>
               <button class="btn btn-success btn-sm" id="cot-btn-guardar" onclick="guardarProyecto()">💾 Guardar</button>
@@ -756,6 +760,7 @@ onAuthStateChanged(_auth, async (user) => {
               <div style="font-size:11px;color:var(--text3);margin-top:2px" id="cot-total-iva-label"></div>
             </div>
             <div style="display:flex;align-items:center;gap:14px">
+              <button class="btn btn-primary btn-sm" onclick="imprimirCotizacionCliente()" title="Formato SCAVi con la elevación de cada cancel, sobrante y total de material">📄 Cotización para cliente</button>
               <button class="btn btn-ghost btn-sm" onclick="imprimirCotizacion(false)">🖨 Imprimir cotización</button>
               <button class="btn btn-ghost btn-sm" onclick="imprimirCotizacion(true)" title="Incluye perfiles, herrajes y vidrio de cada partida">🖨 Con detalle de materiales</button>
               <div class="total-value" id="cot-total-proyecto">$0.00</div>
@@ -1000,6 +1005,10 @@ onAuthStateChanged(_auth, async (user) => {
                 </select>
               </div>
               <div class="form-group">
+                <label>Dibujo en cotización para cliente</label>
+                <select id="r-dibujo"></select>
+              </div>
+              <div class="form-group">
                 <label>Separador (Duovent)</label>
                 <select id="r-separador" onchange="toggleSeparadorPrecio()">
                   <option value="">— Sin separador —</option>
@@ -1040,6 +1049,10 @@ onAuthStateChanged(_auth, async (user) => {
                 <div id="r-config-editor" style="display:none">
                   <div class="card" style="border-color:rgba(79,142,247,.3);margin-top:0">
                     <div class="card-title"><span>⚙</span> Config: <span id="r-config-nombre"></span></div>
+                    <div class="form-group" style="margin-bottom:12px;max-width:420px">
+                      <label>Dibujo de esta configuración (cotización para cliente)</label>
+                      <select id="r-config-dibujo" onchange="cambiarDibujoConfig()"></select>
+                    </div>
                     <!-- Tab bar + action buttons always visible -->
                     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
                       <div class="tabs" style="flex:1;margin-bottom:0">
@@ -1385,7 +1398,7 @@ onAuthStateChanged(_auth, async (user) => {
 window._cache = {};
 
 // ── Versión de la app (subir en cada deploy con fixes) ─────────
-const APP_VERSION = '1.26.0';
+const APP_VERSION = '1.27.0';
 
 window.cerrarSesionApp = function() {
   if ((DB._pending > 0 || _proyHayCambios()) &&
@@ -1902,6 +1915,7 @@ function nuevaReceta(){
   document.getElementById('r-id').value='';
   document.getElementById('r-nombre').value='';
   document.getElementById('r-linea').value='Panorama';
+  _llenarSelDibujo('r-dibujo',false,'');
   document.getElementById('r-separador').value='';
   document.getElementById('r-separador-precio').value='';
   document.getElementById('r-separador-precio-wrap').style.display='none';
@@ -1923,6 +1937,7 @@ function mostrarEditorReceta(){
   document.getElementById('r-id').value=recetaActual.id;
   document.getElementById('r-nombre').value=recetaActual.nombre;
   document.getElementById('r-linea').value=recetaActual.linea||'Panorama';
+  _llenarSelDibujo('r-dibujo',false,recetaActual.dibujo||'');
   // Show publish toggle only for admin
   const isAdmin=window._uid==='z447DgJCSTW8xRDp8pkIZ5S1A8G3';
   const publishWrap=document.getElementById('r-admin-publish');
@@ -1987,7 +2002,9 @@ function guardarReceta(){
   const separadorPrecio=parseFloat(document.getElementById('r-separador-precio').value)||0;
   const recetas=DB.get('recetas');
   const id=parseInt(document.getElementById('r-id').value)||null;
+  const dibujo=(document.getElementById('r-dibujo')||{}).value||'';
   let obj={id:id||DB.nextId('recetas'),nombre,linea,separador,separadorPrecio,perfiles:[],herrajes:[],configs:[],fecha:now()};
+  if(dibujo)obj.dibujo=dibujo;
   if(id){
     const idx=recetas.findIndex(r=>r.id===id);
     obj.perfiles=recetas[idx].perfiles||[];
@@ -2090,7 +2107,7 @@ function renderConfiguraciones(){
   // Always show config editor if a config is selected
   if(configActual){
     document.getElementById('r-config-editor').style.display='';
-    document.getElementById('r-config-nombre').textContent=configActual.tipo;
+    document.getElementById('r-config-nombre').textContent=configActual.tipo;_llenarSelDibujo('r-config-dibujo',true,configActual.dibujo||'');
   }
 }
 
@@ -2098,7 +2115,7 @@ function seleccionarConfig(idx){
   const r=DB.get('recetas').find(x=>x.id===recetaActual.id);
   configActual={idx,...r.configs[idx]};
   document.getElementById('r-config-editor').style.display='';
-  document.getElementById('r-config-nombre').textContent=configActual.tipo;
+  document.getElementById('r-config-nombre').textContent=configActual.tipo;_llenarSelDibujo('r-config-dibujo',true,configActual.dibujo||'');
   renderComponentesConfig();renderConfiguraciones();
 }
 
@@ -2657,9 +2674,13 @@ function _firmaProyecto(p){
 function _proyHayCambios(){
   if(!proyectoActivo)return false;
   const inp=document.getElementById('cot-cliente');
-  if(inp&&document.getElementById('cot-editor')?.style.display!=='none')proyectoActivo.cliente=inp.value;
+  if(inp&&document.getElementById('cot-editor')?.style.display!=='none'){
+    proyectoActivo.cliente=inp.value;
+    const pr=document.getElementById('cot-proyecto').value;
+    if(pr)proyectoActivo.proyecto=pr; else delete proyectoActivo.proyecto;
+  }
   const guardado=DB.get('proyectos').some(p=>p.id===proyectoActivo.id);
-  if(!guardado)return !!((proyectoActivo.partidas||[]).length||String(proyectoActivo.cliente||'').trim());
+  if(!guardado)return !!((proyectoActivo.partidas||[]).length||String(proyectoActivo.cliente||'').trim()||String(proyectoActivo.proyecto||'').trim());
   return _firmaProyecto(proyectoActivo)!==_proySnap;
 }
 function _confirmarSalirProyecto(){
@@ -2721,6 +2742,7 @@ function mostrarEditorCotizacion(){
   document.getElementById('cot-folio-display').textContent=proyectoActivo.folio;
   document.getElementById('cot-meta-display').textContent='Creado: '+fechaCorta(proyectoActivo.fecha);
   document.getElementById('cot-cliente').value=proyectoActivo.cliente||'';
+  document.getElementById('cot-proyecto').value=proyectoActivo.proyecto||'';
   renderPartidas();
   // Cargar vidrios en select
   const vs=vidriosParaCotizar();
@@ -2872,12 +2894,15 @@ function sobranteProyecto(p){
 function actualizarProyecto(){
   if(!proyectoActivo)return;
   proyectoActivo.cliente=document.getElementById('cot-cliente').value;
+  const pr=document.getElementById('cot-proyecto').value;
+  if(pr)proyectoActivo.proyecto=pr; else delete proyectoActivo.proyecto;
 }
 
 const LIMITE_PROYECTO_BYTES=900*1024; // Firestore admite máx. 1 MiB por documento
 async function guardarProyecto(){
   if(!proyectoActivo||_guardandoProy)return;
   proyectoActivo.cliente=document.getElementById('cot-cliente').value;
+  {const pr=document.getElementById('cot-proyecto').value; if(pr)proyectoActivo.proyecto=pr; else delete proyectoActivo.proyecto;}
   (proyectoActivo.partidas||[]).forEach(_limpiarCamposTemp); // no guardar estado temporal de edición
   const copia=_clonar(proyectoActivo);
   Object.keys(copia).forEach(k=>{if(k[0]==='_'&&k!=='_docId')delete copia[k];}); // sin _temp
@@ -6052,6 +6077,347 @@ function imprimirCotizacion(detallado){
 // ══════════════════════════════════════════════════════════════════
 //  IMPRESIÓN — LISTA DE MATERIAL
 // ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════
+//  IMPRESIÓN — COTIZACIÓN PARA CLIENTE (con elevación de cada cancel)
+// ══════════════════════════════════════════════════════════════════
+// Tipos de dibujo que se eligen en la receta (y opcionalmente por configuración)
+const DIBUJOS_COT=[
+  ['', '— Sin dibujo —'],
+  ['corrediza', 'Corrediza (hojas según config: OX, XO, OXXO…)'],
+  ['corrediza_fijo_sup', 'Corrediza con fijo superior'],
+  ['fijo', 'Fijo'],
+  ['proyectante', 'Proyectante'],
+  ['fijo_proyectante', 'Fijo con proyectante inferior'],
+  ['abatible', 'Abatible 1 hoja (ventana o puerta)'],
+  ['abatible_doble', 'Abatible 2 hojas'],
+  ['abatible_fijo', 'Puerta abatible con fijo lateral'],
+  ['puerta_duela', 'Puerta con duela (horizontal/vertical según la partida)']
+];
+function _llenarSelDibujo(id,conHeredar,val){
+  const el=document.getElementById(id);if(!el)return;
+  el.innerHTML=opcionesDibujoCot(conHeredar);el.value=val||'';
+}
+function opcionesDibujoCot(conHeredar){
+  return (conHeredar?'<option value="">— Igual que la receta —</option>':'')+
+    DIBUJOS_COT.filter(d=>!conHeredar||d[0]).map(d=>`<option value="${d[0]}">${d[1]}</option>`).join('');
+}
+function cambiarDibujoConfig(){
+  if(!recetaActual||!configActual)return;
+  const recetas=DB.get('recetas');
+  const r=recetas.find(x=>x.id===recetaActual.id);
+  if(!r||!r.configs||!r.configs[configActual.idx])return;
+  const v=document.getElementById('r-config-dibujo').value;
+  if(v) r.configs[configActual.idx].dibujo=v; else delete r.configs[configActual.idx].dibujo;
+  configActual.dibujo=v||undefined;
+  DB.set('recetas',recetas);recetaActual=r;
+  toast('Dibujo de la configuración actualizado');
+}
+// Hojas de una corrediza a partir del nombre de la configuración (X = corrediza, O = fija)
+function _hojasCorrediza(cfg){
+  let t=String(cfg||'').toUpperCase().replace(/[\s\-\/·.]/g,'');
+  if(!/^[XO]{2,6}$/.test(t)){
+    const n=parseInt((String(cfg||'').match(/(\d)\s*HOJ/i)||[])[1]);
+    t={1:'X',2:'XX',3:'XOX',4:'OXXO',5:'OXOXO',6:'OXXXXO'}[n]||'XX';
+  }
+  const L=t.split('');
+  return L.map((c,i)=>{
+    if(c==='O')return {t:'F'};
+    // la hoja corrediza se desplaza hacia la fija vecina; si no hay, hacia el centro
+    const izqO=L[i-1]==='O', derO=L[i+1]==='O';
+    const dir=izqO&&!derO?'l':derO&&!izqO?'r':(i<(L.length-1)/2?'r':'l');
+    return {t:'C',dir};
+  });
+}
+// Número de módulos de un fijo a partir de la configuración (ej. "2 MODULOS")
+function _modulos(cfg){
+  const n=parseInt((String(cfg||'').match(/(\d+)\s*M[OÓ]DUL/i)||[])[1]);
+  return n>=1&&n<=8?n:1;
+}
+function dibujoPartida(partida){
+  // Partidas antiguas no guardan recetaId/configIdx: se buscan por nombre
+  const nom=String(partida.receta||'').trim().toUpperCase();
+  const r=resolveReceta(partida.recetaId)||(nom?[...DB.get('recetas'),...(DB.getAdminRecetas?DB.getAdminRecetas():[])]
+    .find(x=>String(x.nombre||'').trim().toUpperCase()===nom):null);
+  if(!r)return null;
+  const cfgs=r.configs||[];
+  const cfg=(partida.configIdx!=null&&cfgs[partida.configIdx])||cfgs.find(c=>c.tipo&&c.tipo===partida.config)||null;
+  const tipo=(cfg&&cfg.dibujo)||r.dibujo||'';
+  if(!tipo)return null;
+  const cond=partida.condiciones||{};
+  const duela=cond.CON_DUELA_VERTICAL?'v':'h';
+  const F={t:'F'},P={t:'P'};
+  const filas={
+    corrediza:[{h:1,cols:_hojasCorrediza(partida.config)}],
+    corrediza_fijo_sup:[{h:.3,cols:[F]},{h:.7,cols:_hojasCorrediza(partida.config)}],
+    fijo:[{h:1,cols:Array.from({length:_modulos(partida.config)},()=>F)}],
+    proyectante:[{h:1,cols:[P]}],
+    fijo_proyectante:[{h:.65,cols:[F]},{h:.35,cols:[P]}],
+    abatible:[{h:1,cols:[{t:'A',bis:'izq'}]}],
+    abatible_doble:[{h:1,cols:[{t:'A',bis:'izq'},{t:'A',bis:'der'}]}],
+    abatible_fijo:[{h:1,cols:[{t:'A',bis:'izq',w:.7},{t:'F',w:.3}]}],
+    puerta_duela:[{h:1,cols:[{t:'D',bis:'izq',duela}]}]
+  }[tipo];
+  return filas?{filas}:null;
+}
+// Elevación SVG proporcional con cotas (ancho abajo, alto a la izquierda)
+function elevacionSVG(ancho,alto,dib){
+  const W=200,H=128,pad={l:20,r:8,t:8,b:20};
+  const aw=W-pad.l-pad.r, ah=H-pad.t-pad.b;
+  const a=ancho>0?ancho:1, h0=alto>0?alto:1;
+  const k=Math.min(aw/a,ah/h0);
+  const w=a*k,h=h0*k,x0=pad.l+(aw-w)/2,y0=pad.t+(ah-h)/2;
+  const fr=Math.max(3,Math.min(w,h)*.045);
+  const n2=v=>(+v||0).toFixed(2);
+  let s=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI,Arial">`+
+    `<defs><linearGradient id="gv" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d6ecf6"/><stop offset="1" stop-color="#9fcde2"/></linearGradient>`+
+    `<marker id="ar" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#0f2a3d"/></marker></defs>`;
+  s+=`<rect x="${x0}" y="${y0}" width="${w}" height="${h}" fill="#c3ccd4" stroke="#0f2a3d" stroke-width="1.1"/>`;
+  const ih=h-2*fr,iw=w-2*fr,nf=dib.filas.length;
+  let y=y0+fr;
+  dib.filas.forEach((fila,fi)=>{
+    const fh=ih*fila.h;let x=x0+fr;
+    const totW=fila.cols.reduce((t,c)=>t+(c.w||1),0),g=fr*.55;
+    fila.cols.forEach((c,ci)=>{
+      const cw=iw*(c.w||1)/totW;
+      const px=x+(ci?g/2:0),py=y+(fi?g/2:0);
+      const pw=cw-(ci?g/2:0)-(ci<fila.cols.length-1?g/2:0);
+      const ph=fh-(fi?g/2:0)-(fi<nf-1?g/2:0);
+      s+=_hojaSVG(c,px,py,pw,ph);x+=cw;
+    });
+    y+=fh;
+  });
+  const yc=y0+h+10,xc=x0-10;
+  s+=`<g stroke="#5b6a76" stroke-width=".6"><line x1="${x0}" y1="${yc}" x2="${x0+w}" y2="${yc}"/><line x1="${x0}" y1="${yc-3}" x2="${x0}" y2="${yc+3}"/><line x1="${x0+w}" y1="${yc-3}" x2="${x0+w}" y2="${yc+3}"/>`+
+     `<line x1="${xc}" y1="${y0}" x2="${xc}" y2="${y0+h}"/><line x1="${xc-3}" y1="${y0}" x2="${xc+3}" y2="${y0}"/><line x1="${xc-3}" y1="${y0+h}" x2="${xc+3}" y2="${y0+h}"/></g>`;
+  const txt=`text-anchor="middle" font-size="7.5" fill="#0f2a3d" font-weight="600" paint-order="stroke" stroke="#f6f8fa" stroke-width="3"`;
+  s+=`<text x="${x0+w/2}" y="${yc-2}" ${txt}>${n2(ancho)}</text>`;
+  s+=`<text x="${xc}" y="${y0+h/2}" dy="2.5" ${txt} transform="rotate(-90 ${xc} ${y0+h/2})">${n2(alto)}</text>`;
+  return s+'</svg>';
+}
+function _hojaSVG(c,x,y,w,h){
+  const solido=c.t==='D';
+  let s=`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${solido?'#dfe5ea':'url(#gv)'}" stroke="#0f2a3d" stroke-width=".8"/>`;
+  if(solido){
+    if(c.duela==='v') for(let xx=x+4;xx<x+w-1;xx+=4) s+=`<line x1="${xx}" y1="${y}" x2="${xx}" y2="${y+h}" stroke="#9aa7b2" stroke-width=".45"/>`;
+    else for(let yy=y+4;yy<y+h-1;yy+=4) s+=`<line x1="${x}" y1="${yy}" x2="${x+w}" y2="${yy}" stroke="#9aa7b2" stroke-width=".45"/>`;
+  } else {
+    s+=`<path d="M${x+w*.12} ${y+h*.45} L${x+w*.45} ${y+h*.1} L${x+w*.55} ${y+h*.1} L${x+w*.12} ${y+h*.56} Z" fill="#fff" opacity=".45"/>`;
+  }
+  const cx=x+w/2,cy=y+h/2,dash='stroke="#0f2a3d" stroke-width=".7" stroke-dasharray="3 2" fill="none"';
+  if(c.t==='C'){const L=Math.min(w*.5,26),d=c.dir==='l'?-1:1;
+    s+=`<line x1="${cx-d*L/2}" y1="${cy}" x2="${cx+d*L/2}" y2="${cy}" stroke="#0f2a3d" stroke-width="1" marker-end="url(#ar)"/>`;}
+  if(c.t==='F') s+=`<text x="${cx}" y="${cy+3}" text-anchor="middle" font-size="8" font-weight="700" fill="#0f2a3d" opacity=".65">F</text>`;
+  if(c.t==='P') s+=`<path d="M${x} ${y+h} L${cx} ${y} L${x+w} ${y+h}" ${dash}/>`;
+  if(c.t==='A'||c.t==='D'){
+    const hx=c.bis==='izq'?x:x+w,ox=c.bis==='izq'?x+w:x;
+    s+=`<path d="M${ox} ${y} L${hx} ${cy} L${ox} ${y+h}" ${dash}/>`;
+    const jx=c.bis==='izq'?x+w-5:x+5;
+    s+=`<rect x="${jx-1}" y="${cy-5}" width="2" height="10" rx="1" fill="#0f2a3d"/>`;
+  }
+  return s;
+}
+// Sobrante de perfil por perfil (metros y costo) según la optimización de cortes
+function sobrantePorPerfil(p){
+  if(!p||!p.partidas)return [];
+  const {mapaPerfiles}=recopilarCortes(p);
+  const out=[];
+  Object.values(mapaPerfiles).forEach(({perfil,cortes})=>{
+    if(!cortes.length)return;
+    const {sobrante}=cuttingStockFFD(cortes,perfil.longitudTramo,CONFIG_CORTE);
+    if(sobrante>0.01) out.push({nombre:perfil.nombre||perfil.clave||'Perfil',clave:perfil.clave||'',m:sobrante,costo:sobrante*(perfil.precioML||0)});
+  });
+  return out.sort((a,b)=>b.costo-a.costo);
+}
+const LOGO_SCAVI_SVG=`<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-label="SCAVi"><defs><linearGradient id="lgv" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7cc6e3"/><stop offset="1" stop-color="#2f8fb5"/></linearGradient><linearGradient id="lga" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4f7f9"/><stop offset="1" stop-color="#b9c6d0"/></linearGradient></defs><rect x="2" y="2" width="60" height="60" rx="12" fill="url(#lga)"/><rect x="9" y="9" width="21" height="46" rx="2.5" fill="url(#lgv)"/><rect x="34" y="9" width="21" height="46" rx="2.5" fill="url(#lgv)"/><path d="M12 26 L24 12 L28 12 L12 31 Z" fill="#fff" opacity=".55"/><path d="M37 40 L51 23 L52 28 L40 42 Z" fill="#fff" opacity=".45"/><rect x="30.5" y="6" width="3" height="52" rx="1.5" fill="#0f2a3d"/></svg>`;
+
+// Se ejecuta DENTRO de la ventana de impresión: reparte las partidas en hojas carta
+function _paginarCotCliente(){
+  const D=window.__COT, IN=96, PAGE_H=11*IN, LIM=PAGE_H-0.85*IN, LIM_FIRMA=PAGE_H-1.62*IN;
+  const root=document.getElementById('root');
+  const pages=[];
+  function nuevaPagina(primera,sinThead){
+    const pg=document.createElement('section');pg.className='page';
+    pg.innerHTML=(primera?D.hero:D.heroMini)+'<div class="content">'+(primera?D.cabecera:'')+(sinThead?'':D.thead)+'</div>'+
+      '<div class="footer"><span><b>SCAVi</b> · '+D.folio+'</span><span class="pnum"></span></div>';
+    root.appendChild(pg);pages.push(pg);
+    return pg.querySelector('.content');
+  }
+  const fondo=(pg,el)=>el.getBoundingClientRect().bottom-pg.getBoundingClientRect().top;
+  let cont=nuevaPagina(true);
+  D.filas.forEach((html,i)=>{
+    const t=document.createElement('div');t.innerHTML=html;const el=t.firstElementChild;
+    cont.appendChild(el);
+    if(fondo(pages[pages.length-1],el)>LIM&&cont.querySelectorAll('.partida').length>1){
+      el.remove();
+      const aviso=document.createElement('div');aviso.className='continua';aviso.textContent='Continúa en la siguiente página →';
+      cont.appendChild(aviso);
+      cont=nuevaPagina(false);cont.appendChild(el);
+    }
+  });
+  const mk=h=>{const t=document.createElement('div');t.innerHTML=h;return t.firstElementChild;};
+  const saltar=()=>{const a=mk('<div class="continua">Continúa en la siguiente página →</div>');cont.appendChild(a);cont=nuevaPagina(false,true);};
+  if(D.sobFilas&&D.sobFilas.length){
+    let tabla=mk(D.sobHead);cont.appendChild(tabla);
+    D.sobFilas.forEach((h,i)=>{
+      const fila=mk('<table><tbody>'+h+'</tbody></table>').querySelector('tr');
+      tabla.querySelector('tbody').appendChild(fila);
+      if(fondo(pages[pages.length-1],fila)>LIM){
+        fila.remove();
+        if(!tabla.querySelector('tbody tr'))tabla.remove();
+        saltar();tabla=mk(D.sobHead);cont.appendChild(tabla);tabla.querySelector('tbody').appendChild(fila);
+      }
+    });
+  }
+  const res=mk(D.resumen);
+  cont.appendChild(res);
+  if(fondo(pages[pages.length-1],res)>LIM_FIRMA){res.remove();saltar();cont.appendChild(res);}
+  pages[pages.length-1].insertAdjacentHTML('beforeend',D.firma);
+  pages.forEach((pg,i)=>{pg.querySelector('.pnum').textContent='Página '+(i+1)+' de '+pages.length;});
+}
+
+function imprimirCotizacionCliente(){
+  if(!proyectoActivo||!proyectoActivo.partidas||!proyectoActivo.partidas.length){
+    toast('Agrega al menos una partida antes de imprimir','error');return;
+  }
+  const p=proyectoActivo;
+  const cli=document.getElementById('cot-cliente'),pry=document.getElementById('cot-proyecto');
+  if(document.getElementById('cot-editor')?.style.display!=='none'){ if(cli)p.cliente=cli.value; if(pry)p.proyecto=pry.value; }
+  const E=v=>_escH(String(v==null?'':v));
+  const n2=v=>(+v||0).toFixed(2);
+  const fecha=new Date().toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'});
+  let total=0,piezas=0,sinDibujo=0;
+  const filas=p.partidas.map((pt,i)=>{
+    const cant=pt.cantidad||1,st=pt.totalPartida||0,pu=cant>0?st/cant:st;
+    total+=st;piezas+=cant;
+    let vid='';
+    if(pt.vidrioDividido){
+      const a=buscarVidrio(pt.vidrioDividido.supId),b=buscarVidrio(pt.vidrioDividido.infId);
+      vid=[a&&a.descripcion,b&&b.descripcion].filter(Boolean).join(' / ');
+    } else { const v=buscarVidrio(pt.vidrioId); vid=v?v.descripcion:''; }
+    const esp=[pt.config&&pt.config!=='—'?'Config. '+pt.config:'',pt.linea,pt.acabado,vid].filter(Boolean).map(E).join(' · ');
+    const dib=dibujoPartida(pt);
+    if(!dib)sinDibujo++;
+    const img=dib?elevacionSVG(pt.ancho,pt.alto,dib):'<span class="sinimg">Sin dibujo</span>';
+    return `<div class="partida">
+      <div><div class="n">${i+1}</div></div>
+      <div>${pt.ubicacion?`<div class="ubi">${E(pt.ubicacion)}</div>`:''}<div class="desc">${E(pt.receta||'Partida')}</div>
+        ${esp?`<div class="esp">${esp}</div>`:''}<span class="med">${n2(pt.ancho)} × ${n2(pt.alto)} m</span></div>
+      <div class="c cant">${cant}</div>
+      <div class="r pu">${fmt(pu)}</div>
+      <div class="r st">${fmt(st)}</div>
+      <div class="img">${img}</div>
+    </div>`;
+  });
+  const sob=sobrantePorPerfil(p);
+  const sm=sob.reduce((t,r)=>t+r.m,0),sc=sob.reduce((t,r)=>t+r.costo,0);
+  const folio=E(p.folio),proyecto=E(p.proyecto||''),cliente=E(p.cliente||'');
+  const hero=`<div class="hero"><div class="logo">${LOGO_SCAVI_SVG}<div><div class="brand">SCAV<span>i</span></div>
+      <div class="tagline">Consultoría Especializada en Proyectos de Aluminio y Vidrio</div></div></div>
+    <div class="doc"><div class="tipo">Cotización de materiales</div><div class="folio">${folio}</div><div class="fecha">Nuevo León, ${fecha}</div></div></div>`;
+  const heroMini=`<div class="hero mini"><div class="logo">${LOGO_SCAVI_SVG}<div class="brand">SCAV<span>i</span></div></div>
+    <div class="doc"><div class="folio">${folio}</div><div class="fecha">${proyecto||cliente}</div></div></div>`;
+  const cabecera=`<div class="titulo">Cotización de Materiales de Aluminio y Vidrio</div>
+    <div class="subtitulo">Servicios Profesionales de Análisis de Costos</div>
+    <div class="datos">
+      ${cliente?`<div><span class="lbl">Cliente</span><b>${cliente}</b></div>`:''}
+      ${proyecto?`<div><span class="lbl">Proyecto</span><b>${proyecto}</b></div>`:''}
+      <div style="flex:.55"><span class="lbl">Partidas</span><b>${p.partidas.length}</b></div>
+      <div style="flex:.55"><span class="lbl">Piezas</span><b>${piezas}</b></div>
+    </div>`;
+  const thead=`<div class="thead"><span>#</span><span>Descripción</span><span class="c">Cant.</span><span class="r">P. unitario</span><span class="r">Subtotal</span><span class="c">Elevación</span></div>`;
+  const SOB_INLINE=6, sobDetalle=sob.length>SOB_INLINE;
+  const filaSob=r=>`<tr><td>${E(r.nombre)}${r.clave&&r.clave!==r.nombre?` <span class="cl">${E(r.clave)}</span>`:''}</td><td class="r mu">${n2(r.m)} m</td><td class="r">${fmt(r.costo)}</td></tr>`;
+  const sobFilas=sobDetalle?sob.map(filaSob):[];
+  const sobHead=`<div class="sobdet"><h3>Sobrante de perfil por tipo <span>optimización de cortes</span></h3><table><thead><tr><th>Perfil</th><th class="r">Sobrante</th><th class="r">Costo</th></tr></thead><tbody></tbody></table></div>`;
+  const tablaSob=sobDetalle?`<tr class="tot"><td>Costo total del sobrante</td><td class="r">${n2(sm)} m</td><td class="r">${fmt(sc)}</td></tr>
+    <tr><td colspan="3" class="mu" style="font-size:8pt">${sob.length} perfiles · detalle por tipo en la tabla anterior.</td></tr>`
+    :sob.length?sob.map(r=>`<tr><td>${E(r.nombre)}${r.clave&&r.clave!==r.nombre?` <span class="cl">${E(r.clave)}</span>`:''}</td><td class="r mu">${n2(r.m)} m</td><td class="r">${fmt(r.costo)}</td></tr>`).join('')+
+    `<tr class="tot"><td>Costo total del sobrante</td><td class="r">${n2(sm)} m</td><td class="r">${fmt(sc)}</td></tr>`
+    :`<tr><td colspan="3" class="mu">Sin sobrante significativo de perfil.</td></tr>`;
+  const resumen=`<div class="resumen">
+      <div class="izq">
+        <div class="box sobr"><h3>Sobrante de perfil del proyecto <span>optimización de cortes</span></h3><table>${tablaSob}</table></div>
+        <div class="legend"><b>Importante:</b> los importes de esta cotización corresponden exclusivamente al <b>costo de material</b>
+          (perfiles de aluminio, vidrio y herrajes) calculado con las medidas y especificaciones proporcionadas.</div>
+      </div>
+      <div class="der">
+        <div class="box"><table class="tots"><tr><td>Partidas</td><td class="r">${p.partidas.length}</td></tr>
+          <tr><td>Piezas totales</td><td class="r">${piezas}</td></tr><tr><td>Subtotal de material</td><td class="r">${fmt(total)}</td></tr></table></div>
+        <div class="total"><div class="lbl"><b>Total de material</b>${folio}</div><div class="amt">${fmt(total)}<small>MXN</small></div></div>
+        <div class="note">Precios vigentes a la fecha de emisión, sujetos a cambio sin previo aviso por parte de los proveedores.</div>
+      </div></div>`;
+  const firma=`<div class="sign"><div><div class="name">Alejandro Solis</div><div class="role">Analista de Costos · SCAVi</div></div>
+    <div class="contact"><div><span class="lbl">Teléfono / WhatsApp</span>81 1178 5641</div>
+    <div><span class="lbl">Oficina</span>Calle Privada Rosendo Ocaña No. 6A,<br>Col. San Jerónimo, Nuevo León</div></div></div>`;
+  const datos={folio,hero,heroMini,cabecera,thead,filas,resumen,firma,sobFilas,sobHead};
+  const css=`@page{size:Letter;margin:0}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"Segoe UI",Arial,sans-serif;color:#14212b;font-size:9.6pt;line-height:1.38;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  @media screen{body{background:#e9edf0}.page{margin:16px auto;box-shadow:0 2px 12px rgba(0,0,0,.15)}}
+  .page{width:8.5in;height:11in;position:relative;overflow:hidden;background:#fff;page-break-after:always;break-after:page}
+  .page:last-child{page-break-after:auto;break-after:auto}
+  .hero{background:#0f2a3d;color:#fff;padding:.3in .6in .24in;position:relative;display:flex;justify-content:space-between;align-items:center}
+  .hero::after{content:"";position:absolute;right:0;top:0;width:3in;height:100%;pointer-events:none;background:linear-gradient(115deg,transparent 0 35%,rgba(47,143,181,.30) 35% 55%,rgba(255,255,255,.07) 55% 70%,transparent 70%)}
+  .hero.mini{padding:.16in .6in}
+  .logo{display:flex;align-items:center;gap:12pt}.logo svg{width:50pt;height:50pt;flex-shrink:0}.hero.mini .logo svg{width:30pt;height:30pt}
+  .brand{font-size:27pt;font-weight:700;letter-spacing:.14em;line-height:1}.hero.mini .brand{font-size:16pt}.brand span{color:#7cc6e3;font-weight:600}
+  .tagline{font-size:9.3pt;font-weight:300;margin-top:4pt;color:#d6e6ee}
+  .doc{text-align:right;position:relative;z-index:1}
+  .doc .tipo{font-size:8pt;letter-spacing:.2em;text-transform:uppercase;border:1px solid rgba(255,255,255,.45);padding:3pt 9pt;border-radius:20pt;display:inline-block}
+  .doc .folio{font-size:13pt;font-weight:700;margin-top:6pt;letter-spacing:.04em}.hero.mini .doc .folio{margin-top:0;font-size:11pt}
+  .doc .fecha{font-size:9pt;color:#d6e6ee;margin-top:1pt}
+  .content{padding:.2in .6in 0}
+  .titulo{font-size:15pt;font-weight:700;color:#0f2a3d}
+  .subtitulo{font-size:9pt;letter-spacing:.14em;text-transform:uppercase;color:#2f8fb5;font-weight:600;margin-top:1pt}
+  .datos{display:flex;margin-top:10pt;border:1px solid #d9e1e7;border-radius:7pt;overflow:hidden}
+  .datos div{flex:1;padding:6pt 11pt;border-right:1px solid #d9e1e7}.datos div:last-child{border-right:none}
+  .datos .lbl{display:block;font-size:7.3pt;letter-spacing:.1em;text-transform:uppercase;color:#5b6a76}.datos b{color:#0f2a3d;font-size:10pt}
+  .thead,.partida{display:grid;grid-template-columns:24pt 1fr 34pt 74pt 80pt 1.55in;gap:0 8pt}
+  .thead{margin-top:12pt;border-bottom:1.5pt solid #0f2a3d;padding:0 0 3pt;font-size:7.6pt;letter-spacing:.08em;text-transform:uppercase;color:#5b6a76}
+  .hero.mini+.content .thead{margin-top:4pt}
+  .partida{align-items:center;border-bottom:1px solid #d9e1e7;padding:7pt 0;min-height:1.2in;break-inside:avoid}
+  .partida .n{font-weight:700;color:#fff;background:#2f8fb5;min-width:20pt;height:20pt;padding:0 3pt;border-radius:10pt;display:flex;align-items:center;justify-content:center;font-size:8.5pt}
+  .partida .ubi{font-size:7.5pt;letter-spacing:.1em;text-transform:uppercase;color:#2f8fb5;font-weight:700}
+  .partida .desc{font-weight:700;color:#0f2a3d;font-size:10.2pt;line-height:1.25}
+  .partida .esp{color:#40505c;font-size:8.6pt;margin-top:2pt}
+  .partida .med{display:inline-block;margin-top:4pt;background:#eef1f4;border-radius:4pt;padding:1pt 6pt;font-size:8.3pt;color:#0f2a3d;font-weight:600}
+  .c{text-align:center}.r{text-align:right;white-space:nowrap}.mu{color:#5b6a76}
+  .partida .cant{font-weight:700;font-size:11pt;color:#0f2a3d}.partida .st{font-weight:700;color:#0f2a3d;font-size:10.4pt}
+  .partida .img{height:1.12in;display:flex;align-items:center;justify-content:center;background:linear-gradient(#fbfcfd,#f3f6f8);border:1px solid #d9e1e7;border-radius:6pt}
+  .partida .img svg{width:100%;height:100%}.sinimg{font-size:8pt;color:#9aa7b2;font-style:italic}
+  .continua{margin-top:6pt;font-size:8.3pt;color:#5b6a76;text-align:right;font-style:italic}
+  .resumen{display:flex;gap:14pt;margin-top:14pt;align-items:stretch}
+  .resumen .izq{flex:1;display:flex;flex-direction:column;gap:9pt}.resumen .der{width:3.25in;display:flex;flex-direction:column;gap:9pt}
+  .box{border:1px solid #d9e1e7;border-radius:8pt;padding:9pt 13pt}.box h3{font-size:10.5pt;color:#0f2a3d;margin-bottom:4pt}
+  .box table{width:100%;border-collapse:collapse;font-size:9pt}.box td{padding:2.5pt 0;border-bottom:1px solid #d9e1e7}.box tr:last-child td{border-bottom:none}
+  .box td+td{padding-left:8pt}.cl{font-size:7.5pt;color:#5b6a76}
+  .sobr{border-left:4pt solid #b7791f}.sobr h3 span{font-size:8pt;font-weight:400;color:#5b6a76;margin-left:4pt}
+  .sobr .tot td{font-weight:700;color:#b7791f;font-size:10pt;padding-top:5pt}
+  .sobdet{margin-top:14pt}.sobdet h3{font-size:10.5pt;color:#0f2a3d;margin-bottom:4pt;border-left:4pt solid #b7791f;padding-left:8pt}.sobdet h3 span{font-size:8pt;font-weight:400;color:#5b6a76;margin-left:4pt}
+  .sobdet table{width:100%;border-collapse:collapse;font-size:9pt}.sobdet th{text-align:left;font-size:7.6pt;letter-spacing:.08em;text-transform:uppercase;color:#5b6a76;border-bottom:1.5pt solid #0f2a3d;padding:3pt 6pt}
+  .sobdet td{padding:2.6pt 6pt;border-bottom:1px solid #d9e1e7}.sobdet th.r{text-align:right}
+  .tots td{padding:4pt 0;font-size:9.6pt}
+  .total{background:#0f2a3d;color:#fff;border-radius:8pt;padding:11pt 16pt;display:flex;justify-content:space-between;align-items:center;gap:12pt}
+  .total .lbl{font-size:9pt;color:#d6e6ee;white-space:nowrap}.total .lbl b{display:block;color:#fff;font-size:11pt}
+  .total .amt{white-space:nowrap;font-size:16pt;font-weight:700}.total .amt small{font-size:9.5pt;font-weight:400;color:#d6e6ee;margin-left:3pt}
+  .legend{background:#e8f3f8;border-left:4pt solid #2f8fb5;border-radius:6pt;padding:8pt 12pt;font-size:8.7pt;color:#24414f}.legend b{color:#0f2a3d}
+  .note{background:#eef1f4;border-radius:6pt;padding:7pt 11pt;font-size:8.4pt;color:#33434f}
+  .sign{position:absolute;left:.6in;right:.6in;bottom:.6in;padding-top:9pt;border-top:1px solid #d9e1e7;display:flex;justify-content:space-between;gap:16pt;align-items:flex-end}
+  .sign .name{font-size:11.5pt;font-weight:700;color:#0f2a3d}.sign .role{color:#5b6a76;font-size:9.2pt}
+  .contact{display:flex;gap:20pt;font-size:9pt}.contact .lbl{display:block;font-size:7.5pt;letter-spacing:.1em;text-transform:uppercase;color:#5b6a76}
+  .footer{position:absolute;bottom:0;left:0;right:0;padding:9pt .6in;border-top:1px solid #d9e1e7;display:flex;justify-content:space-between;font-size:8pt;color:#5b6a76}.footer b{color:#0f2a3d}`;
+  const html=`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Cotización ${folio}</title><style>${css}</style></head>
+  <body><div id="root"></div>
+  <script>window.__COT=${JSON.stringify(datos).replace(/</g,'\\u003c')};(${_paginarCotCliente.toString()})();<\/script></body></html>`;
+  const win=window.open('','_blank','width=960,height=800');
+  if(!win){toast('Permite las ventanas emergentes (pop-ups) para imprimir','error');return;}
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  if(sinDibujo) toast(`${sinDibujo} partida(s) sin dibujo: asigna el tipo de dibujo en la receta`,'error');
+  setTimeout(()=>win.print(),600);
+}
+
 function imprimirListaMaterial(){
   if(!matProyectoActivo)return;
   const p=proyectoMatFiltrado();
