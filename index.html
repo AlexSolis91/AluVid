@@ -1398,7 +1398,7 @@ onAuthStateChanged(_auth, async (user) => {
 window._cache = {};
 
 // ── Versión de la app (subir en cada deploy con fixes) ─────────
-const APP_VERSION = '1.27.0';
+const APP_VERSION = '1.27.1';
 
 window.cerrarSesionApp = function() {
   if ((DB._pending > 0 || _proyHayCambios()) &&
@@ -6087,6 +6087,7 @@ const DIBUJOS_COT=[
   ['corrediza_fijo_sup', 'Corrediza con fijo superior'],
   ['fijo', 'Fijo'],
   ['proyectante', 'Proyectante'],
+  ['vasista', 'Vasista'],
   ['fijo_proyectante', 'Fijo con proyectante inferior'],
   ['abatible', 'Abatible 1 hoja (ventana o puerta)'],
   ['abatible_doble', 'Abatible 2 hojas'],
@@ -6151,6 +6152,7 @@ function dibujoPartida(partida){
     corrediza_fijo_sup:[{h:.3,cols:[F]},{h:.7,cols:_hojasCorrediza(partida.config)}],
     fijo:[{h:1,cols:Array.from({length:_modulos(partida.config)},()=>F)}],
     proyectante:[{h:1,cols:[P]}],
+    vasista:[{h:1,cols:[{t:'V'}]}],
     fijo_proyectante:[{h:.65,cols:[F]},{h:.35,cols:[P]}],
     abatible:[{h:1,cols:[{t:'A',bis:'izq'}]}],
     abatible_doble:[{h:1,cols:[{t:'A',bis:'izq'},{t:'A',bis:'der'}]}],
@@ -6207,7 +6209,8 @@ function _hojaSVG(c,x,y,w,h){
   if(c.t==='C'){const L=Math.min(w*.5,26),d=c.dir==='l'?-1:1;
     s+=`<line x1="${cx-d*L/2}" y1="${cy}" x2="${cx+d*L/2}" y2="${cy}" stroke="#0f2a3d" stroke-width="1" marker-end="url(#ar)"/>`;}
   if(c.t==='F') s+=`<text x="${cx}" y="${cy+3}" text-anchor="middle" font-size="8" font-weight="700" fill="#0f2a3d" opacity=".65">F</text>`;
-  if(c.t==='P') s+=`<path d="M${x} ${y+h} L${cx} ${y} L${x+w} ${y+h}" ${dash}/>`;
+  if(c.t==='P') s+=`<path d="M${x} ${y} L${cx} ${y+h} L${x+w} ${y}" ${dash}/>`;  // proyectante: V con vértice abajo
+  if(c.t==='V') s+=`<path d="M${x} ${y+h} L${cx} ${y} L${x+w} ${y+h}" ${dash}/>`;  // vasista: vértice arriba
   if(c.t==='A'||c.t==='D'){
     const hx=c.bis==='izq'?x:x+w,ox=c.bis==='izq'?x+w:x;
     s+=`<path d="M${ox} ${y} L${hx} ${cy} L${ox} ${y+h}" ${dash}/>`;
