@@ -1398,7 +1398,7 @@ onAuthStateChanged(_auth, async (user) => {
 window._cache = {};
 
 // ── Versión de la app (subir en cada deploy con fixes) ─────────
-const APP_VERSION = '1.27.1';
+const APP_VERSION = '1.27.2';
 
 window.cerrarSesionApp = function() {
   if ((DB._pending > 0 || _proyHayCambios()) &&
@@ -6132,7 +6132,7 @@ function _hojasCorrediza(cfg){
 // Número de módulos de un fijo a partir de la configuración (ej. "2 MODULOS")
 function _modulos(cfg){
   const n=parseInt((String(cfg||'').match(/(\d+)\s*M[OÓ]DUL/i)||[])[1]);
-  return n>=1&&n<=8?n:1;
+  return n>=1?Math.min(n,30):1;
 }
 function dibujoPartida(partida){
   // Partidas antiguas no guardan recetaId/configIdx: se buscan por nombre
@@ -6208,7 +6208,7 @@ function _hojaSVG(c,x,y,w,h){
   const cx=x+w/2,cy=y+h/2,dash='stroke="#0f2a3d" stroke-width=".7" stroke-dasharray="3 2" fill="none"';
   if(c.t==='C'){const L=Math.min(w*.5,26),d=c.dir==='l'?-1:1;
     s+=`<line x1="${cx-d*L/2}" y1="${cy}" x2="${cx+d*L/2}" y2="${cy}" stroke="#0f2a3d" stroke-width="1" marker-end="url(#ar)"/>`;}
-  if(c.t==='F') s+=`<text x="${cx}" y="${cy+3}" text-anchor="middle" font-size="8" font-weight="700" fill="#0f2a3d" opacity=".65">F</text>`;
+  if(c.t==='F'&&w>=9) s+=`<text x="${cx}" y="${cy+3}" text-anchor="middle" font-size="8" font-weight="700" fill="#0f2a3d" opacity=".65">F</text>`;
   if(c.t==='P') s+=`<path d="M${x} ${y} L${cx} ${y+h} L${x+w} ${y}" ${dash}/>`;  // proyectante: V con vértice abajo
   if(c.t==='V') s+=`<path d="M${x} ${y+h} L${cx} ${y} L${x+w} ${y+h}" ${dash}/>`;  // vasista: vértice arriba
   if(c.t==='A'||c.t==='D'){
