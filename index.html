@@ -1398,7 +1398,7 @@ onAuthStateChanged(_auth, async (user) => {
 window._cache = {};
 
 // ── Versión de la app (subir en cada deploy con fixes) ─────────
-const APP_VERSION = '1.29.0';
+const APP_VERSION = '1.30.0';
 
 window.cerrarSesionApp = function() {
   if ((DB._pending > 0 || _proyHayCambios()) &&
@@ -6169,7 +6169,8 @@ function dibujoPartida(partida){
       const relleno=cond.CON_LOUVER_50?'louver50':(cond.CON_DUELA_50||cond.CON_DUELA_50_2C)?'duela50'
         :cond.CON_LOUVER?'louver':(cond.CON_DUELA_1C||cond.CON_DUELA_2C)?'duela':'vidrio';
       const inter=(cond.CON_INTERMEDIO_4_1H||cond.CON_INTERMEDIO_4_2H)?2:(cond.CON_INTERMEDIO_1H||cond.CON_INTERMEDIO_2H)?1:0;
-      const hoja=bis=>({t:'B',bis,relleno,duela,inter});
+      const perf=perfilesBatiente(partida), herr=herrajesPrincipales(partida);
+      const hoja=bis=>({t:'B',bis,relleno,duela,inter,perf,herr});
       return [{h:1,cols:doble?[hoja('izq'),hoja('der')]:[hoja('izq')]}];
     })(),
     hoja_corrediza:(()=>{
@@ -6178,14 +6179,107 @@ function dibujoPartida(partida){
       const relleno=cond.CON_LOUVER_50?'louver50':(cond.CON_DUELA_50||cond.CON_DUELA_50_2C)?'duela50'
         :cond.CON_LOUVER?'louver':(cond.CON_DUELA_1C||cond.CON_DUELA_2C)?'duela':'vidrio';
       const inter=(cond.CON_INTERMEDIO_4_1H||cond.CON_INTERMEDIO_4_2H)?2:(cond.CON_INTERMEDIO_1H||cond.CON_INTERMEDIO_2H)?1:0;
-      return [{h:1,cols:Array.from({length:n},(_,i)=>({t:'B',mov:'slide',bis:(n===2&&i===1)?'der':'izq',relleno,duela,inter}))}];
+      const perf=perfilesBatiente(partida);
+      return [{h:1,cols:Array.from({length:n},(_,i)=>({t:'B',mov:'slide',bis:(n===2&&i===1)?'der':'izq',relleno,duela,inter,perf}))}];
     })(),
     oscilobatiente:(()=>{
       const doble=/DOBLE|2\s*HOJ/i.test(String(partida.config||''));
       return [{h:1,cols:doble?[{t:'O',bis:'izq'},{t:'O',bis:'der'}]:[{t:'O',bis:'izq'}]}];
     })()
   }[tipo];
-  return filas?{filas}:null;
+  if(!filas)return null;
+  if(tipo==='puerta_batiente'){
+    // Vano de puerta: marco (batiente) arriba y a los lados, sin marco abajo; Panorama lleva además U de tubo rectangular
+    const pf=perfilesBatiente(partida), pano=/PANORAMA/i.test(nom);
+    const tubo=pf.tubo||(pano?3*PULG:0);
+    return {filas,puerta:{marco:pf.marco||1.5*PULG,tubo}};
+  }
+  return {filas};
+}
+// ── Puertas batientes: medidas reales de perfiles (cara visible, pulgadas; catálogos Cuprum) ──
+const PULG=0.0254;
+const MEDIDAS_BATIENTE={
+  // cercos (largueros de la hoja)
+  '12542':{p:'cerco',in:2.125}, '12544':{p:'cerco',in:4.0}, '59204':{p:'cerco',in:2.125}, '62046':{p:'cerco',in:2.063},
+  // cabezal (travesaño superior de la hoja)
+  '12545':{p:'cabezal',in:2.062}, '29207':{p:'cabezal',in:2.062},
+  // zoclos (travesaño inferior)
+  '12562':{p:'zoclo',in:4.0}, '12596':{p:'zoclo',in:6.0}, '67739':{p:'zoclo',in:10.0}, '59187':{p:'zoclo',in:3.125}, '62038':{p:'zoclo',in:4.669},
+  // intermedios
+  '12569':{p:'inter',in:1.77}, '12602':{p:'inter',in:4.0}, '29183':{p:'inter',in:1.688},
+  // marco / batiente (contramarco del vano)
+  '12617':{p:'marco',in:1.5}, '12756':{p:'marco',in:1.5}, '5115':{p:'marco',in:1.0}, '62035':{p:'marco',in:2.047}
+};
+// Lee del desglose de la partida qué perfiles lleva y su medida visible (en metros)
+function perfilesBatiente(partida){
+  const out={};
+  (partida.desglose||[]).forEach(l=>{
+    if(l.tipo!=='Perfil'||l.activo===false)return;
+    const lab=String(l.label||'');
+    const nom=lab.split('—').slice(1).join('—').toUpperCase();
+    const m=lab.match(/(\d{4,6})(?:-\w+)?\s*—/);
+    let clave=m?m[1]:'';
+    if(clave.length===6&&clave[0]==='4'&&!MEDIDAS_BATIENTE[clave])clave=clave.slice(1); // variantes 4xxxxx
+    let med=MEDIDAS_BATIENTE[clave];
+    if(!med){ // por nombre, si la clave no está en la tabla
+      const pul=(nom.match(/(\d+(?:\.\d+)?)\s*"/)||[])[1];
+      if(/ZOCLO/.test(nom)&&pul)med={p:'zoclo',in:+pul};
+      else if(/CERCO CHAPA LUJO/.test(nom))med={p:'cerco',in:4};
+    }
+    if(/TUBO RECT/.test(nom)){const t=(nom.match(/TUBO RECT\.?\s*(\d+(?:\.\d+)?)\s*"/)||[])[1]; if(t)out.tubo=Math.max(out.tubo||0,+t*PULG);}
+    if(!med)return;
+    out[med.p]=Math.max(out[med.p]||0,med.in*PULG);
+    if(med.p==='zoclo'&&(/LUJO/.test(nom)||clave==='12596'||clave==='67739'))out.lujo=true;
+  });
+  // Travesaño superior: cabezal; en residencial (zoclo lujo) va el mismo zoclo arriba; si no, el cerco
+  if(out.cerco||out.zoclo) out.sup=out.cabezal||(out.lujo?out.zoclo:out.cerco)||out.zoclo;
+  return out;
+}
+// Herrajes principales de puertas batientes: [regex, clave, nombre]
+const HERRAJES_PRINCIPALES=[
+  [/BISAGRA.*HIDR|HIDR.*PISO/,'piso_h','Bisagra hidráulica de piso'],
+  [/BISAGRA DE PISO/,'piso','Bisagra de piso'],
+  [/BISAGRA DE LIBRO/,'libro','Bisagra de libro'],
+  [/PIVOTE/,'pivote','Bisagra de pivote'],
+  [/BISAGRA/,'bisagra','Bisagra de pivote'],
+  [/CIERRAPUERTA/,'cierra','Cierrapuertas aéreo'],
+  [/TIPO\s*H\b/,'jal_h','Jaladera tipo H'],
+  [/CHIVAS/,'jal_chiv','Jaladera de chivaso'],
+  [/TIPO\s*C\b/,'jal_c','Jaladera tipo C'],
+  [/TROMPA/,'jal_trompa','Jaladera trompa de elefante'],
+  [/BARRA DE EMPUJE/,'barra','Barra de empuje'],
+  [/CHAPA.*SIN MANIJA/,'chapa_sin','Chapa sin manija'],
+  [/CHAPA DE PISO/,'chapa_piso','Chapa de piso'],
+  [/CHAPA.*(MANIJA|PALETA)/,'chapa_man','Chapa de manija'],
+  [/CERRADURA CILINDRICA/,'cilindrica','Cerradura cilíndrica'],
+  [/PASADOR DE MAROMA/,'maroma','Pasador de maroma']
+];
+// Medida de una jaladera a partir del nombre ("1.50 MTS", "100 CM", "50CM", "30 CM") → metros
+function _medidaJaladera(t){
+  const m=t.match(/(\d+(?:\.\d+)?)\s*(MTS?|M\b|CM)/);
+  if(!m)return 0;
+  return /CM/.test(m[2])?(+m[1])/100:+m[1];
+}
+function herrajesPrincipales(partida){
+  const vistos={},lista=[];
+  (partida.desglose||[]).forEach(l=>{
+    if(l.tipo!=='Herraje'||l.activo===false)return;
+    const t=String(l.label||'').toUpperCase().replace(/\[[^\]]*\]/g,' ');
+    const h=HERRAJES_PRINCIPALES.find(([re])=>re.test(t));
+    if(!h)return;
+    const med=/^jal_/.test(h[1])?_medidaJaladera(t):0;
+    const key=h[1]+'|'+med;
+    if(vistos[key])return; vistos[key]=1;
+    lista.push({k:h[1],nombre:h[2],med});
+  });
+  return lista;
+}
+function textoHerrajesPrincipales(partida){
+  return herrajesPrincipales(partida).map(h=>h.nombre+(h.med?` ${h.med>=1?h.med.toFixed(2)+' m':Math.round(h.med*100)+' cm'}`:'')).join(' · ');
+}
+function esPuertaBatiente(partida){
+  const n=String(partida.receta||'').toUpperCase();
+  return n.includes('BATIENTE')&&!n.includes('VENTANA')&&!n.includes('OSCILO');
 }
 // Elevación SVG proporcional con cotas (ancho abajo, alto a la izquierda)
 function elevacionSVG(ancho,alto,dib){
@@ -6201,17 +6295,24 @@ function elevacionSVG(ancho,alto,dib){
     `<marker id="ar" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#0f2a3d"/></marker>`+
     `<marker id="ar2" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto-start-reverse"><path d="M0,0 L6,3 L0,6 Z" fill="#0f2a3d"/></marker></defs>`;
   s+=`<rect x="${x0}" y="${y0}" width="${w}" height="${h}" fill="#c3ccd4" stroke="#0f2a3d" stroke-width="1.1"/>`;
-  const ih=h-2*fr,iw=w-2*fr,nf=dib.filas.length;
-  let y=y0+fr;
+  let fT=fr,fS=fr,fB=fr;
+  if(dib.puerta){ // marco real de la puerta: arriba y lados (+ tubo en U), abajo el piso
+    const pm=dib.puerta, t=pm.tubo*k, m=Math.max(1.2,pm.marco*k);
+    fT=fS=t+m; fB=0;
+    if(t) s+=`<path d="M${x0+t} ${y0+h} V${y0+t} H${x0+w-t} V${y0+h}" fill="none" stroke="#0f2a3d" stroke-width=".6"/>`;
+    s+=`<line x1="${x0-4}" y1="${y0+h}" x2="${x0+w+4}" y2="${y0+h}" stroke="#0f2a3d" stroke-width="1.2"/>`;
+  }
+  const ih=h-fT-fB,iw=w-2*fS,nf=dib.filas.length;
+  let y=y0+fT;
   dib.filas.forEach((fila,fi)=>{
-    const fh=ih*fila.h;let x=x0+fr;
+    const fh=ih*fila.h;let x=x0+fS;
     const totW=fila.cols.reduce((t,c)=>t+(c.w||1),0),g=fr*.55;
     fila.cols.forEach((c,ci)=>{
       const cw=iw*(c.w||1)/totW;
       const px=x+(ci?g/2:0),py=y+(fi?g/2:0);
       const pw=cw-(ci?g/2:0)-(ci<fila.cols.length-1?g/2:0);
       const ph=fh-(fi?g/2:0)-(fi<nf-1?g/2:0);
-      s+=_hojaSVG(c,px,py,pw,ph);x+=cw;
+      s+=_hojaSVG(c,px,py,pw,ph,k);x+=cw;
     });
     y+=fh;
   });
@@ -6223,8 +6324,8 @@ function elevacionSVG(ancho,alto,dib){
   s+=`<text x="${xc}" y="${y0+h/2}" dy="2.5" ${txt} transform="rotate(-90 ${xc} ${y0+h/2})">${n2(alto)}</text>`;
   return s+'</svg>';
 }
-function _hojaSVG(c,x,y,w,h){
-  if(c.t==='B') return _hojaBatienteSVG(c,x,y,w,h);
+function _hojaSVG(c,x,y,w,h,k){
+  if(c.t==='B') return _hojaBatienteSVG(c,x,y,w,h,k);
   const solido=c.t==='D';
   let s=`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${solido?'#dfe5ea':'url(#gv)'}" stroke="#0f2a3d" stroke-width=".8"/>`;
   if(solido){
@@ -6266,40 +6367,104 @@ function sobrantePorPerfil(p){
   });
   return out.sort((a,b)=>b.costo-a.costo);
 }
-// Hoja de puerta batiente: vidrio, duela o louver (completo o 50% inferior), travesaño intermedio y abatimiento
-function _hojaBatienteSVG(c,x,y,w,h){
+// Hoja de puerta batiente: perfiles a escala (cerco/cabezal/zoclo), relleno, travesaño, abatimiento y herrajes
+function _hojaBatienteSVG(c,x,y,w,h,k){
+  k=k||0;
   const mitad=c.relleno==='duela50'||c.relleno==='louver50';
   const tipoR=c.relleno.replace('50','');            // vidrio | duela | louver
-  const yR=mitad?y+h/2:y;                             // inicio del relleno opaco
-  let s=`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="url(#gv)" stroke="#0f2a3d" stroke-width=".8"/>`;
+  const P=c.perf||{};
+  let s='';
+  // Hoja: marco de aluminio a escala real y claro interior
+  let ix=x,iy=y,iw=w,ih=h;
+  if(k&&P.cerco){
+    const cS=Math.max(1.2,P.cerco*k),cT=Math.max(1.2,(P.sup||P.cerco)*k),cB=Math.max(1.2,(P.zoclo||P.cerco)*k);
+    s+=`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#c3ccd4" stroke="#0f2a3d" stroke-width=".7"/>`;
+    ix=x+cS;iy=y+cT;iw=Math.max(2,w-2*cS);ih=Math.max(2,h-cT-cB);
+  }
+  const yMid=iy+ih/2,yR=mitad?yMid:iy;
+  s+=`<rect x="${ix}" y="${iy}" width="${iw}" height="${ih}" fill="url(#gv)" stroke="#0f2a3d" stroke-width=".6"/>`;
   if(tipoR==='vidrio'||mitad)
-    s+=`<path d="M${x+w*.12} ${y+h*(mitad?.25:.45)} L${x+w*.45} ${y+h*.06} L${x+w*.55} ${y+h*.06} L${x+w*.12} ${y+h*(mitad?.32:.56)} Z" fill="#fff" opacity=".45"/>`;
+    s+=`<path d="M${ix+iw*.12} ${iy+ih*(mitad?.25:.45)} L${ix+iw*.45} ${iy+ih*.06} L${ix+iw*.55} ${iy+ih*.06} L${ix+iw*.12} ${iy+ih*(mitad?.32:.56)} Z" fill="#fff" opacity=".45"/>`;
   if(tipoR!=='vidrio'){
-    const hR=y+h-yR;
-    s+=`<rect x="${x}" y="${yR}" width="${w}" height="${hR}" fill="#dfe5ea" stroke="#0f2a3d" stroke-width=".8"/>`;
+    const yB=iy+ih;
+    s+=`<rect x="${ix}" y="${yR}" width="${iw}" height="${yB-yR}" fill="#dfe5ea" stroke="#0f2a3d" stroke-width=".6"/>`;
     if(tipoR==='duela'){
-      if(c.duela==='v') for(let xx=x+4;xx<x+w-1;xx+=4) s+=`<line x1="${xx}" y1="${yR}" x2="${xx}" y2="${y+h}" stroke="#9aa7b2" stroke-width=".45"/>`;
-      else for(let yy=yR+4;yy<y+h-1;yy+=4) s+=`<line x1="${x}" y1="${yy}" x2="${x+w}" y2="${yy}" stroke="#9aa7b2" stroke-width=".45"/>`;
-    } else { // louver: tablillas inclinadas
-      for(let yy=yR+3;yy<y+h-2;yy+=4.5){
-        s+=`<line x1="${x}" y1="${yy}" x2="${x+w}" y2="${yy}" stroke="#6f7f8c" stroke-width=".55"/>`;
-        s+=`<line x1="${x}" y1="${yy+1.3}" x2="${x+w}" y2="${yy+1.3}" stroke="#b8c3cc" stroke-width=".9"/>`;
+      if(c.duela==='v') for(let xx=ix+4;xx<ix+iw-1;xx+=4) s+=`<line x1="${xx}" y1="${yR}" x2="${xx}" y2="${yB}" stroke="#9aa7b2" stroke-width=".45"/>`;
+      else for(let yy=yR+4;yy<yB-1;yy+=4) s+=`<line x1="${ix}" y1="${yy}" x2="${ix+iw}" y2="${yy}" stroke="#9aa7b2" stroke-width=".45"/>`;
+    } else {
+      for(let yy=yR+3;yy<yB-2;yy+=4.5){
+        s+=`<line x1="${ix}" y1="${yy}" x2="${ix+iw}" y2="${yy}" stroke="#6f7f8c" stroke-width=".55"/>`;
+        s+=`<line x1="${ix}" y1="${yy+1.3}" x2="${ix+iw}" y2="${yy+1.3}" stroke="#b8c3cc" stroke-width=".9"/>`;
       }
     }
   }
-  // travesaño: divide vidrio/relleno en las de 50% o marca el intermedio
+  // travesaño intermedio (o división de las de 50%) a escala
   if(mitad||c.inter){
-    const g=c.inter===2?3.6:2.2;
-    s+=`<rect x="${x}" y="${y+h/2-g/2}" width="${w}" height="${g}" fill="#c3ccd4" stroke="#0f2a3d" stroke-width=".5"/>`;
+    const g=k&&(P.inter||c.inter)?Math.max(1.6,((c.inter===2?4:0)*PULG||P.inter||1.77*PULG)*k):(c.inter===2?3.6:2.2);
+    s+=`<rect x="${ix}" y="${yMid-g/2}" width="${iw}" height="${g}" fill="#c3ccd4" stroke="#0f2a3d" stroke-width=".5"/>`;
   }
   const cy=y+h/2,hx=c.bis==='izq'?x:x+w,ox=c.bis==='izq'?x+w:x;
   if(c.mov==='slide'){
-    const ay=(mitad||c.inter)?y+h/4:cy, L=Math.min(w*.55,30);
-    s+=`<line x1="${x+w/2-L/2}" y1="${ay}" x2="${x+w/2+L/2}" y2="${ay}" stroke="#0f2a3d" stroke-width="1" marker-start="url(#ar2)" marker-end="url(#ar2)"/>`;
+    const ay=(mitad||c.inter)?iy+ih/4:cy, L=Math.min(iw*.55,30);
+    s+=`<line x1="${ix+iw/2-L/2}" y1="${ay}" x2="${ix+iw/2+L/2}" y2="${ay}" stroke="#0f2a3d" stroke-width="1" marker-start="url(#ar2)" marker-end="url(#ar2)"/>`;
   } else s+=`<path d="M${ox} ${y} L${hx} ${cy} L${ox} ${y+h}" stroke="#0f2a3d" stroke-width=".7" stroke-dasharray="3 2" fill="none"/>`;
+  if(c.herr&&c.herr.length&&k) return s+_herrajesBatienteSVG(c,x,y,w,h,k);
   const jx=c.bis==='izq'?x+w-5:x+5;
-  const jy=c.mov==='slide'?((mitad||c.inter)?y+h/4:cy)+4:(mitad||c.inter)?cy-13:cy-5;   // jaladera: abajo de la flecha / arriba del travesaño
+  const jy=c.mov==='slide'?((mitad||c.inter)?iy+ih/4:cy)+4:(mitad||c.inter)?cy-13:cy-5;   // jaladera: abajo de la flecha / arriba del travesaño
   s+=`<rect x="${jx-1}" y="${jy}" width="2" height="10" rx="1" fill="#0f2a3d"/>`;
+  return s;
+}
+// Herrajes principales dibujados a escala sobre la hoja (piso = parte baja de la hoja)
+function _herrajesBatienteSVG(c,x,y,w,h,k){
+  const T=new Set(c.herr.map(hh=>hh.k)), med=key=>(c.herr.find(hh=>hh.k===key)||{}).med||0;
+  const izq=c.bis==='izq', d=izq?1:-1, hx=izq?x:x+w, ox=izq?x+w:x, piso=y+h, at=m=>piso-m*k;
+  const ink='#0f2a3d', acero='#7b8a96';
+  let s='';
+  // Bisagras en el canto de la bisagra
+  if(T.has('bisagra')||T.has('libro')){
+    const bh=Math.max(3,.1*k);
+    [y+.12*h, y+h/2-bh/2, piso-.12*h-bh].forEach(by=>{ s+=`<rect x="${hx-(izq?0:2.2)}" y="${by}" width="2.2" height="${bh}" fill="${ink}"/>`; });
+  }
+  if(T.has('pivote')){
+    const px=hx+d*Math.max(2.5,.06*k);
+    s+=`<circle cx="${px}" cy="${y+1.8}" r="1.4" fill="${ink}"/><circle cx="${px}" cy="${piso-1.8}" r="1.4" fill="${ink}"/>`;
+  }
+  if(T.has('piso_h')||T.has('piso')){   // caja de cimentación bajo el piso + herraje superior
+    const L=Math.max(8,.30*k), bx=izq?hx+1:hx-1-L;
+    s+=`<rect x="${bx}" y="${piso+.8}" width="${L}" height="2.6" rx=".6" fill="${acero}" stroke="${ink}" stroke-width=".4"/>`;
+    s+=`<rect x="${izq?hx+1:hx-1-Math.max(4,.1*k)}" y="${y+.6}" width="${Math.max(4,.1*k)}" height="2" fill="${ink}"/>`;
+  }
+  if(T.has('cierra')){                  // cierrapuertas aéreo + brazo
+    const L=Math.max(8,.32*k), bx=izq?hx+2:hx-2-L, by=y+Math.max(2,.04*k);
+    s+=`<rect x="${bx}" y="${by}" width="${L}" height="2.6" rx=".8" fill="${acero}" stroke="${ink}" stroke-width=".4"/>`;
+    s+=`<line x1="${izq?bx+L:bx}" y1="${by+1.3}" x2="${izq?bx+L+L*.5:bx-L*.5}" y2="${by+.2}" stroke="${ink}" stroke-width=".8"/>`;
+  }
+  // Jaladeras / manijas del lado de la chapa (centradas a 1.05 m)
+  const jx=ox-d*Math.max(3,.07*k), hc=Math.min(1.05,(piso-y)/k*.6);
+  const vbar=(L,shape)=>{
+    const L2=Math.min(L*k,(piso-y)*.9), y1=Math.max(y+2,at(hc)-L2/2), y2=y1+L2;
+    if(shape==='c') return `<path d="M${jx} ${y1} q${-d*3} 0 ${-d*3} 3 v${L2-6} q0 3 ${d*3} 3" stroke="${ink}" stroke-width="1.3" fill="none"/>`;
+    return `<line x1="${jx}" y1="${y1}" x2="${jx}" y2="${y2}" stroke="${ink}" stroke-width="1.7" stroke-linecap="round"/>`+
+      `<line x1="${jx}" y1="${y1+1}" x2="${jx+d*2}" y2="${y1+1}" stroke="${ink}" stroke-width=".8"/><line x1="${jx}" y1="${y2-1}" x2="${jx+d*2}" y2="${y2-1}" stroke="${ink}" stroke-width=".8"/>`;
+  };
+  if(T.has('jal_h')) s+=vbar(med('jal_h')||1.0);
+  if(T.has('jal_chiv')) s+=vbar(med('jal_chiv')||.30);
+  if(T.has('jal_c')) s+=vbar(med('jal_c')||.30,'c');
+  if(T.has('jal_trompa')) s+=vbar(.20,'c');
+  if(T.has('barra')){
+    const by=at(1.0); s+=`<rect x="${x+w*.12}" y="${by-1}" width="${w*.76}" height="2" rx="1" fill="${ink}"/>`;
+  }
+  const conJal=T.has('jal_h')||T.has('jal_chiv')||T.has('jal_c')||T.has('jal_trompa');
+  const cx=ox-d*(Math.max(3,.06*k)+(conJal?5:0)), cyl=at(conJal?.9:1.05);   // con jaladera, la chapa se recorre hacia adentro
+  if(T.has('chapa_man')){
+    s+=`<circle cx="${cx}" cy="${cyl}" r="1.4" fill="${ink}"/><line x1="${cx}" y1="${cyl}" x2="${cx+d*Math.max(4,.12*k)}" y2="${cyl}" stroke="${ink}" stroke-width="1.3" stroke-linecap="round"/>`;
+  } else if(T.has('chapa_sin')) s+=`<circle cx="${cx}" cy="${cyl}" r="1.4" fill="${ink}"/>`;
+  if(T.has('cilindrica')) s+=`<circle cx="${cx}" cy="${at(.95)}" r="2" fill="${acero}" stroke="${ink}" stroke-width=".6"/>`;
+  if(T.has('chapa_piso')) s+=`<rect x="${ox-d*Math.max(4,.1*k)-1}" y="${piso-4}" width="2" height="3.4" fill="${ink}"/>`;
+  if(T.has('maroma')) s+=`<rect x="${ox-d*2.2-.7}" y="${y+2}" width="1.4" height="4" fill="${ink}"/>`;
+  // Sin jaladera ni chapa reconocida: jaladera genérica
+  if(!['jal_h','jal_chiv','jal_c','jal_trompa','barra','chapa_man','chapa_sin','cilindrica'].some(t=>T.has(t)))
+    s+=`<rect x="${(izq?x+w-5:x+5)-1}" y="${y+h/2-5}" width="2" height="10" rx="1" fill="${ink}"/>`;
   return s;
 }
 const LOGO_SCAVI_SVG=`<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-label="SCAVi"><defs><linearGradient id="lgv" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7cc6e3"/><stop offset="1" stop-color="#2f8fb5"/></linearGradient><linearGradient id="lga" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4f7f9"/><stop offset="1" stop-color="#b9c6d0"/></linearGradient></defs><rect x="2" y="2" width="60" height="60" rx="12" fill="url(#lga)"/><rect x="9" y="9" width="21" height="46" rx="2.5" fill="url(#lgv)"/><rect x="34" y="9" width="21" height="46" rx="2.5" fill="url(#lgv)"/><path d="M12 26 L24 12 L28 12 L12 31 Z" fill="#fff" opacity=".55"/><path d="M37 40 L51 23 L52 28 L40 42 Z" fill="#fff" opacity=".45"/><rect x="30.5" y="6" width="3" height="52" rx="1.5" fill="#0f2a3d"/></svg>`;
@@ -6369,13 +6534,14 @@ function imprimirCotizacionCliente(){
       vid=[a&&a.descripcion,b&&b.descripcion].filter(Boolean).join(' / ');
     } else { const v=buscarVidrio(pt.vidrioId); vid=v?v.descripcion:''; }
     const esp=[pt.config&&pt.config!=='—'?'Config. '+pt.config:'',pt.linea,pt.acabado,vid].filter(Boolean).map(E).join(' · ');
+    const herrTxt=esPuertaBatiente(pt)?textoHerrajesPrincipales(pt):'';
     const dib=dibujoPartida(pt);
     if(!dib)sinDibujo++;
     const img=dib?elevacionSVG(pt.ancho,pt.alto,dib):'<span class="sinimg">Sin dibujo</span>';
     return `<div class="partida">
       <div><div class="n">${i+1}</div></div>
       <div>${pt.ubicacion?`<div class="ubi">${E(pt.ubicacion)}</div>`:''}<div class="desc">${E(pt.receta||'Partida')}</div>
-        ${esp?`<div class="esp">${esp}</div>`:''}<span class="med">${n2(pt.ancho)} × ${n2(pt.alto)} m</span></div>
+        ${esp?`<div class="esp">${esp}</div>`:''}${herrTxt?`<div class="esp"><b>Herrajes:</b> ${E(herrTxt)}</div>`:''}<span class="med">${n2(pt.ancho)} × ${n2(pt.alto)} m</span></div>
       <div class="c cant">${cant}</div>
       <div class="r pu">${fmt(pu)}</div>
       <div class="r st">${fmt(st)}</div>
@@ -6453,7 +6619,7 @@ function imprimirCotizacionCliente(){
   .partida .n{font-weight:700;color:#fff;background:#2f8fb5;min-width:20pt;height:20pt;padding:0 3pt;border-radius:10pt;display:flex;align-items:center;justify-content:center;font-size:8.5pt}
   .partida .ubi{font-size:7.5pt;letter-spacing:.1em;text-transform:uppercase;color:#2f8fb5;font-weight:700}
   .partida .desc{font-weight:700;color:#0f2a3d;font-size:10.2pt;line-height:1.25}
-  .partida .esp{color:#40505c;font-size:8.6pt;margin-top:2pt}
+  .partida .esp{color:#40505c;font-size:8.6pt;margin-top:2pt}.partida .esp b{color:#0f2a3d}
   .partida .med{display:inline-block;margin-top:4pt;background:#eef1f4;border-radius:4pt;padding:1pt 6pt;font-size:8.3pt;color:#0f2a3d;font-weight:600}
   .c{text-align:center}.r{text-align:right;white-space:nowrap}.mu{color:#5b6a76}
   .partida .cant{font-weight:700;font-size:11pt;color:#0f2a3d}.partida .st{font-weight:700;color:#0f2a3d;font-size:10.4pt}
