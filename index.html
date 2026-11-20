@@ -1398,7 +1398,7 @@ onAuthStateChanged(_auth, async (user) => {
 window._cache = {};
 
 // ── Versión de la app (subir en cada deploy con fixes) ─────────
-const APP_VERSION = '1.31.0';
+const APP_VERSION = '1.32.0';
 
 window.cerrarSesionApp = function() {
   if ((DB._pending > 0 || _proyHayCambios()) &&
@@ -6098,7 +6098,9 @@ const DIBUJOS_COT=[
   ['puerta_duela', 'Puerta con duela (horizontal/vertical según la partida)'],
   ['puerta_batiente', 'Puerta batiente automática (individual/doble, vidrio/duela/louver/50%, intermedio)'],
   ['hoja_corrediza', 'Hoja corrediza tipo batiente (flecha ↔, vidrio/duela/louver/50%, intermedio)'],
-  ['oscilobatiente', 'Oscilobatiente']
+  ['oscilobatiente', 'Oscilobatiente'],
+  ['puerta_templada', 'Puerta templada (oficina / baño): vidrio + herrajes'],
+  ['fijo_templado', 'Fijo templado: vidrio + clips / pipetas / canal']
 ];
 function _llenarSelDibujo(id,conHeredar,val){
   const el=document.getElementById(id);if(!el)return;
@@ -6182,12 +6184,22 @@ function dibujoPartida(partida){
       const perf=perfilesBatiente(partida);
       return [{h:1,cols:Array.from({length:n},(_,i)=>({t:'B',mov:'slide',bis:(n===2&&i===1)?'der':'izq',relleno,duela,inter,perf}))}];
     })(),
+    puerta_templada:(()=>{
+      const doble=/DOBLE/i.test(String(partida.config||'')), herr=herrajesPrincipales(partida);
+      return [{h:1,cols:doble?[{t:'G',bis:'izq',herr},{t:'G',bis:'der',herr}]:[{t:'G',bis:'izq',herr}]}];
+    })(),
+    fijo_templado:(()=>{
+      const herr=herrajesPrincipales(partida), pz=k=>Math.round((herr.find(h=>h.k===k)||{}).pzs||0);
+      return [{h:1,cols:[{t:'T',mods:_modulos(partida.config),canal:canalPartida(partida),clips:pz('clip'),pipetas:pz('pipeta')}]}];
+    })(),
     oscilobatiente:(()=>{
       const doble=/DOBLE|2\s*HOJ/i.test(String(partida.config||''));
       return [{h:1,cols:doble?[{t:'O',bis:'izq'},{t:'O',bis:'der'}]:[{t:'O',bis:'izq'}]}];
     })()
   }[tipo];
   if(!filas)return null;
+  if(tipo==='puerta_templada')return {filas,sinMarco:true,piso:true};
+  if(tipo==='fijo_templado')return {filas,sinMarco:true};
   if(tipo==='puerta_batiente'){
     // Vano de puerta: marco (batiente) arriba y a los lados, sin marco abajo; Panorama lleva además U de tubo rectangular
     const pf=perfilesBatiente(partida), pano=/PANORAMA/i.test(nom);
@@ -6237,6 +6249,15 @@ function perfilesBatiente(partida){
 }
 // Herrajes principales de puertas batientes: [regex, clave, nombre]
 const HERRAJES_PRINCIPALES=[
+  [/BISAGRA.*CRISTAL\s*-\s*CRISTAL/,'bis_cc','Bisagra cristal-cristal'],
+  [/BISAGRA.*TEMPLADA DE BA/,'bis_bano','Bisagra para puerta templada de baño'],
+  [/BANDEROLA/,'banderola','Soporte banderola con pivote'],
+  [/HERRAJE INFERIOR|ZAPATA/,'zapata','Zapata inferior hidráulica'],
+  [/TOALLERO/,'toallero','Barra toallero con pomo'],
+  [/POMO/,'pomo','Jaladera de pomo'],
+  [/BOTAGUA/,'botagua','Botagua'],
+  [/\bCLIP/,'clip','Clip'],
+  [/PIPETA|CHAPETON/,'pipeta','Pipeta con chapetón'],
   [/BISAGRA.*HIDR|HIDR.*PISO/,'piso_h','Bisagra hidráulica de piso'],
   [/BISAGRA DE PISO/,'piso','Bisagra de piso'],
   [/BISAGRA DE LIBRO/,'libro','Bisagra de libro'],
@@ -6267,15 +6288,19 @@ function herrajesPrincipales(partida){
     const t=String(l.label||'').toUpperCase().replace(/\[[^\]]*\]/g,' ');
     const h=HERRAJES_PRINCIPALES.find(([re])=>re.test(t));
     if(!h)return;
-    const med=/^jal_/.test(h[1])?_medidaJaladera(t):0;
+    const med=/^jal_|toallero/.test(h[1])?_medidaJaladera(t):0;
+    const pzs=parseFloat((String(l.detalle||'').match(/(\d+(?:\.\d+)?)\s*pzs/)||[])[1])||0;
     const key=h[1]+'|'+med;
-    if(vistos[key])return; vistos[key]=1;
-    lista.push({k:h[1],nombre:h[2],med});
+    if(vistos[key]){vistos[key].pzs+=pzs;return;}
+    const it={k:h[1],nombre:h[2],med,pzs}; vistos[key]=it; lista.push(it);
   });
   return lista;
 }
 function textoHerrajesPrincipales(partida){
-  return herrajesPrincipales(partida).map(h=>h.nombre+(h.med?` ${h.med>=1?h.med.toFixed(2)+' m':Math.round(h.med*100)+' cm'}`:'')).join(' · ');
+  const lista=herrajesPrincipales(partida).map(h=>h.nombre+(h.med?` ${h.med>=1?h.med.toFixed(2)+' m':Math.round(h.med*100)+' cm'}`:'')+((h.k==='clip'||h.k==='pipeta')&&h.pzs?` (${h.pzs} pzs)`:''));
+  const can=canalPartida(partida);
+  if(can)lista.push(can.txt);
+  return lista.join(' · ');
 }
 // Cubierta opaca de la partida (duela / louver) leída del desglose; mitad = solo la parte inferior (50%)
 function cubiertaPartida(partida){
@@ -6289,6 +6314,27 @@ function cubiertaPartida(partida){
   const c=partida.condiciones||{};
   const txt=nombres.map(n=>n.charAt(0)+n.slice(1).toLowerCase()).join(' · ')+(c.CON_DUELA_VERTICAL?' (vertical)':c.CON_DUELA_HORIZONTAL?' (horizontal)':'');
   return {txt,mitad:!!(c.CON_DUELA_50||c.CON_DUELA_50_2C||c.CON_LOUVER_50)};
+}
+// Canal de aluminio (cerco fijo) del fijo templado: lados según sus cortes (ancho → abajo/arriba, alto → laterales)
+function canalPartida(partida){
+  let hz=0,vt=0,inch=0,hay=false;
+  const A=+partida.ancho||0,H=+partida.alto||0;
+  (partida.desglose||[]).forEach(l=>{
+    if(l.tipo!=='Perfil'||l.activo===false)return;
+    const nom=String(l.label||'').toUpperCase();
+    if(!/CANAL|CERCO FIJO/.test(nom))return;
+    hay=true;
+    const pul=(nom.split('—').slice(1).join('—').match(/(\d+(?:\.\d+)?)\s*"/)||[])[1]; if(pul)inch=Math.max(inch,+pul);
+    (l.cortes||[]).forEach(c=>{const L=parseFloat(c.long)||0,n=parseFloat(c.cant)||0; if(Math.abs(L-A)<=Math.abs(L-H))hz+=n; else vt+=n;});
+  });
+  if(!hay)return null;
+  if(!hz&&!vt)hz=1;
+  const lados={abajo:hz>=1,arriba:hz>=2,izq:vt>=1,der:vt>=2};
+  const nombres=[lados.abajo&&'inferior',lados.arriba&&'superior',lados.izq&&(lados.der?'laterales':'lateral')].filter(Boolean);
+  return {lados,t:(inch&&inch<=3?inch:1)*PULG,txt:'Canal de aluminio ('+nombres.join(', ')+')'};
+}
+function esConHerrajesPrincipales(partida){
+  return esPuertaBatiente(partida)||/TEMPLAD/i.test(String(partida.receta||''));
 }
 function esPuertaBatiente(partida){
   const n=String(partida.receta||'').toUpperCase();
@@ -6307,8 +6353,12 @@ function elevacionSVG(ancho,alto,dib){
     `<defs><linearGradient id="gv" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d6ecf6"/><stop offset="1" stop-color="#9fcde2"/></linearGradient>`+
     `<marker id="ar" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#0f2a3d"/></marker>`+
     `<marker id="ar2" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto-start-reverse"><path d="M0,0 L6,3 L0,6 Z" fill="#0f2a3d"/></marker></defs>`;
-  s+=`<rect x="${x0}" y="${y0}" width="${w}" height="${h}" fill="#c3ccd4" stroke="#0f2a3d" stroke-width="1.1"/>`;
+  if(!dib.sinMarco) s+=`<rect x="${x0}" y="${y0}" width="${w}" height="${h}" fill="#c3ccd4" stroke="#0f2a3d" stroke-width="1.1"/>`;
   let fT=fr,fS=fr,fB=fr;
+  if(dib.sinMarco){ // vidrio templado: sin perfiles de aluminio alrededor
+    fT=fS=fB=0;
+    if(dib.piso) s+=`<line x1="${x0-4}" y1="${y0+h}" x2="${x0+w+4}" y2="${y0+h}" stroke="#0f2a3d" stroke-width="1.2"/>`;
+  }
   if(dib.puerta){ // marco real de la puerta: arriba y lados (+ tubo en U), abajo el piso
     const pm=dib.puerta, t=pm.tubo*k, m=Math.max(1.2,pm.marco*k);
     fT=fS=t+m; fB=0;
@@ -6339,6 +6389,8 @@ function elevacionSVG(ancho,alto,dib){
 }
 function _hojaSVG(c,x,y,w,h,k){
   if(c.t==='B') return _hojaBatienteSVG(c,x,y,w,h,k);
+  if(c.t==='G') return _puertaTempladaSVG(c,x,y,w,h,k);
+  if(c.t==='T') return _fijoTempladoSVG(c,x,y,w,h,k);
   const solido=c.t==='D';
   let s=`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${solido?'#dfe5ea':'url(#gv)'}" stroke="#0f2a3d" stroke-width=".8"/>`;
   if(solido){
@@ -6427,6 +6479,49 @@ function _hojaBatienteSVG(c,x,y,w,h,k){
   s+=`<rect x="${jx-1}" y="${jy}" width="2" height="10" rx="1" fill="#0f2a3d"/>`;
   return s;
 }
+// Puerta de vidrio templado: solo el cristal (sin perfiles), abatimiento y herrajes
+function _puertaTempladaSVG(c,x,y,w,h,k){
+  let s=`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="url(#gv)" stroke="#0f2a3d" stroke-width=".7"/>`;
+  s+=`<path d="M${x+w*.12} ${y+h*.45} L${x+w*.45} ${y+h*.06} L${x+w*.55} ${y+h*.06} L${x+w*.12} ${y+h*.56} Z" fill="#fff" opacity=".45"/>`;
+  const cy=y+h/2,hx=c.bis==='izq'?x:x+w,ox=c.bis==='izq'?x+w:x;
+  s+=`<path d="M${ox} ${y} L${hx} ${cy} L${ox} ${y+h}" stroke="#0f2a3d" stroke-width=".7" stroke-dasharray="3 2" fill="none"/>`;
+  return s+_herrajesBatienteSVG({...c,herr:c.herr||[]},x,y,w,h,k);
+}
+// Fijo de vidrio templado: módulos, canal de aluminio en los lados indicados, clips y pipetas en los cantos libres
+function _fijoTempladoSVG(c,x,y,w,h,k){
+  const ink='#0f2a3d',acero='#7b8a96';
+  let s=`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="url(#gv)" stroke="${ink}" stroke-width=".7"/>`;
+  const n=Math.max(1,c.mods||1);
+  for(let i=1;i<n;i++){const jx=x+w*i/n; s+=`<line x1="${jx}" y1="${y}" x2="${jx}" y2="${y+h}" stroke="${ink}" stroke-width=".9"/>`;}
+  for(let i=0;i<n;i++){const mx=x+w*i/n,mw=w/n; if(mw>=9) s+=`<path d="M${mx+mw*.12} ${y+h*.45} L${mx+mw*.45} ${y+h*.1} L${mx+mw*.55} ${y+h*.1} L${mx+mw*.12} ${y+h*.56} Z" fill="#fff" opacity=".45"/>`;}
+  const L=(c.canal&&c.canal.lados)||{}, t=c.canal?Math.max(2,c.canal.t*k):0;
+  if(L.abajo) s+=`<rect x="${x}" y="${y+h-t}" width="${w}" height="${t}" fill="#c3ccd4" stroke="${ink}" stroke-width=".5"/>`;
+  if(L.arriba) s+=`<rect x="${x}" y="${y}" width="${w}" height="${t}" fill="#c3ccd4" stroke="${ink}" stroke-width=".5"/>`;
+  if(L.izq) s+=`<rect x="${x}" y="${y}" width="${t}" height="${h}" fill="#c3ccd4" stroke="${ink}" stroke-width=".5"/>`;
+  if(L.der) s+=`<rect x="${x+w-t}" y="${y}" width="${t}" height="${h}" fill="#c3ccd4" stroke="${ink}" stroke-width=".5"/>`;
+  // cantos libres: primero los laterales, luego abajo / arriba
+  let cantos=['izq','der'].filter(e=>!L[e]);
+  if(!cantos.length) cantos=['abajo','arriba'].filter(e=>!L[e]);
+  if(!cantos.length) return s;
+  const reparte=(cant,dibuja,esq)=>{
+    const por={};cantos.forEach(e=>por[e]=0);
+    for(let i=0;i<cant;i++)por[cantos[i%cantos.length]]++;
+    cantos.forEach(e=>{const m=por[e];for(let j=0;j<m;j++){
+      const f=esq?(m===1?.5:.12+.76*j/(m-1)):(j+1)/(m+1);
+      const vert=e==='izq'||e==='der';
+      const px=vert?(e==='izq'?x:x+w):x+w*f, py=vert?y+h*f:(e==='arriba'?y:y+h);
+      s+=dibuja(px,py,e);
+    }});
+  };
+  const cs=Math.max(3,.05*k);
+  if(c.clips) reparte(c.clips,(px,py)=>`<rect x="${px-cs/2}" y="${py-cs/2}" width="${cs}" height="${cs}" fill="${acero}" stroke="${ink}" stroke-width=".5"/>`);
+  const r=Math.max(1.8,.025*k), ins=Math.max(3,.05*k);
+  if(c.pipetas) reparte(c.pipetas,(px,py,e)=>{
+    const dx=e==='izq'?ins:e==='der'?-ins:0, dy=e==='arriba'?ins:e==='abajo'?-ins:0;
+    return `<circle cx="${px+dx}" cy="${py+dy}" r="${r}" fill="${acero}" stroke="${ink}" stroke-width=".5"/><circle cx="${px+dx}" cy="${py+dy}" r="${r*.4}" fill="${ink}"/>`;
+  },true);
+  return s;
+}
 // Herrajes principales dibujados a escala sobre la hoja (piso = parte baja de la hoja)
 function _herrajesBatienteSVG(c,x,y,w,h,k){
   const T=new Set(c.herr.map(hh=>hh.k)), med=key=>(c.herr.find(hh=>hh.k===key)||{}).med||0;
@@ -6475,8 +6570,24 @@ function _herrajesBatienteSVG(c,x,y,w,h,k){
   if(T.has('cilindrica')) s+=`<circle cx="${cx}" cy="${at(.95)}" r="2" fill="${acero}" stroke="${ink}" stroke-width=".6"/>`;
   if(T.has('chapa_piso')) s+=`<rect x="${ox-d*Math.max(4,.1*k)-1}" y="${piso-4}" width="2" height="3.4" fill="${ink}"/>`;
   if(T.has('maroma')) s+=`<rect x="${ox-d*2.2-.7}" y="${y+2}" width="1.4" height="4" fill="${ink}"/>`;
+  // Herrajes de puertas de vidrio templado
+  if(T.has('bis_bano')||T.has('bis_cc')){
+    const pw=Math.max(3,.07*k), ph=Math.max(4,.09*k), cc=T.has('bis_cc');
+    [y+.25*k, piso-.25*k-ph].forEach(by=>{ const bx=cc?hx-pw/2:(izq?hx:hx-pw); s+=`<rect x="${bx}" y="${by}" width="${pw}" height="${ph}" rx=".6" fill="${acero}" stroke="${ink}" stroke-width=".5"/>`; });
+  }
+  if(T.has('zapata')){ const zw=Math.max(6,.18*k), zh=Math.max(2.5,.07*k); s+=`<rect x="${izq?hx:hx-zw}" y="${piso-zh}" width="${zw}" height="${zh}" fill="${acero}" stroke="${ink}" stroke-width=".5"/>`; }
+  if(T.has('banderola')){ const zw=Math.max(6,.18*k), zh=Math.max(2.5,.07*k); s+=`<rect x="${izq?hx:hx-zw}" y="${y}" width="${zw}" height="${zh}" fill="${acero}" stroke="${ink}" stroke-width=".5"/>`; }
+  if(T.has('botagua')) s+=`<rect x="${x}" y="${piso-Math.max(1.4,.025*k)}" width="${w}" height="${Math.max(1.4,.025*k)}" fill="#8fa6b5" opacity=".9"/>`;
+  if(T.has('toallero')){
+    const L=Math.min((med('toallero')||.5)*k,w*.8), ty=at(1.05), x1=ox-d*Math.max(3,.06*k), x2=x1-d*L;
+    s+=`<line x1="${x1}" y1="${ty}" x2="${x2}" y2="${ty}" stroke="${ink}" stroke-width="1.6" stroke-linecap="round"/>`+
+       `<line x1="${x1}" y1="${ty}" x2="${x1}" y2="${ty+2.2}" stroke="${ink}" stroke-width=".8"/><line x1="${x2}" y1="${ty}" x2="${x2}" y2="${ty+2.2}" stroke="${ink}" stroke-width=".8"/>`+
+       `<circle cx="${x1}" cy="${ty+4.5}" r="1.8" fill="${acero}" stroke="${ink}" stroke-width=".5"/>`;
+  }
+  if(T.has('pomo')&&!T.has('toallero')) s+=`<circle cx="${ox-d*Math.max(3,.07*k)}" cy="${at(1.0)}" r="2.2" fill="${acero}" stroke="${ink}" stroke-width=".6"/>`;
+
   // Sin jaladera ni chapa reconocida: jaladera genérica
-  if(!['jal_h','jal_chiv','jal_c','jal_trompa','barra','chapa_man','chapa_sin','cilindrica'].some(t=>T.has(t)))
+  if(!['jal_h','jal_chiv','jal_c','jal_trompa','barra','chapa_man','chapa_sin','cilindrica','toallero','pomo'].some(t=>T.has(t)))
     s+=`<rect x="${(izq?x+w-5:x+5)-1}" y="${y+h/2-5}" width="2" height="10" rx="1" fill="${ink}"/>`;
   return s;
 }
@@ -6559,7 +6670,7 @@ function imprimirCotizacionCliente(){
     const mitad=cub&&cub.mitad&&vid;
     const vidTxt=vid?vid+(mitad?' (mitad superior)':''):'';
     const cubTxt=cub?cub.txt+(mitad?' (mitad inferior)':''):'';
-    const herrTxt=esPuertaBatiente(pt)?textoHerrajesPrincipales(pt):'';
+    const herrTxt=esConHerrajesPrincipales(pt)?textoHerrajesPrincipales(pt):'';
     const dib=dibujoPartida(pt);
     if(!dib)sinDibujo++;
     const img=dib?elevacionSVG(pt.ancho,pt.alto,dib):'<span class="sinimg">Sin dibujo</span>';
