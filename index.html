@@ -1398,7 +1398,7 @@ onAuthStateChanged(_auth, async (user) => {
 window._cache = {};
 
 // ── Versión de la app (subir en cada deploy con fixes) ─────────
-const APP_VERSION = '1.30.0';
+const APP_VERSION = '1.31.0';
 
 window.cerrarSesionApp = function() {
   if ((DB._pending > 0 || _proyHayCambios()) &&
@@ -6277,6 +6277,19 @@ function herrajesPrincipales(partida){
 function textoHerrajesPrincipales(partida){
   return herrajesPrincipales(partida).map(h=>h.nombre+(h.med?` ${h.med>=1?h.med.toFixed(2)+' m':Math.round(h.med*100)+' cm'}`:'')).join(' · ');
 }
+// Cubierta opaca de la partida (duela / louver) leída del desglose; mitad = solo la parte inferior (50%)
+function cubiertaPartida(partida){
+  const nombres=[];
+  (partida.desglose||[]).forEach(l=>{
+    if(l.tipo!=='Perfil'||l.activo===false)return;
+    const lab=String(l.label||''), nom=(lab.includes('—')?lab.split('—').slice(1).join('—'):lab).replace(/\[[^\]]*\]/g,'').trim();
+    if(/DUELA|LOUVER|CELOSIA/i.test(nom)&&!nombres.includes(nom))nombres.push(nom);
+  });
+  if(!nombres.length)return null;
+  const c=partida.condiciones||{};
+  const txt=nombres.map(n=>n.charAt(0)+n.slice(1).toLowerCase()).join(' · ')+(c.CON_DUELA_VERTICAL?' (vertical)':c.CON_DUELA_HORIZONTAL?' (horizontal)':'');
+  return {txt,mitad:!!(c.CON_DUELA_50||c.CON_DUELA_50_2C||c.CON_LOUVER_50)};
+}
 function esPuertaBatiente(partida){
   const n=String(partida.receta||'').toUpperCase();
   return n.includes('BATIENTE')&&!n.includes('VENTANA')&&!n.includes('OSCILO');
@@ -6533,7 +6546,19 @@ function imprimirCotizacionCliente(){
       const a=buscarVidrio(pt.vidrioDividido.supId),b=buscarVidrio(pt.vidrioDividido.infId);
       vid=[a&&a.descripcion,b&&b.descripcion].filter(Boolean).join(' / ');
     } else { const v=buscarVidrio(pt.vidrioId); vid=v?v.descripcion:''; }
-    const esp=[pt.config&&pt.config!=='—'?'Config. '+pt.config:'',pt.linea,pt.acabado,vid].filter(Boolean).map(E).join(' · ');
+    if(!vid){ // partidas antiguas: el vidrio viene en el desglose
+      const vs=[];(pt.desglose||[]).forEach(l=>{ if(l.tipo==='Vidrio'&&l.activo!==false){const t=String(l.label||'').replace(/\[[^\]]*\]/g,'').trim(); if(t&&!vs.includes(t))vs.push(t);} });
+      vid=vs.join(' / ');
+    }
+    if(pt.vidrioDividido){
+      const a=buscarVidrio(pt.vidrioDividido.supId),b=buscarVidrio(pt.vidrioDividido.infId);
+      if(a&&b&&a.descripcion!==b.descripcion) vid=`superior ${a.descripcion} · inferior ${b.descripcion}`;
+    }
+    const esp=[pt.config&&pt.config!=='—'?'Config. '+pt.config:'',pt.linea,pt.acabado].filter(Boolean).map(E).join(' · ');
+    const cub=cubiertaPartida(pt);
+    const mitad=cub&&cub.mitad&&vid;
+    const vidTxt=vid?vid+(mitad?' (mitad superior)':''):'';
+    const cubTxt=cub?cub.txt+(mitad?' (mitad inferior)':''):'';
     const herrTxt=esPuertaBatiente(pt)?textoHerrajesPrincipales(pt):'';
     const dib=dibujoPartida(pt);
     if(!dib)sinDibujo++;
@@ -6541,7 +6566,7 @@ function imprimirCotizacionCliente(){
     return `<div class="partida">
       <div><div class="n">${i+1}</div></div>
       <div>${pt.ubicacion?`<div class="ubi">${E(pt.ubicacion)}</div>`:''}<div class="desc">${E(pt.receta||'Partida')}</div>
-        ${esp?`<div class="esp">${esp}</div>`:''}${herrTxt?`<div class="esp"><b>Herrajes:</b> ${E(herrTxt)}</div>`:''}<span class="med">${n2(pt.ancho)} × ${n2(pt.alto)} m</span></div>
+        ${esp?`<div class="esp">${esp}</div>`:''}${vidTxt?`<div class="esp"><b>Vidrio:</b> ${E(vidTxt)}</div>`:''}${cubTxt?`<div class="esp"><b>Cubierta:</b> ${E(cubTxt)}</div>`:''}${herrTxt?`<div class="esp"><b>Herrajes:</b> ${E(herrTxt)}</div>`:''}<span class="med">${n2(pt.ancho)} × ${n2(pt.alto)} m</span></div>
       <div class="c cant">${cant}</div>
       <div class="r pu">${fmt(pu)}</div>
       <div class="r st">${fmt(st)}</div>
