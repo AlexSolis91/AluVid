@@ -1398,7 +1398,7 @@ onAuthStateChanged(_auth, async (user) => {
 window._cache = {};
 
 // ── Versión de la app (subir en cada deploy con fixes) ─────────
-const APP_VERSION = '1.28.0';
+const APP_VERSION = '1.29.0';
 
 window.cerrarSesionApp = function() {
   if ((DB._pending > 0 || _proyHayCambios()) &&
@@ -2956,7 +2956,9 @@ function renderOpcionesCancel(recetaNombre, receta) {
   const wrap = document.getElementById('cot-opciones-cancel-wrap');
   if (!grid) return;
 
-  const tipo = tipoCancelFromNombre(recetaNombre);
+  let tipo = tipoCancelFromNombre(recetaNombre);
+  // Hoja corrediza armada con perfiles de batiente: usa las opciones de relleno de la batiente
+  if (receta && (receta.dibujo==='hoja_corrediza' || (receta.configs||[]).some(c=>c&&c.dibujo==='hoja_corrediza'))) tipo = 'BATIENTE';
   const usaDuela = recetaUsaOrientacionDuela(receta);
 
   // Hide entire opciones block if no options apply
@@ -6094,7 +6096,9 @@ const DIBUJOS_COT=[
   ['abatible_doble', 'Abatible 2 hojas'],
   ['abatible_fijo', 'Puerta abatible con fijo lateral'],
   ['puerta_duela', 'Puerta con duela (horizontal/vertical según la partida)'],
-  ['puerta_batiente', 'Puerta batiente automática (individual/doble, vidrio/duela/louver/50%, intermedio)']
+  ['puerta_batiente', 'Puerta batiente automática (individual/doble, vidrio/duela/louver/50%, intermedio)'],
+  ['hoja_corrediza', 'Hoja corrediza tipo batiente (flecha ↔, vidrio/duela/louver/50%, intermedio)'],
+  ['oscilobatiente', 'Oscilobatiente']
 ];
 function _llenarSelDibujo(id,conHeredar,val){
   const el=document.getElementById(id);if(!el)return;
@@ -6167,6 +6171,18 @@ function dibujoPartida(partida){
       const inter=(cond.CON_INTERMEDIO_4_1H||cond.CON_INTERMEDIO_4_2H)?2:(cond.CON_INTERMEDIO_1H||cond.CON_INTERMEDIO_2H)?1:0;
       const hoja=bis=>({t:'B',bis,relleno,duela,inter});
       return [{h:1,cols:doble?[hoja('izq'),hoja('der')]:[hoja('izq')]}];
+    })(),
+    hoja_corrediza:(()=>{
+      const cfgT=String(partida.config||'');
+      const n=/DOBLE/i.test(cfgT)?2:Math.min(Math.max(parseInt((cfgT.match(/(\d+)\s*HOJ/i)||[])[1])||1,1),6);
+      const relleno=cond.CON_LOUVER_50?'louver50':(cond.CON_DUELA_50||cond.CON_DUELA_50_2C)?'duela50'
+        :cond.CON_LOUVER?'louver':(cond.CON_DUELA_1C||cond.CON_DUELA_2C)?'duela':'vidrio';
+      const inter=(cond.CON_INTERMEDIO_4_1H||cond.CON_INTERMEDIO_4_2H)?2:(cond.CON_INTERMEDIO_1H||cond.CON_INTERMEDIO_2H)?1:0;
+      return [{h:1,cols:Array.from({length:n},(_,i)=>({t:'B',mov:'slide',bis:(n===2&&i===1)?'der':'izq',relleno,duela,inter}))}];
+    })(),
+    oscilobatiente:(()=>{
+      const doble=/DOBLE|2\s*HOJ/i.test(String(partida.config||''));
+      return [{h:1,cols:doble?[{t:'O',bis:'izq'},{t:'O',bis:'der'}]:[{t:'O',bis:'izq'}]}];
     })()
   }[tipo];
   return filas?{filas}:null;
@@ -6182,7 +6198,8 @@ function elevacionSVG(ancho,alto,dib){
   const n2=v=>(+v||0).toFixed(2);
   let s=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI,Arial">`+
     `<defs><linearGradient id="gv" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d6ecf6"/><stop offset="1" stop-color="#9fcde2"/></linearGradient>`+
-    `<marker id="ar" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#0f2a3d"/></marker></defs>`;
+    `<marker id="ar" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#0f2a3d"/></marker>`+
+    `<marker id="ar2" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto-start-reverse"><path d="M0,0 L6,3 L0,6 Z" fill="#0f2a3d"/></marker></defs>`;
   s+=`<rect x="${x0}" y="${y0}" width="${w}" height="${h}" fill="#c3ccd4" stroke="#0f2a3d" stroke-width="1.1"/>`;
   const ih=h-2*fr,iw=w-2*fr,nf=dib.filas.length;
   let y=y0+fr;
@@ -6222,6 +6239,13 @@ function _hojaSVG(c,x,y,w,h){
   if(c.t==='F'&&w>=9) s+=`<text x="${cx}" y="${cy+3}" text-anchor="middle" font-size="8" font-weight="700" fill="#0f2a3d" opacity=".65">F</text>`;
   if(c.t==='P') s+=`<path d="M${x} ${y} L${cx} ${y+h} L${x+w} ${y}" ${dash}/>`;  // proyectante: V con vértice abajo
   if(c.t==='V') s+=`<path d="M${x} ${y+h} L${cx} ${y} L${x+w} ${y+h}" ${dash}/>`;  // vasista: vértice arriba
+  if(c.t==='O'){
+    const hx=c.bis==='izq'?x:x+w,ox=c.bis==='izq'?x+w:x;
+    s+=`<path d="M${ox} ${y} L${hx} ${cy} L${ox} ${y+h}" ${dash}/>`;
+    s+=`<path d="M${x} ${y+h} L${cx} ${y} L${x+w} ${y+h}" ${dash}/>`;
+    const jx=c.bis==='izq'?x+w-5:x+5;
+    s+=`<rect x="${jx-1}" y="${cy-5}" width="2" height="10" rx="1" fill="#0f2a3d"/>`;
+  }
   if(c.t==='A'||c.t==='D'){
     const hx=c.bis==='izq'?x:x+w,ox=c.bis==='izq'?x+w:x;
     s+=`<path d="M${ox} ${y} L${hx} ${cy} L${ox} ${y+h}" ${dash}/>`;
@@ -6269,8 +6293,12 @@ function _hojaBatienteSVG(c,x,y,w,h){
     s+=`<rect x="${x}" y="${y+h/2-g/2}" width="${w}" height="${g}" fill="#c3ccd4" stroke="#0f2a3d" stroke-width=".5"/>`;
   }
   const cy=y+h/2,hx=c.bis==='izq'?x:x+w,ox=c.bis==='izq'?x+w:x;
-  s+=`<path d="M${ox} ${y} L${hx} ${cy} L${ox} ${y+h}" stroke="#0f2a3d" stroke-width=".7" stroke-dasharray="3 2" fill="none"/>`;
-  const jx=c.bis==='izq'?x+w-5:x+5, jy=(mitad||c.inter)?cy-13:cy-5;   // jaladera arriba del travesaño
+  if(c.mov==='slide'){
+    const ay=(mitad||c.inter)?y+h/4:cy, L=Math.min(w*.55,30);
+    s+=`<line x1="${x+w/2-L/2}" y1="${ay}" x2="${x+w/2+L/2}" y2="${ay}" stroke="#0f2a3d" stroke-width="1" marker-start="url(#ar2)" marker-end="url(#ar2)"/>`;
+  } else s+=`<path d="M${ox} ${y} L${hx} ${cy} L${ox} ${y+h}" stroke="#0f2a3d" stroke-width=".7" stroke-dasharray="3 2" fill="none"/>`;
+  const jx=c.bis==='izq'?x+w-5:x+5;
+  const jy=c.mov==='slide'?((mitad||c.inter)?y+h/4:cy)+4:(mitad||c.inter)?cy-13:cy-5;   // jaladera: abajo de la flecha / arriba del travesaño
   s+=`<rect x="${jx-1}" y="${jy}" width="2" height="10" rx="1" fill="#0f2a3d"/>`;
   return s;
 }
