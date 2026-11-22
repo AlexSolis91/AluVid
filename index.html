@@ -212,6 +212,21 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
 .sol-nota{font-size:12px;color:var(--text2);background:rgba(79,142,247,.07);border:1px solid rgba(79,142,247,.2);border-radius:8px;padding:8px 12px}
 .sol-add{display:flex;gap:8px;margin-top:8px}.sol-add input{flex:1}
 #sol-perfiles select,#sol-herrajes select{min-width:96px}
+.lados-switch{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--text)}
+.lados-tabla{display:flex;flex-direction:column;gap:10px}
+.lados-fila{display:grid;grid-template-columns:110px minmax(0,1fr);gap:8px 12px;align-items:start;padding:10px 12px;border:1px solid var(--border);border-radius:10px}
+.lados-fila>div:last-child{grid-column:1/-1}
+.lados-switch,.lados-chk,.lados-chip{text-transform:none!important;letter-spacing:0!important;margin:0!important}
+.lados-switch input,.lados-chk input,.lados-chip input{width:auto;margin:0}
+.lados-nombre{font-weight:600;font-size:13px;padding-top:20px}.lados-nombre span{font-weight:400;color:var(--text3);font-size:11px}
+.lados-mini{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:4px}
+.lados-fila select{width:100%}
+.lados-chk{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);margin-top:6px}
+.lados-chips{display:flex;flex-wrap:wrap;gap:6px}
+.lados-chip{display:flex;align-items:center;gap:5px;font-size:12px;padding:4px 9px;border:1px solid var(--border);border-radius:20px;color:var(--text2);cursor:pointer}
+.lados-chip.on{border-color:rgba(79,142,247,.5);background:rgba(79,142,247,.1);color:var(--text)}
+.lados-aviso{margin-top:12px;font-size:12px;color:var(--amber);background:rgba(251,191,36,.07);border:1px solid rgba(251,191,36,.25);border-radius:8px;padding:8px 12px}
+
 .sol-vacio{text-align:center;color:var(--text2);font-size:13px;padding:40px 20px;border:1px dashed var(--border);border-radius:12px}
 
 /* ── DIVIDER ── */
@@ -1080,6 +1095,7 @@ onAuthStateChanged(_auth, async (user) => {
                         <div class="tab active" onclick="switchTab(this,'rc-tab-perfiles');toggleRcBtn('perfil')">Perfiles</div>
                         <div class="tab" onclick="switchTab(this,'rc-tab-herrajes');toggleRcBtn('herraje')">Herrajes</div>
                         <div class="tab" onclick="switchTab(this,'rc-tab-separador');toggleRcBtn('separador')">Separador</div>
+                        <div class="tab" onclick="switchTab(this,'rc-tab-lados');toggleRcBtn('lados')">Lados</div>
                       </div>
                       <button class="btn btn-ghost btn-sm" id="rc-btn-perfil" onclick="abrirModalComponente('perfil','config')">+ Perfil</button>
                       <button class="btn btn-ghost btn-sm" id="rc-btn-herraje" onclick="abrirModalHerraje('config')" style="display:none">+ Herraje</button>
@@ -1097,6 +1113,7 @@ onAuthStateChanged(_auth, async (user) => {
                         <tbody id="rc-herrajes-tabla"></tbody>
                       </table></div>
                     </div>
+                    <div id="rc-tab-lados" style="display:none"></div>
                     <div id="rc-tab-separador" style="display:none">
                       <div style="background:rgba(167,139,250,.06);border:1px solid rgba(167,139,250,.2);border-radius:var(--radius);padding:14px 16px;margin-top:4px">
                         <div style="font-size:12px;color:var(--text2);margin-bottom:14px">
@@ -1491,7 +1508,7 @@ onAuthStateChanged(_auth, async (user) => {
 window._cache = {};
 
 // ── Versión de la app (subir en cada deploy con fixes) ─────────
-const APP_VERSION = '1.33.0';
+const APP_VERSION = '1.34.0';
 
 window.cerrarSesionApp = function() {
   if ((DB._pending > 0 || _proyHayCambios()) &&
@@ -2181,6 +2198,107 @@ function eliminarSolucion(){
   cerrarSolucion();
 }
 
+// ══════════════════════════════════════════════════════════════════
+//  RECETAS POR LADOS: cada configuración define la solución por defecto y las permitidas por lado
+//  cfg.lados = {activo, modulos, sup|inf|izq|der|inter: {def, perm:[ids], porModulo}}
+// ══════════════════════════════════════════════════════════════════
+const LADOS_DEF=[['sup','Superior','horizontal'],['inf','Inferior','horizontal'],['izq','Lateral izquierdo','vertical'],['der','Lateral derecho','vertical'],['inter','Intermedios','vertical']];
+function buscarSolucion(id){
+  if(id==null||id==='')return null;
+  return solucionesDisponibles().find(s=>String(s.id||s._docId)===String(id))||null;
+}
+function _solucionesCompatibles(linea,orient){
+  return solucionesDisponibles().filter(s=>s.linea===linea&&(s.lado==='ambos'||s.lado===orient))
+    .sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||''));
+}
+function _modulosCfg(cfg){ return Math.max(1,parseInt(cfg&&cfg.lados&&cfg.lados.modulos)||_modulos(cfg&&cfg.tipo)); }
+// Guarda un cambio de lados en la configuración activa (y actualiza la copia publicada en SCAVi)
+function _guardarCfgLados(mut){
+  if(!recetaActual||!configActual)return;
+  const recetas=DB.get('recetas');
+  const r=recetas.find(x=>x.id===recetaActual.id); if(!r||!r.configs||!r.configs[configActual.idx])return;
+  const cfg=r.configs[configActual.idx];
+  cfg.lados=cfg.lados||{activo:false};
+  mut(cfg.lados,cfg);
+  DB.set('recetas',recetas);recetaActual=r;configActual={idx:configActual.idx,...cfg};
+  if(_esAdminSCAVi()&&((window._adminCache&&window._adminCache.recetas)||[]).some(x=>String(x.id||x._docId)===String(r.id))){
+    DB.publishToAdmin('recetas',r);
+    const j=window._adminCache.recetas.findIndex(x=>String(x.id||x._docId)===String(r.id));
+    if(j>=0)window._adminCache.recetas[j]={...r,_esAdmin:true};
+  }
+  renderLadosConfig();
+}
+function ladosActivar(on){ _guardarCfgLados(L=>{L.activo=!!on;}); }
+function ladosModulos(v){ _guardarCfgLados(L=>{L.modulos=Math.max(1,Math.min(12,parseInt(v)||1));}); }
+function ladosDefecto(k,id){
+  _guardarCfgLados(L=>{L[k]=L[k]||{perm:[]};L[k].def=id||'';if(id&&!(L[k].perm||[]).includes(id))(L[k].perm=L[k].perm||[]).push(id);});
+}
+function ladosPermitida(k,id,on){
+  _guardarCfgLados(L=>{L[k]=L[k]||{perm:[]};const p=new Set(L[k].perm||[]);on?p.add(id):p.delete(id);if(L[k].def)p.add(L[k].def);L[k].perm=[...p];});
+}
+function ladosPorModulo(k,on){ _guardarCfgLados(L=>{L[k]=L[k]||{perm:[]};L[k].porModulo=!!on;}); }
+// Perfiles "sueltos" de la configuración que ya cubren las soluciones por defecto (se contarían doble)
+function _perfilesDuplicadosLados(cfg){
+  const L=cfg.lados||{}, claves=new Set();
+  LADOS_DEF.forEach(([k])=>{const s=buscarSolucion((L[k]||{}).def);(s&&s.perfiles||[]).forEach(p=>claves.add(String(p.clave)));});
+  return (cfg.perfiles||[]).filter(p=>claves.has(String(p.clave)));
+}
+function ladosQuitarDuplicados(){
+  if(!confirm('¿Quitar de la configuración los perfiles que ya cubren los lados? Así no se cuentan dos veces.'))return;
+  _guardarCfgLados((L,cfg)=>{const dup=new Set(_perfilesDuplicadosLados(cfg).map(p=>String(p.clave)));cfg.perfiles=(cfg.perfiles||[]).filter(p=>!dup.has(String(p.clave)));});
+  try{renderComponentesConfig();}catch(e){}
+  toast('Perfiles duplicados quitados de la configuración');
+}
+function renderLadosConfig(){
+  const el=document.getElementById('rc-tab-lados'); if(!el||!recetaActual||!configActual)return;
+  const r=DB.get('recetas').find(x=>x.id===recetaActual.id)||recetaActual;
+  const cfg=(r.configs||[])[configActual.idx]||{}, L=cfg.lados||{}, on=!!L.activo, N=_modulosCfg(cfg);
+  let h=`<label class="lados-switch"><input type="checkbox" ${on?'checked':''} onchange="ladosActivar(this.checked)"> Armar esta configuración por lados</label>
+    <div class="sol-nota" style="margin:10px 0 14px">Cada lado usa una <b>solución de remate</b> de la línea <b>${_escH(r.linea||'')}</b>. Al cotizar se podrá cambiar la solución de cada lado entre las permitidas. Los cortes son a la medida completa del lado (ancho u alto).</div>`;
+  if(!on){ el.innerHTML=h+'<div style="font-size:12px;color:var(--text3)">Desactivado: esta configuración sigue funcionando con sus perfiles y condiciones (casillas) como hasta ahora.</div>'; return; }
+  const hay=solucionesDisponibles().some(s=>s.linea===r.linea);
+  if(!hay){ el.innerHTML=h+`<div class="lados-aviso">No hay soluciones de remate para la línea ${_escH(r.linea||'')}. Créalas en <a href="#" onclick="nav(document.querySelector('[data-view=soluciones]'));return false">Soluciones de remate</a>.</div>`; return; }
+  h+=`<div class="form-group" style="max-width:220px;margin-bottom:12px"><label>Módulos de esta configuración</label><input type="number" min="1" max="12" value="${N}" onchange="ladosModulos(this.value)"></div>`;
+  h+='<div class="lados-tabla">';
+  LADOS_DEF.forEach(([k,nom,orient])=>{
+    if(k==='inter'&&N<2)return;
+    const S=L[k]||{}, comp=_solucionesCompatibles(r.linea,orient), def=S.def?String(S.def):'', perm=new Set((S.perm||[]).map(String));
+    const nombreLado=k==='inter'?`Intermedios <span>(${N-1} entre módulos)</span>`:nom;
+    h+=`<div class="lados-fila"><div class="lados-nombre">${nombreLado}</div>
+      <div><label class="lados-mini">Por defecto</label><select onchange="ladosDefecto('${k}',this.value)"><option value="">— Sin asignar —</option>${comp.map(s=>`<option value="${_escH(String(s.id))}"${String(s.id)===def?' selected':''}>${_escH(s.nombre)}${s._esScavi?' (SCAVi)':''}</option>`).join('')}</select>
+      ${orient==='horizontal'&&N>1?`<label class="lados-chk"><input type="checkbox" ${S.porModulo?'checked':''} onchange="ladosPorModulo('${k}',this.checked)"> Un corte por módulo (ancho ÷ ${N})</label>`:''}</div>
+      <div><label class="lados-mini">Opciones al cotizar</label><div class="lados-chips">${comp.map(s=>{const id=String(s.id),es=id===def;return `<label class="lados-chip${perm.has(id)||es?' on':''}"><input type="checkbox" ${perm.has(id)||es?'checked':''} ${es?'disabled':''} onchange="ladosPermitida('${k}','${_escH(id)}',this.checked)"> ${_escH(s.nombre)}</label>`;}).join('')||'<span style="color:var(--text3);font-size:12px">Sin soluciones compatibles</span>'}</div></div></div>`;
+  });
+  h+='</div>';
+  const dup=_perfilesDuplicadosLados(cfg);
+  if(dup.length) h+=`<div class="lados-aviso">⚠ Estos perfiles de la pestaña Perfiles ya los cubren los lados y se contarían dos veces: <b>${dup.map(p=>_escH(p.clave+' '+(p.nombrePerfil||''))).join(', ')}</b>.
+    <button class="btn btn-ghost btn-sm" style="margin-left:6px" onclick="ladosQuitarDuplicados()">Quitarlos de la configuración</button></div>`;
+  el.innerHTML=h;
+}
+// Líneas de desglose de los lados (usa los mismos cálculos de perfiles y herrajes de la receta)
+function _lineasLados(cfg,elegidos,costoPerfil,costoHerraje){
+  const out=[], LD=cfg.lados||{}, N=_modulosCfg(cfg);
+  LADOS_DEF.forEach(([k,nom,orient])=>{
+    if(k==='inter'&&N<2)return;
+    const solId=(elegidos&&elegidos[k])||(LD[k]||{}).def; if(!solId)return;
+    const sol=buscarSolucion(solId);
+    if(!sol){out.push({label:`${nom}: solución de remate no encontrada`,costo:0,encontrado:false,tipo:'Info',detalle:'',lado:k});return;}
+    const H=orient==='horizontal', seg=H?((LD[k]||{}).porModulo&&N>1?N:1):(k==='inter'?N-1:1);
+    (sol.perfiles||[]).forEach(sp=>{
+      const res=costoPerfil(sp.clave,0,0,sp.tipoVidrio,[{tipo:H?'horizontal':'vertical',cant:(sp.piezas||1)*seg,divisor:H?seg:1}]);
+      if(res===null)return;
+      out.push({...res,tipo:'Perfil',lado:k,solucionId:String(sol.id),detalle:`${nom} · ${res.detalle}`});
+    });
+    (sol.herrajes||[]).forEach(sh=>{
+      const c=sh.cantidad||0, met=sh.por==='metro';
+      const res=costoHerraje(sh.herrajeId,met?0:c*seg,met&&!H?c*seg:0,met&&H?c:0,'AMBOS');
+      if(res===null)return;
+      out.push({...res,tipo:'Herraje',lado:k,solucionId:String(sol.id),detalle:`${nom} · ${res.detalle}`});
+    });
+  });
+  return out;
+}
+
 function renderRecetaLista(){
   let recetas=DB.get('recetas');
   const q=(document.getElementById('r-buscador')?.value||'').trim().toLowerCase();
@@ -2702,6 +2820,7 @@ function toggleRcBtn(which){
   document.getElementById('rc-btn-herraje').style.display   = which==='herraje'   ? '' : 'none';
   document.getElementById('rc-btn-separador').style.display = which==='separador' ? '' : 'none';
   if(which==='separador') cargarSeparadorConfig();
+  if(which==='lados') renderLadosConfig();
 }
 
 function cargarSeparadorConfig(){
@@ -3932,6 +4051,8 @@ function cotizarPartida(o){
         if(res===null)return; // filtrado por tipo vidrio
         lineasDesglose.push({...res,tipo:'Perfil'});
       });
+      // Receta por lados: cada lado agrega los perfiles y herrajes de su solución de remate
+      if(cfg.lados&&cfg.lados.activo) lineasDesglose.push(..._lineasLados(cfg,o.lados,costoPerfil,costoHerraje));
       (cfg.herrajes||[]).forEach(ch=>{
         // Filter by general condicion (header-level)
         const chCond=(ch.condicion||'SIEMPRE').toUpperCase();
