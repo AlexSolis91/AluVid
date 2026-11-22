@@ -205,6 +205,14 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
 /* ── SPLIT ── */
 .split{display:grid;grid-template-columns:1fr 2fr;gap:20px;align-items:start}
 .split-3{display:grid;grid-template-columns:220px 1fr 1fr;gap:16px;align-items:start}
+.sol-grid{display:grid;grid-template-columns:260px minmax(0,1fr);gap:16px;align-items:start}
+.sol-grupo{padding:6px 16px;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--text3);background:var(--bg3,rgba(255,255,255,.03));border-bottom:1px solid var(--border)}
+.sol-sub{font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:18px 0 8px}
+.sol-sub span{font-weight:400;text-transform:none;letter-spacing:0;color:var(--text3);margin-left:6px}
+.sol-nota{font-size:12px;color:var(--text2);background:rgba(79,142,247,.07);border:1px solid rgba(79,142,247,.2);border-radius:8px;padding:8px 12px}
+.sol-add{display:flex;gap:8px;margin-top:8px}.sol-add input{flex:1}
+#sol-perfiles select,#sol-herrajes select{min-width:96px}
+.sol-vacio{text-align:center;color:var(--text2);font-size:13px;padding:40px 20px;border:1px dashed var(--border);border-radius:12px}
 
 /* ── DIVIDER ── */
 .divider{height:1px;background:var(--border);margin:16px 0}
@@ -242,7 +250,7 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
   body.nav-open{overflow:hidden}
 
   /* Columnas */
-  .split,.split-3{grid-template-columns:minmax(0,1fr)}
+  .split,.split-3,.sol-grid{grid-template-columns:minmax(0,1fr)}
   .form-group.col3{grid-column:1/-1}
 
   /* Tablas: scroll horizontal en lugar de aplastar columnas */
@@ -382,8 +390,13 @@ onAuthStateChanged(_auth, async (user) => {
   tablas.forEach((tabla, i) => {
     window._cache[tabla] = snaps[i].docs.map(d => ({ ...d.data(), _docId: d.id }));
   });
+  // Biblioteca de soluciones de remate: si las reglas aún no la permiten, queda vacía sin romper la carga
+  try {
+    const sSol = await getDocs(collection(_db, 'usuarios', user.uid, 'soluciones'));
+    window._cache['soluciones'] = sSol.docs.map(d => ({ ...d.data(), _docId: d.id }));
+  } catch(e) { window._cache['soluciones'] = []; }
   // Copia de lo que hay en Firestore: DB.set solo escribe lo que cambió respecto a esto
-  if (window._dbSeed) window._dbSeed(tablas);
+  if (window._dbSeed) window._dbSeed([...tablas, 'soluciones']);
   // Load admin catalogo for pricing (perfiles/herrajes/vidrios from admin's own catalog)
   window._adminCache = {};
   // Load recetas from admin_catalogo collection (published SCAVi recetas)
@@ -391,6 +404,10 @@ onAuthStateChanged(_auth, async (user) => {
     const sRec = await getDocs(collection(_db, 'admin_catalogo', 'recetas', 'items'));
     window._adminCache['recetas'] = sRec.docs.map(d => ({ _docId: d.id, _esAdmin: true, ...d.data() }));
   } catch(e) { window._adminCache['recetas'] = []; }
+  try {
+    const sSolA = await getDocs(collection(_db, 'admin_catalogo', 'soluciones', 'items'));
+    window._adminCache['soluciones'] = sSolA.docs.map(d => ({ _docId: d.id, _esAdmin: true, ...d.data() }));
+  } catch(e) { window._adminCache['soluciones'] = []; }
   // Load perfiles/herrajes/vidrios from admin user's own catalog for pricing
   const pricingTablas = ['perfiles','herrajes','vidrios'];
   for (const tabla of pricingTablas) {
@@ -465,6 +482,10 @@ onAuthStateChanged(_auth, async (user) => {
     <div class="nav-item" data-view="recetas" onclick="nav(this)">
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
       Recetas de Canceles
+    </div>
+    <div class="nav-item" data-view="soluciones" onclick="nav(this)">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="1"/><path d="M3 7h18M7 7v14"/></svg>
+      Soluciones de remate
     </div>
 
     <div class="nav-section">Sistema</div>
@@ -1109,6 +1130,78 @@ onAuthStateChanged(_auth, async (user) => {
       </div>
     </div>
 
+    <!-- ════════════════ SOLUCIONES DE REMATE ════════════════ -->
+    <div class="view" id="view-soluciones">
+      <div class="sol-grid">
+        <div>
+          <div class="list-panel">
+            <div class="list-panel-header">
+              <span class="list-panel-title">Soluciones</span>
+              <button class="btn btn-primary btn-sm" onclick="nuevaSolucion()">+ Nueva</button>
+            </div>
+            <div style="padding:8px 10px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:6px">
+              <select id="sol-filtro-linea" onchange="renderSoluciones()"><option value="">Todas las líneas</option></select>
+              <input id="sol-buscador" type="text" placeholder="🔍 Buscar solución..." oninput="renderSoluciones()">
+            </div>
+            <div class="list-items" id="sol-lista"></div>
+          </div>
+        </div>
+        <div>
+          <div class="card" id="sol-editor" style="display:none">
+            <div class="card-title"><span>🧩</span> <span id="sol-editor-title">Editar solución</span></div>
+            <div class="form-grid" style="margin-bottom:14px">
+              <div class="form-group col2"><label>Nombre de la solución *</label><input id="sol-nombre" placeholder="Ej. Escalonado + junquillo 3&quot;"></div>
+              <div class="form-group"><label>Línea de producto *</label><select id="sol-linea"></select></div>
+              <div class="form-group"><label>¿En qué lados se puede usar?</label>
+                <select id="sol-lado">
+                  <option value="ambos">Cualquier lado</option>
+                  <option value="horizontal">Superior / inferior</option>
+                  <option value="vertical">Laterales</option>
+                </select>
+              </div>
+            </div>
+            <div class="sol-nota">Cada perfil se corta a la medida completa del lado donde se use: al <b>ancho</b> en superior/inferior y al <b>alto</b> en los laterales. "Piezas" es cuántas tiras de ese perfil lleva el lado (ej. doble junquillo = 2).</div>
+
+            <div class="sol-sub">Perfiles</div>
+            <div class="table-wrap"><table>
+              <thead><tr><th>Clave</th><th>Perfil</th><th>Vidrio</th><th style="width:70px">Piezas</th><th style="width:40px"></th></tr></thead>
+              <tbody id="sol-perfiles"></tbody>
+            </table></div>
+            <div class="sol-add">
+              <input id="sol-add-perfil" list="sol-dl-perfiles" placeholder="Escribe clave o nombre del perfil…" onkeydown="if(event.key==='Enter')solAgregarPerfil()">
+              <button class="btn btn-ghost btn-sm" onclick="solAgregarPerfil()">+ Perfil</button>
+            </div>
+            <datalist id="sol-dl-perfiles"></datalist>
+
+            <div class="sol-sub">Herrajes ligados <span>se suman o quitan junto con la solución</span></div>
+            <div class="table-wrap"><table>
+              <thead><tr><th>Herraje</th><th style="width:90px">Cantidad</th><th style="width:150px">Por</th><th style="width:40px"></th></tr></thead>
+              <tbody id="sol-herrajes"></tbody>
+            </table></div>
+            <div class="sol-add">
+              <input id="sol-add-herraje" list="sol-dl-herrajes" placeholder="Escribe el nombre del herraje…" onkeydown="if(event.key==='Enter')solAgregarHerraje()">
+              <button class="btn btn-ghost btn-sm" onclick="solAgregarHerraje()">+ Herraje</button>
+            </div>
+            <datalist id="sol-dl-herrajes"></datalist>
+
+            <div style="display:flex;align-items:center;gap:8px;margin-top:18px;flex-wrap:wrap">
+              <button class="btn btn-danger btn-sm" id="sol-btn-del" onclick="eliminarSolucion()">Eliminar</button>
+              <button class="btn btn-ghost btn-sm" id="sol-btn-dup" onclick="duplicarSolucion()">⎘ Duplicar</button>
+              <label id="sol-admin-publish" style="display:none;align-items:center;gap:6px;font-size:12px;color:var(--text2)"><input type="checkbox" id="sol-publicar"> Publicar en SCAVi</label>
+              <span style="flex:1"></span>
+              <button class="btn btn-ghost btn-sm" onclick="cerrarSolucion()">Cancelar</button>
+              <button class="btn btn-primary btn-sm" onclick="guardarSolucion()">Guardar solución</button>
+            </div>
+          </div>
+          <div id="sol-placeholder" class="sol-vacio">
+            <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px">Biblioteca de soluciones de remate</div>
+            <div style="max-width:520px;margin:0 auto 14px">Una solución es la forma de rematar un lado del cancel: bolsa, escalonado + junquillo, zoclo + doble junquillo, remate a tubo de puerta, sin perfil… Se define una vez por línea y luego cada receta elige cuáles permite en cada lado.</div>
+            <div id="sol-base-wrap"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ════════════════ ALERTAS ════════════════ -->
     <div class="view" id="view-alertas">
       <div class="alert-banner">
@@ -1398,7 +1491,7 @@ onAuthStateChanged(_auth, async (user) => {
 window._cache = {};
 
 // ── Versión de la app (subir en cada deploy con fixes) ─────────
-const APP_VERSION = '1.32.0';
+const APP_VERSION = '1.33.0';
 
 window.cerrarSesionApp = function() {
   if ((DB._pending > 0 || _proyHayCambios()) &&
@@ -1596,7 +1689,7 @@ function ageClass(d){const y=dateDiff(d);return y>=1?'badge-red':y>=0.75?'badge-
 // ══════════════════════════════════════════════
 const TITLES={cotizar:'Nueva Cotización',proyectos:'Mis Proyectos',materiales:'Lista de Material',
   perfiles:'Perfiles de Aluminio',herrajes:'Herrajes y Accesorios',
-  vidrios:'Tipos de Vidrio',recetas:'Recetas de Canceles',alertas:'Alertas de Precios'};
+  vidrios:'Tipos de Vidrio',recetas:'Recetas de Canceles',soluciones:'Soluciones de remate',alertas:'Alertas de Precios'};
 
 function nav(el){
   const vAct=document.querySelector('.view.active');
@@ -1615,6 +1708,7 @@ function nav(el){
   if(v==='herrajes')renderHerrajes();
   if(v==='vidrios')renderVidrios();
   if(v==='recetas')renderRecetaLista();
+  if(v==='soluciones')renderSoluciones();
   if(v==='alertas')renderAlertas();
   if(v==='proyectos')renderProyectos();
   if(v==='cotizar')renderCotizarInicio();
@@ -1889,6 +1983,203 @@ function renderVidrios(){
 // ══════════════════════════════════════════════
 let recetaActual=null,configActual=null;
 let modalCtx={},modalItemsAll=[];
+
+// ══════════════════════════════════════════════════════════════════
+//  BIBLIOTECA DE SOLUCIONES DE REMATE (por línea)
+//  solucion = {id, nombre, linea, lado:'ambos'|'horizontal'|'vertical',
+//              perfiles:[{clave,nombrePerfil,tipoVidrio:'SENCILLO'|'DUOVENT'|'AMBOS',piezas}],
+//              herrajes:[{herrajeId,nombreHerraje,cantidad,por:'lado'|'metro'}], fecha}
+//  Los cortes siempre son a la medida completa del lado (ancho u alto).
+// ══════════════════════════════════════════════════════════════════
+let solucionActual=null;   // copia de trabajo de la solución en edición
+const LADO_SOL_TXT={ambos:'Cualquier lado',horizontal:'Superior / inferior',vertical:'Laterales'};
+const _esAdminSCAVi=()=>window._uid==='z447DgJCSTW8xRDp8pkIZ5S1A8G3';
+function _lineasProducto(){
+  return [...document.querySelectorAll('#r-linea option')].map(o=>o.value||o.textContent);
+}
+// Soluciones disponibles: las propias + las publicadas por SCAVi (para quien no es el administrador)
+function solucionesDisponibles(){
+  const propias=DB.get('soluciones');
+  if(_esAdminSCAVi())return propias;
+  const scavi=((window._adminCache&&window._adminCache.soluciones)||[]).map(s=>({...s,_esScavi:true}));
+  return [...propias,...scavi];
+}
+function renderSoluciones(){
+  const selF=document.getElementById('sol-filtro-linea');
+  if(selF&&selF.options.length<=1) selF.innerHTML='<option value="">Todas las líneas</option>'+_lineasProducto().map(l=>`<option>${_escH(l)}</option>`).join('');
+  const fl=selF?selF.value:'', q=(document.getElementById('sol-buscador')?.value||'').trim().toLowerCase();
+  let ss=DB.get('soluciones').filter(s=>(!fl||s.linea===fl)&&(!q||(s.nombre||'').toLowerCase().includes(q)||(s.linea||'').toLowerCase().includes(q)));
+  ss=ss.slice().sort((a,b)=>(a.linea||'').localeCompare(b.linea||'')||(a.nombre||'').localeCompare(b.nombre||''));
+  const el=document.getElementById('sol-lista');
+  let html='',lin=null;
+  ss.forEach(s=>{
+    if(s.linea!==lin){lin=s.linea;html+=`<div class="sol-grupo">${_escH(lin||'Sin línea')}</div>`;}
+    const nP=(s.perfiles||[]).length;
+    html+=`<div class="list-item ${solucionActual&&solucionActual.id===s.id?'active':''}" onclick="seleccionarSolucion(${s.id})">
+      <div><div class="list-item-name">${_escH(s.nombre)}</div><div class="list-item-sub">${LADO_SOL_TXT[s.lado]||''} · ${nP?nP+' perfil'+(nP>1?'es':''):'sin perfiles'}</div></div></div>`;
+  });
+  el.innerHTML=html||(q||fl?'<div class="empty-state"><p>Sin resultados</p></div>':'<div class="empty-state"><p>Aún no hay soluciones</p></div>');
+  _renderSolBase();
+}
+// Botón para crear las soluciones base del Fijo 3" (solo si faltan)
+const SOL_BASE_FIJO3=[
+  {nombre:'Bolsa 3"',lado:'ambos',perfiles:[['69135','SENCILLO',1],['18270','DUOVENT',1]]},
+  {nombre:'Escalonado + junquillo 3"',lado:'ambos',perfiles:[['39136','SENCILLO',1],['9112','SENCILLO',1],['28183','DUOVENT',1],['8184','DUOVENT',1]]},
+  {nombre:'Zoclo + doble junquillo',lado:'horizontal',perfiles:[['59187','SENCILLO',1],['36370','SENCILLO',2],['12562','DUOVENT',1],['12603','DUOVENT',1]]},
+  {nombre:'Remate a tubo Panorama (67013 + 7014)',lado:'vertical',perfiles:[['67013','AMBOS',1],['7014','AMBOS',1]]},
+  {nombre:'Sin perfil (remata a muro u otro cancel)',lado:'ambos',perfiles:[]}
+];
+function _faltanBaseFijo3(){
+  const ex=new Set(DB.get('soluciones').filter(s=>s.linea==='Panorama').map(s=>s.nombre));
+  return SOL_BASE_FIJO3.filter(b=>!ex.has(b.nombre));
+}
+function _renderSolBase(){
+  const w=document.getElementById('sol-base-wrap'); if(!w)return;
+  const f=_faltanBaseFijo3();
+  w.innerHTML=f.length?`<button class="btn btn-primary btn-sm" onclick="crearSolucionesBaseFijo3()">Crear las ${f.length} soluciones base del Fijo 3" (Panorama)</button>
+    <div style="font-size:11px;color:var(--text3);margin-top:6px">${f.map(b=>_escH(b.nombre)).join(' · ')}</div>`:'';
+}
+function _nombrePerfilClave(clave){
+  const p=DB.getCombined('perfiles').find(x=>String(x.clave)===String(clave));
+  return p?p.nombre:'';
+}
+function crearSolucionesBaseFijo3(){
+  const f=_faltanBaseFijo3(); if(!f.length)return;
+  const ss=DB.get('soluciones').slice();
+  f.forEach(b=>ss.push({id:DB.nextId('soluciones'),nombre:b.nombre,linea:'Panorama',lado:b.lado,
+    perfiles:b.perfiles.map(([clave,tipoVidrio,piezas])=>({clave,nombrePerfil:_nombrePerfilClave(clave),tipoVidrio,piezas})),
+    herrajes:[],fecha:now()}));
+  DB.set('soluciones',ss);
+  toast(`${f.length} soluciones base creadas`);
+  renderSoluciones();
+}
+function _llenarDatalistsSol(){
+  const vistos=new Set();
+  document.getElementById('sol-dl-perfiles').innerHTML=DB.getCombined('perfiles').filter(p=>p.clave&&!vistos.has(String(p.clave))&&vistos.add(String(p.clave)))
+    .map(p=>`<option value="${_escH(p.clave+' — '+p.nombre)}">`).join('');
+  const vh=new Set();
+  document.getElementById('sol-dl-herrajes').innerHTML=DB.getCombined('herrajes').filter(h=>h.descripcion&&!vh.has(h.descripcion)&&vh.add(h.descripcion))
+    .map(h=>`<option value="${_escH(h.descripcion)}">`).join('');
+}
+function _mostrarEditorSol(titulo){
+  const s=solucionActual;
+  document.getElementById('sol-linea').innerHTML=_lineasProducto().map(l=>`<option>${_escH(l)}</option>`).join('');
+  document.getElementById('sol-nombre').value=s.nombre||'';
+  document.getElementById('sol-linea').value=s.linea||'Panorama';
+  document.getElementById('sol-lado').value=s.lado||'ambos';
+  document.getElementById('sol-editor-title').textContent=titulo;
+  const nueva=!DB.get('soluciones').some(x=>x.id===s.id);
+  document.getElementById('sol-btn-del').style.display=nueva?'none':'';
+  document.getElementById('sol-btn-dup').style.display=nueva?'none':'';
+  const pub=document.getElementById('sol-admin-publish');
+  pub.style.display=_esAdminSCAVi()?'flex':'none';
+  document.getElementById('sol-publicar').checked=((window._adminCache&&window._adminCache.soluciones)||[]).some(x=>String(x.id||x._docId)===String(s.id));
+  _llenarDatalistsSol();
+  _renderSolTablas();
+  document.getElementById('sol-editor').style.display='';
+  document.getElementById('sol-placeholder').style.display='none';
+}
+function _renderSolTablas(){
+  const s=solucionActual;
+  const optV=v=>['SENCILLO','DUOVENT','AMBOS'].map(o=>`<option value="${o}"${o===v?' selected':''}>${o==='AMBOS'?'Ambos':o==='SENCILLO'?'Sencillo':'Duovent'}</option>`).join('');
+  document.getElementById('sol-perfiles').innerHTML=(s.perfiles||[]).length?s.perfiles.map((p,i)=>`<tr>
+      <td style="font-family:monospace">${_escH(p.clave)}</td><td>${_escH(p.nombrePerfil||_nombrePerfilClave(p.clave)||'—')}</td>
+      <td><select onchange="solCambiar('perfiles',${i},'tipoVidrio',this.value)">${optV(p.tipoVidrio||'AMBOS')}</select></td>
+      <td><input type="number" min="1" step="1" value="${p.piezas||1}" style="width:70px" onchange="solCambiar('perfiles',${i},'piezas',Math.max(1,parseInt(this.value)||1))"></td>
+      <td><button class="btn btn-ghost btn-sm" title="Quitar" onclick="solQuitar('perfiles',${i})">✕</button></td></tr>`).join('')
+    :'<tr><td colspan="5" style="color:var(--text3);font-size:12px">Sin perfiles: este lado no lleva aluminio (por ejemplo, remata contra muro o contra otro cancel).</td></tr>';
+  document.getElementById('sol-herrajes').innerHTML=(s.herrajes||[]).length?s.herrajes.map((h,i)=>`<tr>
+      <td>${_escH(h.nombreHerraje||'—')}</td>
+      <td><input type="number" min="0" step="any" value="${h.cantidad||0}" style="width:70px" onchange="solCambiar('herrajes',${i},'cantidad',Math.max(0,parseFloat(this.value)||0))"></td>
+      <td><select onchange="solCambiar('herrajes',${i},'por',this.value)"><option value="lado"${h.por!=='metro'?' selected':''}>piezas por lado</option><option value="metro"${h.por==='metro'?' selected':''}>por metro lineal</option></select></td>
+      <td><button class="btn btn-ghost btn-sm" title="Quitar" onclick="solQuitar('herrajes',${i})">✕</button></td></tr>`).join('')
+    :'<tr><td colspan="4" style="color:var(--text3);font-size:12px">Sin herrajes ligados.</td></tr>';
+}
+function _leerCabeceraSol(){
+  const s=solucionActual;
+  s.nombre=document.getElementById('sol-nombre').value.trim();
+  s.linea=document.getElementById('sol-linea').value;
+  s.lado=document.getElementById('sol-lado').value;
+}
+function solCambiar(tipo,i,campo,valor){ _leerCabeceraSol(); solucionActual[tipo][i][campo]=valor; _renderSolTablas(); }
+function solQuitar(tipo,i){ _leerCabeceraSol(); solucionActual[tipo].splice(i,1); _renderSolTablas(); }
+function solAgregarPerfil(){
+  const inp=document.getElementById('sol-add-perfil'), t=inp.value.trim(); if(!t)return;
+  const clave=t.split('—')[0].trim();
+  const p=DB.getCombined('perfiles').find(x=>String(x.clave)===clave)||DB.getCombined('perfiles').find(x=>(x.nombre||'').toLowerCase()===t.toLowerCase());
+  if(!p){toast('No encontré ese perfil en el catálogo','error');return;}
+  _leerCabeceraSol();
+  solucionActual.perfiles.push({clave:String(p.clave),nombrePerfil:p.nombre,tipoVidrio:'AMBOS',piezas:1});
+  inp.value='';_renderSolTablas();
+}
+function solAgregarHerraje(){
+  const inp=document.getElementById('sol-add-herraje'), t=inp.value.trim(); if(!t)return;
+  const h=DB.getCombined('herrajes').find(x=>(x.descripcion||'').toLowerCase()===t.toLowerCase());
+  if(!h){toast('No encontré ese herraje en el catálogo','error');return;}
+  _leerCabeceraSol();
+  solucionActual.herrajes.push({herrajeId:h.id,nombreHerraje:h.descripcion,cantidad:1,por:'lado'});
+  inp.value='';_renderSolTablas();
+}
+function seleccionarSolucion(id){
+  const s=DB.get('soluciones').find(x=>x.id===id); if(!s)return;
+  solucionActual=JSON.parse(JSON.stringify(s));
+  solucionActual.perfiles=solucionActual.perfiles||[];solucionActual.herrajes=solucionActual.herrajes||[];
+  renderSoluciones();_mostrarEditorSol('Editar solución');
+}
+function nuevaSolucion(){
+  const fl=document.getElementById('sol-filtro-linea')?.value;
+  solucionActual={id:DB.nextId('soluciones'),nombre:'',linea:fl||'Panorama',lado:'ambos',perfiles:[],herrajes:[]};
+  renderSoluciones();_mostrarEditorSol('Nueva solución');
+  document.getElementById('sol-nombre').focus();
+}
+function duplicarSolucion(){
+  if(!solucionActual)return; _leerCabeceraSol();
+  solucionActual={...JSON.parse(JSON.stringify(solucionActual)),id:DB.nextId('soluciones'),nombre:solucionActual.nombre+' (copia)'};
+  _mostrarEditorSol('Nueva solución');
+}
+function cerrarSolucion(){
+  solucionActual=null;
+  document.getElementById('sol-editor').style.display='none';
+  document.getElementById('sol-placeholder').style.display='';
+  renderSoluciones();
+}
+function guardarSolucion(){
+  if(!solucionActual)return; _leerCabeceraSol();
+  const s=solucionActual;
+  if(!s.nombre){toast('El nombre es obligatorio','error');return;}
+  const ss=DB.get('soluciones').slice();
+  if(ss.some(x=>x.id!==s.id&&x.linea===s.linea&&(x.nombre||'').toLowerCase()===s.nombre.toLowerCase())){toast('Ya existe una solución con ese nombre en esta línea','error');return;}
+  const obj={id:s.id,nombre:s.nombre,linea:s.linea,lado:s.lado,
+    perfiles:s.perfiles.map(p=>({clave:p.clave,nombrePerfil:p.nombrePerfil||'',tipoVidrio:p.tipoVidrio||'AMBOS',piezas:p.piezas||1})),
+    herrajes:s.herrajes.map(h=>({herrajeId:h.herrajeId,nombreHerraje:h.nombreHerraje||'',cantidad:h.cantidad||0,por:h.por==='metro'?'metro':'lado'})),
+    fecha:now()};
+  const i=ss.findIndex(x=>x.id===s.id);
+  if(i>=0){ss[i]={...ss[i],...obj};toast('Solución actualizada');} else {ss.push(obj);toast('Solución creada');}
+  DB.set('soluciones',ss);
+  if(_esAdminSCAVi()){
+    const cache=(window._adminCache=window._adminCache||{});cache.soluciones=cache.soluciones||[];
+    const j=cache.soluciones.findIndex(x=>String(x.id||x._docId)===String(obj.id));
+    if(document.getElementById('sol-publicar').checked){
+      DB.publishToAdmin('soluciones',obj);
+      if(j>=0)cache.soluciones[j]={...obj,_esAdmin:true}; else cache.soluciones.push({...obj,_esAdmin:true});
+    } else if(j>=0){
+      DB.unpublishFromAdmin('soluciones',obj.id); cache.soluciones.splice(j,1);
+    }
+  }
+  solucionActual=JSON.parse(JSON.stringify(obj));
+  renderSoluciones();_mostrarEditorSol('Editar solución');
+}
+function eliminarSolucion(){
+  if(!solucionActual)return;
+  if(!confirm(`¿Eliminar la solución "${solucionActual.nombre}"?`))return;
+  DB.set('soluciones',DB.get('soluciones').filter(x=>x.id!==solucionActual.id));
+  if(_esAdminSCAVi()&&window._adminCache&&window._adminCache.soluciones){
+    const j=window._adminCache.soluciones.findIndex(x=>String(x.id||x._docId)===String(solucionActual.id));
+    if(j>=0){DB.unpublishFromAdmin('soluciones',solucionActual.id);window._adminCache.soluciones.splice(j,1);}
+  }
+  toast('Solución eliminada');
+  cerrarSolucion();
+}
 
 function renderRecetaLista(){
   let recetas=DB.get('recetas');
