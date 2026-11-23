@@ -794,6 +794,7 @@ onAuthStateChanged(_auth, async (user) => {
             </div>
             <div style="display:flex;align-items:center;gap:14px">
               <button class="btn btn-primary btn-sm" onclick="imprimirCotizacionCliente()" title="Formato SCAVi con la elevación de cada cancel, sobrante y total de material">📄 Cotización para cliente</button>
+              <button class="btn btn-primary btn-sm" onclick="abrirCotizacionVenta()" title="Precios de venta: costo × tu factor de utilidad, con el sobrante repartido sin mostrarse">💰 Cotización con utilidad</button>
               <button class="btn btn-ghost btn-sm" onclick="imprimirCotizacion(false)">🖨 Imprimir cotización</button>
               <button class="btn btn-ghost btn-sm" onclick="imprimirCotizacion(true)" title="Incluye perfiles, herrajes y vidrio de cada partida">🖨 Con detalle de materiales</button>
               <div class="total-value" id="cot-total-proyecto">$0.00</div>
@@ -1345,6 +1346,31 @@ onAuthStateChanged(_auth, async (user) => {
 </div>
 
 <!-- MODAL cambiar marca de perfiles -->
+<div class="modal-overlay" id="modal-cot-venta">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header">
+      <span class="modal-title">💰 Cotización con utilidad</span>
+      <button class="btn btn-ghost btn-icon" onclick="cerrarModal('modal-cot-venta')">✕</button>
+    </div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:14px">El costo de cada partida se multiplica por el factor y se le suma su parte proporcional del sobrante. La cotización solo muestra precios unitarios, subtotales y total.</div>
+    <div class="form-grid" style="margin-bottom:14px">
+      <div class="form-group">
+        <label>Factor de utilidad</label>
+        <input type="number" id="cv-factor" min="0" step="0.05" placeholder="Ej. 2" oninput="cvResumen()" onkeydown="if(event.key==='Enter')generarCotizacionVenta()">
+      </div>
+      <div class="form-group">
+        <label>IVA</label>
+        <div style="display:flex;align-items:center;gap:8px;height:38px;font-size:13px;color:var(--text)"><input type="checkbox" id="cv-iva" onchange="cvResumen()" style="width:16px;height:16px;margin:0;accent-color:var(--accent)"><span onclick="document.getElementById('cv-iva').click()" style="cursor:pointer">Agregar IVA 16%</span></div>
+      </div>
+    </div>
+    <div id="cv-resumen" style="border:1px solid var(--border);border-radius:var(--radius);background:var(--bg3);padding:10px 12px;margin-bottom:14px;font-size:12px"></div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="cerrarModal('modal-cot-venta')">Cancelar</button>
+      <button class="btn btn-primary" onclick="generarCotizacionVenta()">📄 Generar cotización</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-cambiar-marca">
   <div class="modal">
     <div class="modal-header">
@@ -1446,7 +1472,7 @@ onAuthStateChanged(_auth, async (user) => {
 window._cache = {};
 
 // ── Versión de la app (subir en cada deploy con fixes) ─────────
-const APP_VERSION = '1.37.2';
+const APP_VERSION = '1.38.0';
 
 window.cerrarSesionApp = function() {
   if ((DB._pending > 0 || _proyHayCambios()) &&
@@ -7010,6 +7036,58 @@ function _herrajesBatienteSVG(c,x,y,w,h,k){
 }
 const LOGO_SCAVI_SVG=`<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-label="SCAVi"><defs><linearGradient id="lgv" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7cc6e3"/><stop offset="1" stop-color="#2f8fb5"/></linearGradient><linearGradient id="lga" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4f7f9"/><stop offset="1" stop-color="#b9c6d0"/></linearGradient></defs><rect x="2" y="2" width="60" height="60" rx="12" fill="url(#lga)"/><rect x="9" y="9" width="21" height="46" rx="2.5" fill="url(#lgv)"/><rect x="34" y="9" width="21" height="46" rx="2.5" fill="url(#lgv)"/><path d="M12 26 L24 12 L28 12 L12 31 Z" fill="#fff" opacity=".55"/><path d="M37 40 L51 23 L52 28 L40 42 Z" fill="#fff" opacity=".45"/><rect x="30.5" y="6" width="3" height="52" rx="1.5" fill="#0f2a3d"/></svg>`;
 
+// ── Cotización con utilidad (precios de venta) ──
+// Precio unitario = (costo × factor + parte del sobrante) / cantidad, redondeado a peso entero.
+// El sobrante (al costo) se reparte según la participación de cada partida (subtotal = unitario × cantidad).
+function preciosVentaProyecto(p,factor,sobrante){
+  const sob=sobrante!=null?sobrante:sobrantePorPerfil(p).reduce((t,r)=>t+r.costo,0);
+  const costos=(p.partidas||[]).map(pt=>+pt.totalPartida||0);
+  const base=costos.reduce((t,c)=>t+c,0);
+  const partidas=costos.map((c,i)=>{
+    const cant=(p.partidas[i].cantidad||1), parte=base>0?sob*c/base:0;
+    const pu=Math.round((c*factor+parte)/cant);
+    return {cant,pu,st:pu*cant,parte};
+  });
+  return {sobrante:sob,costo:base,partidas,total:partidas.reduce((t,x)=>t+x.st,0)};
+}
+let _cvSob=0;
+function abrirCotizacionVenta(){
+  if(!proyectoActivo||!proyectoActivo.partidas||!proyectoActivo.partidas.length){
+    toast('Agrega al menos una partida antes de imprimir','error');return;
+  }
+  _cvSob=sobrantePorPerfil(proyectoActivo).reduce((t,r)=>t+r.costo,0);
+  const f=document.getElementById('cv-factor');
+  f.value=proyectoActivo.factorUtilidad||'';
+  document.getElementById('cv-iva').checked=!!proyectoActivo.cotVentaIva;
+  document.getElementById('modal-cot-venta').classList.add('open');
+  cvResumen();
+  setTimeout(()=>{f.focus();f.select();},50);
+}
+function _cvLeer(){ return {factor:parseFloat(document.getElementById('cv-factor').value),iva:document.getElementById('cv-iva').checked}; }
+function cvResumen(){
+  const el=document.getElementById('cv-resumen'), {factor,iva}=_cvLeer();
+  if(!(factor>0)){ el.innerHTML='<span style="color:var(--text3)">Teclea el factor (ej. 2 = el costo se multiplica × 2).</span>'; return; }
+  const v=preciosVentaProyecto(proyectoActivo,factor,_cvSob);
+  const ivaM=iva?Math.round(v.total*16)/100:0;
+  const fila=(a,b,est)=>`<div style="display:flex;justify-content:space-between;gap:10px;padding:3px 0;${est||''}"><span>${a}</span><span style="font-family:var(--mono)">${b}</span></div>`;
+  el.innerHTML='<div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:4px">Solo para ti — no aparece en la cotización</div>'+
+    fila('Costo de material',fmt(v.costo))+
+    fila(`× factor ${factor}`,fmt(v.costo*factor))+
+    fila('+ Sobrante repartido',fmt(v.sobrante))+
+    fila('Subtotal de venta (redondeado)',fmt(v.total),'border-top:1px solid var(--border);margin-top:3px;padding-top:6px')+
+    (iva?fila('IVA 16%',fmt(ivaM)):'')+
+    fila('<b>Total al cliente</b>',`<b style="color:var(--green)">${fmt(v.total+ivaM)}</b>`)+
+    (factor<1?'<div style="color:var(--amber);margin-top:6px">⚠ Con un factor menor a 1 vendes por debajo del costo.</div>':'');
+}
+function generarCotizacionVenta(){
+  const {factor,iva}=_cvLeer();
+  if(!(factor>0)){toast('Teclea un factor de utilidad mayor a 0','error');return;}
+  proyectoActivo.factorUtilidad=factor;
+  proyectoActivo.cotVentaIva=iva;
+  cerrarModal('modal-cot-venta');
+  imprimirCotizacionCliente({factor,iva,sobrante:_cvSob});
+}
+
 // Se ejecuta DENTRO de la ventana de impresión: reparte las partidas en hojas carta
 function _paginarCotCliente(){
   const D=window.__COT, IN=96, PAGE_H=11*IN, LIM=PAGE_H-0.85*IN, LIM_FIRMA=PAGE_H-1.62*IN;
@@ -7055,7 +7133,8 @@ function _paginarCotCliente(){
   pages.forEach((pg,i)=>{pg.querySelector('.pnum').textContent='Página '+(i+1)+' de '+pages.length;});
 }
 
-function imprimirCotizacionCliente(){
+// venta = {factor, iva, sobrante} → cotización con utilidad (sin sobrante ni leyenda de costo)
+function imprimirCotizacionCliente(venta){
   if(!proyectoActivo||!proyectoActivo.partidas||!proyectoActivo.partidas.length){
     toast('Agrega al menos una partida antes de imprimir','error');return;
   }
@@ -7066,8 +7145,9 @@ function imprimirCotizacionCliente(){
   const n2=v=>(+v||0).toFixed(2);
   const fecha=new Date().toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'});
   let total=0,piezas=0,sinDibujo=0;
+  const pv=venta?preciosVentaProyecto(p,venta.factor,venta.sobrante):null;
   const filas=p.partidas.map((pt,i)=>{
-    const cant=pt.cantidad||1,st=pt.totalPartida||0,pu=cant>0?st/cant:st;
+    const cant=pt.cantidad||1,st=pv?pv.partidas[i].st:(pt.totalPartida||0),pu=pv?pv.partidas[i].pu:(cant>0?st/cant:st);
     total+=st;piezas+=cant;
     let vid='';
     if(pt.vidrioDividido){
@@ -7102,16 +7182,16 @@ function imprimirCotizacionCliente(){
       <div class="img">${img}</div>
     </div>`;
   });
-  const sob=sobrantePorPerfil(p);
+  const sob=venta?[]:sobrantePorPerfil(p);
   const sm=sob.reduce((t,r)=>t+r.m,0),sc=sob.reduce((t,r)=>t+r.costo,0);
   const folio=E(p.folio),proyecto=E(p.proyecto||''),cliente=E(p.cliente||'');
   const hero=`<div class="hero"><div class="logo">${LOGO_SCAVI_SVG}<div><div class="brand">SCAV<span>i</span></div>
       <div class="tagline">Consultoría Especializada en Proyectos de Aluminio y Vidrio</div></div></div>
-    <div class="doc"><div class="tipo">Cotización de materiales</div><div class="folio">${folio}</div><div class="fecha">Nuevo León, ${fecha}</div></div></div>`;
+    <div class="doc"><div class="tipo">${venta?'Cotización':'Cotización de materiales'}</div><div class="folio">${folio}</div><div class="fecha">Nuevo León, ${fecha}</div></div></div>`;
   const heroMini=`<div class="hero mini"><div class="logo">${LOGO_SCAVI_SVG}<div class="brand">SCAV<span>i</span></div></div>
     <div class="doc"><div class="folio">${folio}</div><div class="fecha">${proyecto||cliente}</div></div></div>`;
-  const cabecera=`<div class="titulo">Cotización de Materiales de Aluminio y Vidrio</div>
-    <div class="subtitulo">Servicios Profesionales de Análisis de Costos</div>
+  const cabecera=`<div class="titulo">${venta?'Cotización de Cancelería de Aluminio y Vidrio':'Cotización de Materiales de Aluminio y Vidrio'}</div>
+    <div class="subtitulo">${venta?'Propuesta económica':'Servicios Profesionales de Análisis de Costos'}</div>
     <div class="datos">
       ${cliente?`<div><span class="lbl">Cliente</span><b>${cliente}</b></div>`:''}
       ${proyecto?`<div><span class="lbl">Proyecto</span><b>${proyecto}</b></div>`:''}
@@ -7122,13 +7202,25 @@ function imprimirCotizacionCliente(){
   const SOB_INLINE=6, sobDetalle=sob.length>SOB_INLINE;
   const filaSob=r=>`<tr><td>${E(r.nombre)}${r.clave&&r.clave!==r.nombre?` <span class="cl">${E(r.clave)}</span>`:''}</td><td class="r mu">${n2(r.m)} m</td><td class="r">${fmt(r.costo)}</td></tr>`;
   const sobFilas=sobDetalle?sob.map(filaSob):[];
-  const sobHead=`<div class="sobdet"><h3>Sobrante de perfil por tipo <span>optimización de cortes</span></h3><table><thead><tr><th>Perfil</th><th class="r">Sobrante</th><th class="r">Costo</th></tr></thead><tbody></tbody></table></div>`;
+  const sobHead=venta?'':`<div class="sobdet"><h3>Sobrante de perfil por tipo <span>optimización de cortes</span></h3><table><thead><tr><th>Perfil</th><th class="r">Sobrante</th><th class="r">Costo</th></tr></thead><tbody></tbody></table></div>`;
   const tablaSob=sobDetalle?`<tr class="tot"><td>Costo total del sobrante</td><td class="r">${n2(sm)} m</td><td class="r">${fmt(sc)}</td></tr>
     <tr><td colspan="3" class="mu" style="font-size:8pt">${sob.length} perfiles · detalle por tipo en la tabla anterior.</td></tr>`
     :sob.length?sob.map(r=>`<tr><td>${E(r.nombre)}${r.clave&&r.clave!==r.nombre?` <span class="cl">${E(r.clave)}</span>`:''}</td><td class="r mu">${n2(r.m)} m</td><td class="r">${fmt(r.costo)}</td></tr>`).join('')+
     `<tr class="tot"><td>Costo total del sobrante</td><td class="r">${n2(sm)} m</td><td class="r">${fmt(sc)}</td></tr>`
     :`<tr><td colspan="3" class="mu">Sin sobrante significativo de perfil.</td></tr>`;
-  const resumen=`<div class="resumen">
+  const ivaM=venta&&venta.iva?Math.round(total*16)/100:0;
+  const resumen=venta?`<div class="resumen">
+      <div class="izq">
+        <div class="note">Precios en pesos mexicanos (MXN)${venta.iva?', con IVA desglosado':''}, calculados con las medidas y especificaciones proporcionadas.
+          Vigentes a la fecha de emisión y sujetos a cambio sin previo aviso.</div>
+      </div>
+      <div class="der">
+        <div class="box"><table class="tots"><tr><td>Partidas</td><td class="r">${p.partidas.length}</td></tr>
+          <tr><td>Piezas totales</td><td class="r">${piezas}</td></tr><tr><td>Subtotal</td><td class="r">${fmt(total)}</td></tr>
+          ${venta.iva?`<tr><td>IVA 16%</td><td class="r">${fmt(ivaM)}</td></tr>`:''}</table></div>
+        <div class="total"><div class="lbl"><b>Total</b>${folio}</div><div class="amt">${fmt(total+ivaM)}<small>MXN</small></div></div>
+      </div></div>`
+    :`<div class="resumen">
       <div class="izq">
         <div class="box sobr"><h3>Sobrante de perfil del proyecto <span>optimización de cortes</span></h3><table>${tablaSob}</table></div>
         <div class="legend"><b>Importante:</b> los importes de esta cotización corresponden exclusivamente al <b>costo de material</b>
