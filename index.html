@@ -1446,7 +1446,7 @@ onAuthStateChanged(_auth, async (user) => {
 window._cache = {};
 
 // ── Versión de la app (subir en cada deploy con fixes) ─────────
-const APP_VERSION = '1.37.0';
+const APP_VERSION = '1.37.1';
 
 window.cerrarSesionApp = function() {
   if ((DB._pending > 0 || _proyHayCambios()) &&
@@ -1976,6 +1976,10 @@ function _posGrupo(cp,g){
   if(g.pos) return g.pos;
   if(g.tipo==='vertical') return 'lat';
   if(g.tipo!=='horizontal') return '';
+  // La condición del grupo dice el lado mejor que el nombre (ej. CON_ESCALONADO_SUP = arriba)
+  const cs=[g.condicion,g.condicion2,g.condicion3].filter(c=>c&&c!=='SIEMPRE').join(' ').toUpperCase();
+  if(/_SUP\b/.test(cs)&&!/_INF\b/.test(cs)) return 'sup';
+  if(/_INF\b/.test(cs)&&!/_SUP\b/.test(cs)) return 'inf';
   const n=String(cp.nombrePerfil||'').toUpperCase();
   if(/ESCALON|ZOCLO|JUNQ|GUARDAPOLVO|SILLAR|ANTEPECHO/.test(n)) return 'inf';
   if(/BOLSA|CABEZAL|RIEL SUP|DINTEL/.test(n)) return 'sup';
@@ -2181,12 +2185,12 @@ function _renderOpEditor(){
   const E=_opEdit;
   const tipoTxt=g=>g.tipo==='vertical'?'Vertical':g.tipo==='horizontal'?'Horizontal':'Corte fijo';
   document.getElementById('op-cuerpo').innerHTML=E.grupos.map((g,gi)=>{
-    const cond=[g.condicion,g.condicion2,g.condicion3].filter(c=>c&&c!=='SIEMPRE').join(' o ');
+    const cond=[g.condicion,g.condicion2,g.condicion3].filter(c=>c&&c!=='SIEMPRE').map(_condLegible).join(' o ');
     const nTxt=_esGrupoAuto(g)?`(${_txtAutoGrupo(g)})`:g.cant;
     const cortes=g.tipo==='fijo'?`${g.cant}×${g.long}m`:`${nTxt}×${g.tipo==='vertical'?'alto':'ancho'}${g.divisor>1?'/'+g.divisor:''}`;
-    const guess=_posGrupo({nombrePerfil:E.nombre},{...g,pos:''});
+    const guess=_posGrupo({nombrePerfil:E.nombre},{...g,pos:''}), posAct=g.pos||guess;
     return `<div class="op-grupo">
-      <div class="op-grupo-head"><b>${tipoTxt(g)}</b> <span>${cortes}${cond?` · si ${_escH(cond)}`:''}</span>
+      <div class="op-grupo-head"><b>${tipoTxt(g)}${posAct&&posAct!=='lat'?' · '+POS_TXT[posAct].toLowerCase():''}</b> <span>${cortes}${cond?` · se usa ${_escH(cond)}`:' · siempre'}</span>
         <label class="op-pos">En el dibujo: <select onchange="opEdSet(${gi},'pos',this.value)">
           <option value=""${!g.pos?' selected':''}>Automático${guess?' ('+POS_TXT[guess].toLowerCase()+')':''}</option>
           ${Object.entries(POS_TXT).map(([k,v])=>`<option value="${k}"${g.pos===k?' selected':''}>${v}</option>`).join('')}</select></label></div>
@@ -2209,6 +2213,11 @@ function _renderOpEditor(){
 function opEdSet(gi,campo,v){ _opEdit.grupos[gi][campo]=v; }
 function opEdComp(gi,key,on){ const c=new Set(_opEdit.grupos[gi].companeros||[]); on?c.add(key):c.delete(key); _opEdit.grupos[gi].companeros=[...c]; _renderOpEditor(); }
 // Candidatos a compañero: grupos de otros perfiles de la misma configuración, misma orientación y tipo de vidrio compatible
+// Condición en palabras: CON_ESCALONADO_SUP → "con escalonado superior"
+function _condLegible(c){
+  return String(c||'').toUpperCase().replace(/^CON_/,'con ').replace(/^SIN_/,'sin ').replace(/_SUP\b/,' superior').replace(/_INF\b/,' inferior')
+    .replace(/_VERT\b/,' vertical').replace(/_/g,' ').toLowerCase();
+}
 function _htmlCompaneros(E,g,gi){
   const tvE=E.tipoVidrio.toUpperCase();
   const cands=E.otros.filter(o=>o.pi!==E.pi&&(tvE==='AMBOS'||o.tipoVidrio.toUpperCase()==='AMBOS'||o.tipoVidrio.toUpperCase()===tvE))
@@ -2217,7 +2226,7 @@ function _htmlCompaneros(E,g,gi){
   const sel=new Set(g.companeros||[]);
   const cortes=og=>og.tipo==='fijo'?og.cant+'×'+og.long+'m':(_esGrupoAuto(og)?'('+_txtAutoGrupo(og)+')':og.cant)+'×'+(og.tipo==='vertical'?'alto':'ancho')+(og.divisor>1?'/'+og.divisor:'');
   return '<div class="op-sub">Perfiles compañeros <span>se quitan solos si este perfil se cambia o se quita</span></div><div class="op-comps">'+
-    cands.map(x=>'<label class="op-comp'+(sel.has(x.key)?' on':'')+'"><input type="checkbox" '+(sel.has(x.key)?'checked':'')+' onchange="opEdComp('+gi+',\''+x.key+'\',this.checked)"> <b>'+_escH(x.o.clave)+'</b> '+_escH(x.o.nombre)+' <span>'+cortes(x.og)+(x.og.cond?' · si '+_escH(x.og.cond):'')+'</span></label>').join('')+'</div>';
+    cands.map(x=>'<label class="op-comp'+(sel.has(x.key)?' on':'')+'"><input type="checkbox" '+(sel.has(x.key)?'checked':'')+' onchange="opEdComp('+gi+',\''+x.key+'\',this.checked)"> <b>'+_escH(x.o.clave)+'</b> '+_escH(x.o.nombre)+' <span>'+cortes(x.og)+(x.og.cond?' · se usa '+_escH(x.og.cond.split(' o ').map(_condLegible).join(' o ')):'')+'</span></label>').join('')+'</div>';
 }
 function opEdNuevaOpcion(gi){ _opEdit.grupos[gi].opciones.push({id:'o'+Date.now().toString(36)+Math.floor(Math.random()*1e4),perfiles:[],herrajes:[]}); _renderOpEditor(); }
 function opEdQuitarOpcion(gi,oi){ _opEdit.grupos[gi].opciones.splice(oi,1); _renderOpEditor(); }
