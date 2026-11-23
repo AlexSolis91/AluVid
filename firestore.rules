@@ -20,6 +20,9 @@ service cloud.firestore {
         && cuenta().vence > request.time;
     }
 
+    // Compañero de trabajo: lo marca el administrador (campo equipo) y usa los datos del admin
+    function esEquipo() { return activeUser() && cuenta().get('equipo', false) == true; }
+
     function noBloqueado(uid) {
       return !exists(/databases/$(database)/documents/bloqueados/$(uid));
     }
@@ -60,6 +63,9 @@ service cloud.firestore {
         allow read, write: if isOwner(uid) && tablaApp(tabla) && activeUser();
         // Catálogo de precios del administrador, lo leen los usuarios con suscripción vigente
         allow read: if uid == adminUid() && tabla in ['perfiles','herrajes','vidrios'] && activeUser();
+        // Equipo: lee proyectos y recetas del admin (las recetas se necesitan para calcular) y edita solo proyectos
+        allow read:  if uid == adminUid() && tabla in ['recetas','proyectos'] && esEquipo();
+        allow write: if uid == adminUid() && tabla == 'proyectos' && esEquipo();
       }
     }
 

@@ -338,6 +338,10 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
   #toast-container{left:12px;right:12px;bottom:12px}
   .toast{min-width:0}
 }
+/* Cuenta de equipo: sin Recetas, sin alertas ni formularios de catálogo */
+body.modo-equipo .solo-admin,body.modo-equipo .nav-item[data-view="recetas"],body.modo-equipo .nav-item[data-view="alertas"],
+body.modo-equipo #view-recetas,body.modo-equipo #view-alertas,
+body.modo-equipo #view-perfiles>.card:first-child,body.modo-equipo #view-herrajes>.card:first-child,body.modo-equipo #view-vidrios>.card:first-child{display:none!important}
 </style>
 
 <!-- Firebase: loaded as module, exposes _fbReady promise to window -->
@@ -382,6 +386,9 @@ onAuthStateChanged(_auth, async (user) => {
   if (!snap.exists()) { await signOut(_auth); window.location.href = 'login.html'; return; }
   const data = snap.data();
   window._userData = data;
+  // Cuenta de equipo: trabaja sobre los datos del administrador (sin Recetas ni edición de catálogos)
+  const equipo = data.equipo === true;
+  const dataUid = equipo ? 'z447DgJCSTW8xRDp8pkIZ5S1A8G3' : user.uid;
   const vence = data.vence?.toDate ? data.vence.toDate() : new Date(data.vence);
   if (!data.activo) {
     await signOut(_auth);
@@ -392,6 +399,11 @@ onAuthStateChanged(_auth, async (user) => {
   // Fecha inválida o faltante = vencida
   if (isNaN(vence) || vence < new Date()) {
     await signOut(_auth);
+    if (equipo) {
+      alert('Tu acceso de equipo venció. Pide al administrador que lo renueve.');
+      window.location.href = 'login.html';
+      return;
+    }
     window.location.href = 'pago.html?email=' + encodeURIComponent(user.email) + '&uid=' + encodeURIComponent(user.uid);
     return;
   }
@@ -403,14 +415,14 @@ onAuthStateChanged(_auth, async (user) => {
     const nombre = String(data.nombre || user.email).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     footer.innerHTML = `<span style="display:block;color:var(--text2)">${nombre}</span>
       <span style="display:block;margin-top:2px;color:${dias<=7?'var(--amber)':'inherit'}">
-        ${dias} ${dias===1?'día restante':'días restantes'} · <a href="#" onclick="cerrarSesionApp();return false" style="color:var(--accent2)">Cerrar sesión</a>
+        ${equipo?'Equipo SCAVi · ':''}${dias} ${dias===1?'día restante':'días restantes'} · <a href="#" onclick="cerrarSesionApp();return false" style="color:var(--accent2)">Cerrar sesión</a>
       </span>`;
   }
 
   // Load user's own data (en paralelo). _uid se asigna hasta terminar la carga
   // para que nada se sincronice a Firestore con el caché aún vacío.
   const tablas = ['perfiles','herrajes','vidrios','recetas','proyectos'];
-  const snaps = await Promise.all(tablas.map(t => getDocs(collection(_db, 'usuarios', user.uid, t))));
+  const snaps = await Promise.all(tablas.map(t => getDocs(collection(_db, 'usuarios', dataUid, t))));
   tablas.forEach((tabla, i) => {
     window._cache[tabla] = snaps[i].docs.map(d => ({ ...d.data(), _docId: d.id }));
   });
@@ -434,7 +446,10 @@ onAuthStateChanged(_auth, async (user) => {
     }
   }
 
-  window._uid = user.uid;
+  window._uid = dataUid;          // dueño de los datos (el admin, si es cuenta de equipo)
+  window._authUid = user.uid;     // cuenta con la que se inició sesión
+  window._equipo = equipo;
+  if (equipo) document.body.classList.add('modo-equipo');
   // Signal app that Firebase is ready
   window._fbReady = true;
   const _ov = document.getElementById('carga-overlay'); if (_ov) _ov.remove();
@@ -493,13 +508,13 @@ onAuthStateChanged(_auth, async (user) => {
       Tipos de Vidrio
     </div>
 
-    <div class="nav-section">Producción</div>
+    <div class="nav-section solo-admin">Producción</div>
     <div class="nav-item" data-view="recetas" onclick="nav(this)">
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
       Recetas de Canceles
     </div>
 
-    <div class="nav-section">Sistema</div>
+    <div class="nav-section solo-admin">Sistema</div>
     <div class="nav-item" data-view="alertas" onclick="nav(this)">
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
       Alertas de Precios
@@ -1472,7 +1487,7 @@ onAuthStateChanged(_auth, async (user) => {
 window._cache = {};
 
 // ── Versión de la app (subir en cada deploy con fixes) ─────────
-const APP_VERSION = '1.38.1';
+const APP_VERSION = '1.39.0';
 
 window.cerrarSesionApp = function() {
   if ((DB._pending > 0 || _proyHayCambios()) &&
@@ -1508,7 +1523,7 @@ const DB = {
   },
   // Publish item to admin_catalogo (only works for admin user)
   publishToAdmin(k, item) {
-    if (!window._uid || window._uid !== 'z447DgJCSTW8xRDp8pkIZ5S1A8G3') return;
+    if (!window._uid || window._uid !== 'z447DgJCSTW8xRDp8pkIZ5S1A8G3' || window._equipo) return;
     if (!window._fsSetDoc || !window._fsDoc) return;
     const key = String(item.id || item._docId);
     const clean = JSON.parse(JSON.stringify({ ...item, _esAdmin: true }));
@@ -1518,7 +1533,7 @@ const DB = {
   },
   // Remove from admin_catalogo
   unpublishFromAdmin(k, id) {
-    if (!window._uid || window._uid !== 'z447DgJCSTW8xRDp8pkIZ5S1A8G3') return;
+    if (!window._uid || window._uid !== 'z447DgJCSTW8xRDp8pkIZ5S1A8G3' || window._equipo) return;
     if (!window._fsDeleteDoc || !window._fsDoc) return;
     window._fsDeleteDoc(window._fsDoc('admin_catalogo/' + k + '/items/' + String(id)))
       .catch(e => console.warn('Admin unpublish error:', e.message));
@@ -1565,6 +1580,7 @@ const DB = {
   },
   _syncToFirestore(k, v) {
     if (!window._uid || !window._fsSetDoc || !window._fsDeleteDoc || !window._fsDoc) return Promise.resolve();
+    if (window._equipo && k !== 'proyectos') return Promise.resolve(); // equipo: solo proyectos
     const uid = window._uid;
     if (!this._shadow[k]) this._seed(k, []);
     const sh = this._shadow[k], fl = this._inflight, seen = new Set(), writes = [], waits = [];
@@ -1673,6 +1689,7 @@ const TITLES={cotizar:'Nueva Cotización',proyectos:'Mis Proyectos',materiales:'
   vidrios:'Tipos de Vidrio',recetas:'Recetas de Canceles',alertas:'Alertas de Precios'};
 
 function nav(el){
+  if(window._equipo&&['recetas','alertas'].includes(el.dataset.view))return; // solo administrador
   const vAct=document.querySelector('.view.active');
   if(vAct&&vAct.id==='view-cotizar'&&el.dataset.view!=='cotizar'&&_proyHayCambios()){
     if(!_confirmarSalirProyecto())return;
@@ -2287,7 +2304,7 @@ function guardarOpcionesPerfil(){
     return ng;
   });
   DB.set('recetas',recetas); recetaActual=r; configActual={idx:configActual.idx,...r.configs[configActual.idx]};
-  if(window._uid==='z447DgJCSTW8xRDp8pkIZ5S1A8G3'&&((window._adminCache&&window._adminCache.recetas)||[]).some(x=>String(x.id||x._docId)===String(r.id))){
+  if(window._uid==='z447DgJCSTW8xRDp8pkIZ5S1A8G3'&&!window._equipo&&((window._adminCache&&window._adminCache.recetas)||[]).some(x=>String(x.id||x._docId)===String(r.id))){
     DB.publishToAdmin('recetas',r);
     const j=window._adminCache.recetas.findIndex(x=>String(x.id||x._docId)===String(r.id)); if(j>=0)window._adminCache.recetas[j]={...r,_esAdmin:true};
   }
@@ -2345,7 +2362,7 @@ function mostrarEditorReceta(){
   document.getElementById('r-linea').value=recetaActual.linea||'Panorama';
   _llenarSelDibujo('r-dibujo',false,recetaActual.dibujo||'');
   // Show publish toggle only for admin
-  const isAdmin=window._uid==='z447DgJCSTW8xRDp8pkIZ5S1A8G3';
+  const isAdmin=window._uid==='z447DgJCSTW8xRDp8pkIZ5S1A8G3'&&!window._equipo;
   const publishWrap=document.getElementById('r-admin-publish');
   if(publishWrap) publishWrap.style.display=isAdmin?'flex':'none';
   if(isAdmin){
@@ -2430,7 +2447,7 @@ function guardarReceta(){
   try{if(!configActual&&obj.configs&&obj.configs.length>0) seleccionarConfig(0);}catch(e){}
   // If published to SCAVi, auto-update the admin catalog
   const publicar=document.getElementById('r-publicar-scavi')?.checked;
-  if(publicar && window._uid==='z447DgJCSTW8xRDp8pkIZ5S1A8G3'){
+  if(publicar && window._uid==='z447DgJCSTW8xRDp8pkIZ5S1A8G3' && !window._equipo){
     DB.publishToAdmin('recetas', obj);
     if(window._adminCache?.recetas){
       const idx2=window._adminCache.recetas.findIndex(x=>(x.id||x._docId)===String(obj.id));
@@ -5854,7 +5871,7 @@ function _borrarLocalLegado(){
   TABLAS_DATOS.forEach(k=>{try{localStorage.removeItem('av_'+k);localStorage.removeItem('aluvid_'+k);}catch(e){}});
 }
 async function migrarDatosLocales(){
-  const uid=window._uid;if(!uid)return false;
+  const uid=window._uid;if(!uid||window._equipo)return false;
   const flag='av_migrado_'+uid;
   try{if(localStorage.getItem(flag))return false;}catch(e){return false;}
   const {datos,n}=_leerLocalLegado();

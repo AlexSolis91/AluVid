@@ -283,6 +283,13 @@ input:focus,select:focus{border-color:var(--accent)}
         </select>
       </div>
       <div class="form-group" style="grid-column:1/-1">
+        <label>Tipo de cuenta</label>
+        <select id="modal-equipo">
+          <option value="false">Cliente (sus propios datos)</option>
+          <option value="true">Equipo SCAVi (tus proyectos y catálogos, sin Recetas)</option>
+        </select>
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
         <label>Nueva fecha de vencimiento</label>
         <input id="modal-vence" type="date">
         <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
@@ -442,7 +449,7 @@ window.renderUsuarios = () => {
     return `<tr>
       <td style="font-weight:500">${esc(u.nombre||'—')}</td>
       <td class="td-mono">${esc(u.email)}</td>
-      <td><span class="badge ${planBadge}">${esc(u.plan||'mensual')}</span></td>
+      <td><span class="badge ${planBadge}">${esc(u.plan||'mensual')}</span>${u.equipo===true?' <span class="badge badge-purple">Equipo</span>':''}</td>
       <td>${estadoBadge}</td>
       <td>${fechaStr(u.vence)}</td>
       <td><span style="font-weight:600;color:${diasColor}">${dias > 0 ? dias+' días' : 'Vencido'}</span></td>
@@ -523,6 +530,7 @@ window.abrirModal = (uid) => {
   document.getElementById('modal-email').value = u.email||'';
   document.getElementById('modal-activo').value = String(u.activo);
   document.getElementById('modal-plan').value = u.plan||'mensual';
+  document.getElementById('modal-equipo').value = String(u.equipo===true);
   document.getElementById('modal-vence').value = toDateInput(u.vence);
   document.getElementById('modal-monto').value = '';
   document.getElementById('modal-metodo').value = 'efectivo';
@@ -542,6 +550,7 @@ window.guardarUsuario = async () => {
   const uid    = document.getElementById('modal-uid').value;
   const activo = document.getElementById('modal-activo').value === 'true';
   const plan   = document.getElementById('modal-plan').value;
+  const equipo = document.getElementById('modal-equipo').value === 'true';
   const vence  = new Date(document.getElementById('modal-vence').value+'T12:00:00');
   const monto  = parseFloat(document.getElementById('modal-monto').value)||0;
   const metodo = document.getElementById('modal-metodo').value;
@@ -553,7 +562,7 @@ window.guardarUsuario = async () => {
   if (btn.disabled) return;
   btn.disabled = true;
   try {
-    await updateDoc(doc(db,'usuarios',uid), {activo, plan, vence, pagos});
+    await updateDoc(doc(db,'usuarios',uid), {activo, plan, vence, pagos, equipo});
     toast(activo ? 'Usuario actualizado y activado' : 'Usuario deshabilitado');
     cerrarModal();
     await cargarDatos();
