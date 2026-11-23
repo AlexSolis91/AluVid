@@ -205,42 +205,33 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
 /* ── SPLIT ── */
 .split{display:grid;grid-template-columns:1fr 2fr;gap:20px;align-items:start}
 .split-3{display:grid;grid-template-columns:220px 1fr 1fr;gap:16px;align-items:start}
-.sol-grid{display:grid;grid-template-columns:260px minmax(0,1fr);gap:16px;align-items:start}
-.sol-grupo{padding:6px 16px;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--text3);background:var(--bg3,rgba(255,255,255,.03));border-bottom:1px solid var(--border)}
-.sol-sub{font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:18px 0 8px}
-.sol-sub span{font-weight:400;text-transform:none;letter-spacing:0;color:var(--text3);margin-left:6px}
-.sol-nota{font-size:12px;color:var(--text2);background:rgba(79,142,247,.07);border:1px solid rgba(79,142,247,.2);border-radius:8px;padding:8px 12px}
-.sol-add{display:flex;gap:8px;margin-top:8px}.sol-add input{flex:1}
-#sol-perfiles select,#sol-herrajes select{min-width:96px}
-.lados-switch{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--text)}
-.lados-tabla{display:flex;flex-direction:column;gap:10px}
-.lados-fila{display:grid;grid-template-columns:110px minmax(0,1fr);gap:8px 12px;align-items:start;padding:10px 12px;border:1px solid var(--border);border-radius:10px}
-.lados-fila>div:last-child{grid-column:1/-1}
-.lados-switch,.lados-chk,.lados-chip{text-transform:none!important;letter-spacing:0!important;margin:0!important}
-.lados-switch input,.lados-chk input,.lados-chip input{width:auto;margin:0}
-.lados-nombre{font-weight:600;font-size:13px;padding-top:20px}.lados-nombre span{font-weight:400;color:var(--text3);font-size:11px}
-.lados-mini{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:4px}
-.lados-fila select{width:100%}
-.lados-chk{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);margin-top:6px}
-.lados-chips{display:flex;flex-wrap:wrap;gap:6px}
-.lados-chip{display:flex;align-items:center;gap:5px;font-size:12px;padding:4px 9px;border:1px solid var(--border);border-radius:20px;color:var(--text2);cursor:pointer}
-.lados-chip.on{border-color:rgba(79,142,247,.5);background:rgba(79,142,247,.1);color:var(--text)}
-.lados-aviso{margin-top:12px;font-size:12px;color:var(--amber);background:rgba(251,191,36,.07);border:1px solid rgba(251,191,36,.25);border-radius:8px;padding:8px 12px}
-
-.lados-cot{background:rgba(79,142,247,.05);border:1px solid rgba(79,142,247,.22);border-radius:var(--radius);padding:12px 14px}
-.lados-cot-head{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--accent2);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-bottom:10px}
-.lados-cot-body{display:flex;gap:14px;align-items:flex-start}
-.lados-svg{flex-shrink:0}.lados-svg-lado{cursor:pointer}.lados-svg-lado:hover{stroke-width:2.4}
-.lados-cot-filas{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
-.lados-cot-fila{display:grid;grid-template-columns:120px minmax(0,1fr) 80px;gap:4px 10px;align-items:center;padding:6px 8px;border-radius:8px;border:1px solid transparent}
-.lados-cot-fila.mod{border-color:rgba(251,191,36,.35);background:rgba(251,191,36,.06)}
-.lados-cot-nombre{font-size:12px;font-weight:600}
-.lados-cot-tag{font-size:10px;text-align:center;padding:2px 6px;border-radius:10px;color:var(--text3);border:1px solid var(--border)}
-.lados-cot-fila.mod .lados-cot-tag{color:var(--amber);border-color:rgba(251,191,36,.4)}
-.lados-cot-det{grid-column:2/-1;font-size:11px;color:var(--text3)}
-.lados-cot-pie{font-size:11px;color:var(--text3);margin-top:8px}
-@media(max-width:700px){.lados-cot-body{flex-direction:column}.lados-cot-fila{grid-template-columns:minmax(0,1fr) 80px}.lados-cot-nombre{grid-column:1/-1}.lados-cot-det{grid-column:1/-1}}
-.sol-vacio{text-align:center;color:var(--text2);font-size:13px;padding:40px 20px;border:1px dashed var(--border);border-radius:12px}
+.op-etq{display:block;font-size:11px;color:var(--text3);margin-top:2px}
+.op-ctl{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:4px}
+.op-sel{font-size:12px;padding:4px 8px;max-width:420px;border-color:rgba(79,142,247,.35)}
+.op-sel.mod{border-color:rgba(251,191,36,.6);background:rgba(251,191,36,.08)}
+.op-link{font-size:11px;color:var(--accent2)}
+.op-marcada{background:rgba(79,142,247,.08);border-radius:6px}
+.op-panel{background:rgba(79,142,247,.05);border:1px solid rgba(79,142,247,.22);border-radius:var(--radius);padding:12px 14px;margin-bottom:12px}
+.op-panel-head{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--accent2);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-bottom:10px}
+.op-panel-body{display:flex;gap:16px;align-items:flex-start}
+.op-svg{flex-shrink:0}.op-lado{cursor:pointer}.op-lado:hover{stroke-width:2.6}
+.op-panel-det{flex:1;min-width:0}
+.op-panel-lado{font-size:13px;font-weight:600;margin-bottom:6px}
+.op-panel-fila{padding:6px 0;border-bottom:1px solid var(--border)}
+.op-panel-perfil{font-size:12px}.op-panel-perfil span{color:var(--text3);font-size:11px;margin-left:4px}
+.op-panel-ayuda{font-size:12px;color:var(--text3);padding-top:6px}
+.op-cuenta{background:rgba(79,142,247,.2);color:var(--accent2);border-radius:9px;padding:0 6px;font-size:10px}
+.op-intro{font-size:12px;color:var(--text2);background:rgba(79,142,247,.07);border:1px solid rgba(79,142,247,.2);border-radius:8px;padding:8px 12px;margin-bottom:12px}
+.op-grupo{border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:12px}
+.op-grupo-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px}.op-grupo-head span{color:var(--text3);font-size:12px}
+.op-pos{margin-left:auto;display:flex;align-items:center;gap:6px;text-transform:none!important;letter-spacing:0!important;font-size:12px!important}
+.op-sub{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin:12px 0 6px}.op-sub span{font-weight:400;text-transform:none;letter-spacing:0;color:var(--text3);margin-left:6px}
+.op-row{display:flex;align-items:center;gap:8px;padding:4px 0}.op-row-nom{flex:1;font-size:12px}.op-row input{width:70px}.op-row-u{font-size:11px;color:var(--text3)}
+.op-add{display:flex;gap:6px;margin:4px 0}.op-add input{flex:1}
+.op-opcion{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:8px}
+.op-opcion-head{display:flex;align-items:center;font-size:12px;font-weight:600;margin-bottom:4px}
+.op-mini{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-top:6px}
+@media(max-width:700px){.op-panel-body{flex-direction:column}}
 
 /* ── DIVIDER ── */
 .divider{height:1px;background:var(--border);margin:16px 0}
@@ -278,7 +269,7 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
   body.nav-open{overflow:hidden}
 
   /* Columnas */
-  .split,.split-3,.sol-grid{grid-template-columns:minmax(0,1fr)}
+  .split,.split-3{grid-template-columns:minmax(0,1fr)}
   .form-group.col3{grid-column:1/-1}
 
   /* Tablas: scroll horizontal en lugar de aplastar columnas */
@@ -418,13 +409,8 @@ onAuthStateChanged(_auth, async (user) => {
   tablas.forEach((tabla, i) => {
     window._cache[tabla] = snaps[i].docs.map(d => ({ ...d.data(), _docId: d.id }));
   });
-  // Biblioteca de soluciones de remate: si las reglas aún no la permiten, queda vacía sin romper la carga
-  try {
-    const sSol = await getDocs(collection(_db, 'usuarios', user.uid, 'soluciones'));
-    window._cache['soluciones'] = sSol.docs.map(d => ({ ...d.data(), _docId: d.id }));
-  } catch(e) { window._cache['soluciones'] = []; }
   // Copia de lo que hay en Firestore: DB.set solo escribe lo que cambió respecto a esto
-  if (window._dbSeed) window._dbSeed([...tablas, 'soluciones']);
+  if (window._dbSeed) window._dbSeed(tablas);
   // Load admin catalogo for pricing (perfiles/herrajes/vidrios from admin's own catalog)
   window._adminCache = {};
   // Load recetas from admin_catalogo collection (published SCAVi recetas)
@@ -432,10 +418,6 @@ onAuthStateChanged(_auth, async (user) => {
     const sRec = await getDocs(collection(_db, 'admin_catalogo', 'recetas', 'items'));
     window._adminCache['recetas'] = sRec.docs.map(d => ({ _docId: d.id, _esAdmin: true, ...d.data() }));
   } catch(e) { window._adminCache['recetas'] = []; }
-  try {
-    const sSolA = await getDocs(collection(_db, 'admin_catalogo', 'soluciones', 'items'));
-    window._adminCache['soluciones'] = sSolA.docs.map(d => ({ _docId: d.id, _esAdmin: true, ...d.data() }));
-  } catch(e) { window._adminCache['soluciones'] = []; }
   // Load perfiles/herrajes/vidrios from admin user's own catalog for pricing
   const pricingTablas = ['perfiles','herrajes','vidrios'];
   for (const tabla of pricingTablas) {
@@ -510,10 +492,6 @@ onAuthStateChanged(_auth, async (user) => {
     <div class="nav-item" data-view="recetas" onclick="nav(this)">
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
       Recetas de Canceles
-    </div>
-    <div class="nav-item" data-view="soluciones" onclick="nav(this)">
-      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="1"/><path d="M3 7h18M7 7v14"/></svg>
-      Soluciones de remate
     </div>
 
     <div class="nav-section">Sistema</div>
@@ -712,9 +690,6 @@ onAuthStateChanged(_auth, async (user) => {
               </div>
             </div>
 
-            <!-- Remates por lado (recetas armadas por lados) -->
-            <div id="cot-lados-wrap" style="display:none;margin-top:12px"></div>
-
             <!-- Opciones adicionales de la receta -->
             <div id="cot-extras-wrap" style="margin-top:12px"></div>
 
@@ -722,6 +697,7 @@ onAuthStateChanged(_auth, async (user) => {
             <div id="cot-preview" style="display:none;margin-top:16px">
               <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px">
                 <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Desglose de la partida</div>
+                <div id="cot-opc-panel"></div>
                 <div id="cot-desglose"></div>
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
                   <span style="font-size:13px;color:var(--text2)">Total partida (sin IVA)</span>
@@ -1111,7 +1087,6 @@ onAuthStateChanged(_auth, async (user) => {
                         <div class="tab active" onclick="switchTab(this,'rc-tab-perfiles');toggleRcBtn('perfil')">Perfiles</div>
                         <div class="tab" onclick="switchTab(this,'rc-tab-herrajes');toggleRcBtn('herraje')">Herrajes</div>
                         <div class="tab" onclick="switchTab(this,'rc-tab-separador');toggleRcBtn('separador')">Separador</div>
-                        <div class="tab" onclick="switchTab(this,'rc-tab-lados');toggleRcBtn('lados')">Lados</div>
                       </div>
                       <button class="btn btn-ghost btn-sm" id="rc-btn-perfil" onclick="abrirModalComponente('perfil','config')">+ Perfil</button>
                       <button class="btn btn-ghost btn-sm" id="rc-btn-herraje" onclick="abrirModalHerraje('config')" style="display:none">+ Herraje</button>
@@ -1129,7 +1104,6 @@ onAuthStateChanged(_auth, async (user) => {
                         <tbody id="rc-herrajes-tabla"></tbody>
                       </table></div>
                     </div>
-                    <div id="rc-tab-lados" style="display:none"></div>
                     <div id="rc-tab-separador" style="display:none">
                       <div style="background:rgba(167,139,250,.06);border:1px solid rgba(167,139,250,.2);border-radius:var(--radius);padding:14px 16px;margin-top:4px">
                         <div style="font-size:12px;color:var(--text2);margin-bottom:14px">
@@ -1158,78 +1132,6 @@ onAuthStateChanged(_auth, async (user) => {
           </div>
           <div id="r-placeholder" style="display:flex;align-items:center;justify-content:center;height:200px;color:var(--text3);font-size:13px">
             Selecciona o crea una receta
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ════════════════ SOLUCIONES DE REMATE ════════════════ -->
-    <div class="view" id="view-soluciones">
-      <div class="sol-grid">
-        <div>
-          <div class="list-panel">
-            <div class="list-panel-header">
-              <span class="list-panel-title">Soluciones</span>
-              <button class="btn btn-primary btn-sm" onclick="nuevaSolucion()">+ Nueva</button>
-            </div>
-            <div style="padding:8px 10px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:6px">
-              <select id="sol-filtro-linea" onchange="renderSoluciones()"><option value="">Todas las líneas</option></select>
-              <input id="sol-buscador" type="text" placeholder="🔍 Buscar solución..." oninput="renderSoluciones()">
-            </div>
-            <div class="list-items" id="sol-lista"></div>
-          </div>
-        </div>
-        <div>
-          <div class="card" id="sol-editor" style="display:none">
-            <div class="card-title"><span>🧩</span> <span id="sol-editor-title">Editar solución</span></div>
-            <div class="form-grid" style="margin-bottom:14px">
-              <div class="form-group col2"><label>Nombre de la solución *</label><input id="sol-nombre" placeholder="Ej. Escalonado + junquillo 3&quot;"></div>
-              <div class="form-group"><label>Línea de producto *</label><select id="sol-linea"></select></div>
-              <div class="form-group"><label>¿En qué lados se puede usar?</label>
-                <select id="sol-lado">
-                  <option value="ambos">Cualquier lado</option>
-                  <option value="horizontal">Superior / inferior</option>
-                  <option value="vertical">Laterales</option>
-                </select>
-              </div>
-            </div>
-            <div class="sol-nota">Cada perfil se corta a la medida completa del lado donde se use: al <b>ancho</b> en superior/inferior y al <b>alto</b> en los laterales. "Piezas" es cuántas tiras de ese perfil lleva el lado (ej. doble junquillo = 2).</div>
-
-            <div class="sol-sub">Perfiles</div>
-            <div class="table-wrap"><table>
-              <thead><tr><th>Clave</th><th>Perfil</th><th>Vidrio</th><th style="width:70px">Piezas</th><th style="width:40px"></th></tr></thead>
-              <tbody id="sol-perfiles"></tbody>
-            </table></div>
-            <div class="sol-add">
-              <input id="sol-add-perfil" list="sol-dl-perfiles" placeholder="Escribe clave o nombre del perfil…" onkeydown="if(event.key==='Enter')solAgregarPerfil()">
-              <button class="btn btn-ghost btn-sm" onclick="solAgregarPerfil()">+ Perfil</button>
-            </div>
-            <datalist id="sol-dl-perfiles"></datalist>
-
-            <div class="sol-sub">Herrajes ligados <span>se suman o quitan junto con la solución</span></div>
-            <div class="table-wrap"><table>
-              <thead><tr><th>Herraje</th><th style="width:90px">Cantidad</th><th style="width:150px">Por</th><th style="width:40px"></th></tr></thead>
-              <tbody id="sol-herrajes"></tbody>
-            </table></div>
-            <div class="sol-add">
-              <input id="sol-add-herraje" list="sol-dl-herrajes" placeholder="Escribe el nombre del herraje…" onkeydown="if(event.key==='Enter')solAgregarHerraje()">
-              <button class="btn btn-ghost btn-sm" onclick="solAgregarHerraje()">+ Herraje</button>
-            </div>
-            <datalist id="sol-dl-herrajes"></datalist>
-
-            <div style="display:flex;align-items:center;gap:8px;margin-top:18px;flex-wrap:wrap">
-              <button class="btn btn-danger btn-sm" id="sol-btn-del" onclick="eliminarSolucion()">Eliminar</button>
-              <button class="btn btn-ghost btn-sm" id="sol-btn-dup" onclick="duplicarSolucion()">⎘ Duplicar</button>
-              <label id="sol-admin-publish" style="display:none;align-items:center;gap:6px;font-size:12px;color:var(--text2)"><input type="checkbox" id="sol-publicar"> Publicar en SCAVi</label>
-              <span style="flex:1"></span>
-              <button class="btn btn-ghost btn-sm" onclick="cerrarSolucion()">Cancelar</button>
-              <button class="btn btn-primary btn-sm" onclick="guardarSolucion()">Guardar solución</button>
-            </div>
-          </div>
-          <div id="sol-placeholder" class="sol-vacio">
-            <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px">Biblioteca de soluciones de remate</div>
-            <div style="max-width:520px;margin:0 auto 14px">Una solución es la forma de rematar un lado del cancel: bolsa, escalonado + junquillo, zoclo + doble junquillo, remate a tubo de puerta, sin perfil… Se define una vez por línea y luego cada receta elige cuáles permite en cada lado.</div>
-            <div id="sol-base-wrap"></div>
           </div>
         </div>
       </div>
@@ -1469,6 +1371,21 @@ onAuthStateChanged(_auth, async (user) => {
 </div>
 
 <!-- MODAL actualizar partidas con recetas actuales -->
+<div class="modal-overlay" id="modal-opciones-perfil">
+  <div class="modal" style="width:760px;max-width:96vw">
+    <div class="modal-header">
+      <span class="modal-title">⚙ Opciones de perfil — <span id="op-titulo"></span></span>
+      <button class="btn btn-ghost btn-icon" onclick="cerrarModal('modal-opciones-perfil')">✕</button>
+    </div>
+    <div class="op-intro">Define por qué perfiles se puede cambiar este perfil al cotizar. Cada opción puede llevar uno o varios perfiles (ej. 67013 + 7014) y sus propios herrajes. Los herrajes ligados al perfil de la receta se quitan solos cuando el usuario elige otra opción.</div>
+    <div id="op-cuerpo" style="max-height:62vh;overflow:auto;padding-right:4px"></div>
+    <datalist id="op-dl-perfiles"></datalist><datalist id="op-dl-herrajes"></datalist>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
+      <button class="btn btn-ghost" onclick="cerrarModal('modal-opciones-perfil')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarOpcionesPerfil()">Guardar opciones</button>
+    </div>
+  </div>
+</div>
 <div class="modal-overlay" id="modal-actualizar-recetas">
   <div class="modal" style="width:680px">
     <div class="modal-header">
@@ -1524,7 +1441,7 @@ onAuthStateChanged(_auth, async (user) => {
 window._cache = {};
 
 // ── Versión de la app (subir en cada deploy con fixes) ─────────
-const APP_VERSION = '1.35.0';
+const APP_VERSION = '1.36.0';
 
 window.cerrarSesionApp = function() {
   if ((DB._pending > 0 || _proyHayCambios()) &&
@@ -1722,7 +1639,7 @@ function ageClass(d){const y=dateDiff(d);return y>=1?'badge-red':y>=0.75?'badge-
 // ══════════════════════════════════════════════
 const TITLES={cotizar:'Nueva Cotización',proyectos:'Mis Proyectos',materiales:'Lista de Material',
   perfiles:'Perfiles de Aluminio',herrajes:'Herrajes y Accesorios',
-  vidrios:'Tipos de Vidrio',recetas:'Recetas de Canceles',soluciones:'Soluciones de remate',alertas:'Alertas de Precios'};
+  vidrios:'Tipos de Vidrio',recetas:'Recetas de Canceles',alertas:'Alertas de Precios'};
 
 function nav(el){
   const vAct=document.querySelector('.view.active');
@@ -1741,7 +1658,6 @@ function nav(el){
   if(v==='herrajes')renderHerrajes();
   if(v==='vidrios')renderVidrios();
   if(v==='recetas')renderRecetaLista();
-  if(v==='soluciones')renderSoluciones();
   if(v==='alertas')renderAlertas();
   if(v==='proyectos')renderProyectos();
   if(v==='cotizar')renderCotizarInicio();
@@ -2018,401 +1934,271 @@ let recetaActual=null,configActual=null;
 let modalCtx={},modalItemsAll=[];
 
 // ══════════════════════════════════════════════════════════════════
-//  BIBLIOTECA DE SOLUCIONES DE REMATE (por línea)
-//  solucion = {id, nombre, linea, lado:'ambos'|'horizontal'|'vertical',
-//              perfiles:[{clave,nombrePerfil,tipoVidrio:'SENCILLO'|'DUOVENT'|'AMBOS',piezas}],
-//              herrajes:[{herrajeId,nombreHerraje,cantidad,por:'lado'|'metro'}], fecha}
-//  Los cortes siempre son a la medida completa del lado (ancho u alto).
+//  OPCIONES DE PERFIL (por grupo vertical/horizontal de cada perfil de la configuración)
+//  g.pos: 'sup'|'inf'|'lat'|'inter'  (dónde va en el dibujo)
+//  g.herrajesDef: herrajes ligados al perfil de la receta (se quitan si se cambia el perfil)
+//  g.opciones: [{id, perfiles:[{clave,nombrePerfil,piezas}], herrajes:[{herrajeId,nombreHerraje,cantidad,por:'corte'|'metro'}]}]
+//  Partida: opciones = { 'perfil.grupo': 'def'|'none'|idOpcion  ó  [valor por corte] }
 // ══════════════════════════════════════════════════════════════════
-let solucionActual=null;   // copia de trabajo de la solución en edición
-const LADO_SOL_TXT={ambos:'Cualquier lado',horizontal:'Superior / inferior',vertical:'Laterales'};
-const _esAdminSCAVi=()=>window._uid==='z447DgJCSTW8xRDp8pkIZ5S1A8G3';
-function _lineasProducto(){
-  return [...document.querySelectorAll('#r-linea option')].map(o=>o.value||o.textContent);
+const POS_TXT={sup:'Superior',inf:'Inferior',lat:'Laterales',inter:'Intermedios'};
+function _perfilConOpciones(cp){ return (cp.grupos||[]).some(g=>(g.opciones||[]).length||(g.herrajesDef||[]).length); }
+function _grupoConOpciones(g){ return !!(g&&(g.opciones||[]).length); }
+function _posGrupo(cp,g){
+  if(g.pos) return g.pos;
+  if(g.tipo==='vertical') return 'lat';
+  if(g.tipo!=='horizontal') return '';
+  const n=String(cp.nombrePerfil||'').toUpperCase();
+  if(/ESCALON|ZOCLO|JUNQ|GUARDAPOLVO|SILLAR|ANTEPECHO/.test(n)) return 'inf';
+  if(/BOLSA|CABEZAL|RIEL SUP|DINTEL/.test(n)) return 'sup';
+  return '';
 }
-// Soluciones disponibles: las propias + las publicadas por SCAVi (para quien no es el administrador)
-function solucionesDisponibles(){
-  const propias=DB.get('soluciones');
-  if(_esAdminSCAVi())return propias;
-  const scavi=((window._adminCache&&window._adminCache.soluciones)||[]).map(s=>({...s,_esScavi:true}));
-  return [...propias,...scavi];
+function _txtGrupo(g,pos){ return (g.tipo==='vertical'?'Vertical':g.tipo==='horizontal'?'Horizontal':'Corte fijo')+(pos&&pos!=='lat'?' · '+POS_TXT[pos].toLowerCase():''); }
+function _txtSegmento(pos,seg,n){
+  if(seg<0) return '';
+  if(pos==='lat'&&n===2) return seg===0?'lado izquierdo':'lado derecho';
+  return `corte ${seg+1} de ${n}`;
 }
-function renderSoluciones(){
-  const selF=document.getElementById('sol-filtro-linea');
-  if(selF&&selF.options.length<=1) selF.innerHTML='<option value="">Todas las líneas</option>'+_lineasProducto().map(l=>`<option>${_escH(l)}</option>`).join('');
-  const fl=selF?selF.value:'', q=(document.getElementById('sol-buscador')?.value||'').trim().toLowerCase();
-  let ss=DB.get('soluciones').filter(s=>(!fl||s.linea===fl)&&(!q||(s.nombre||'').toLowerCase().includes(q)||(s.linea||'').toLowerCase().includes(q)));
-  ss=ss.slice().sort((a,b)=>(a.linea||'').localeCompare(b.linea||'')||(a.nombre||'').localeCompare(b.nombre||''));
-  const el=document.getElementById('sol-lista');
-  let html='',lin=null;
-  ss.forEach(s=>{
-    if(s.linea!==lin){lin=s.linea;html+=`<div class="sol-grupo">${_escH(lin||'Sin línea')}</div>`;}
-    const nP=(s.perfiles||[]).length;
-    html+=`<div class="list-item ${solucionActual&&solucionActual.id===s.id?'active':''}" onclick="seleccionarSolucion(${s.id})">
-      <div><div class="list-item-name">${_escH(s.nombre)}</div><div class="list-item-sub">${LADO_SOL_TXT[s.lado]||''} · ${nP?nP+' perfil'+(nP>1?'es':''):'sin perfiles'}</div></div></div>`;
-  });
-  el.innerHTML=html||(q||fl?'<div class="empty-state"><p>Sin resultados</p></div>':'<div class="empty-state"><p>Aún no hay soluciones</p></div>');
-  _renderSolBase();
-}
-// Botón para crear las soluciones base del Fijo 3" (solo si faltan)
-const SOL_BASE_FIJO3=[
-  {nombre:'Bolsa 3"',lado:'ambos',perfiles:[['69135','SENCILLO',1],['18270','DUOVENT',1]]},
-  {nombre:'Escalonado + junquillo 3"',lado:'ambos',perfiles:[['39136','SENCILLO',1],['9112','SENCILLO',1],['28183','DUOVENT',1],['8184','DUOVENT',1]]},
-  {nombre:'Zoclo + doble junquillo',lado:'horizontal',perfiles:[['59187','SENCILLO',1],['36370','SENCILLO',2],['12562','DUOVENT',1],['12603','DUOVENT',1]]},
-  {nombre:'Remate a tubo Panorama (67013 + 7014)',lado:'vertical',perfiles:[['67013','AMBOS',1],['7014','AMBOS',1]]},
-  {nombre:'Sin perfil (remata a muro u otro cancel)',lado:'ambos',perfiles:[]}
-];
-function _faltanBaseFijo3(){
-  const ex=new Set(DB.get('soluciones').filter(s=>s.linea==='Panorama').map(s=>s.nombre));
-  return SOL_BASE_FIJO3.filter(b=>!ex.has(b.nombre));
-}
-function _renderSolBase(){
-  const w=document.getElementById('sol-base-wrap'); if(!w)return;
-  const f=_faltanBaseFijo3();
-  w.innerHTML=f.length?`<button class="btn btn-primary btn-sm" onclick="crearSolucionesBaseFijo3()">Crear las ${f.length} soluciones base del Fijo 3" (Panorama)</button>
-    <div style="font-size:11px;color:var(--text3);margin-top:6px">${f.map(b=>_escH(b.nombre)).join(' · ')}</div>`:'';
-}
-function _nombrePerfilClave(clave){
-  const p=DB.getCombined('perfiles').find(x=>String(x.clave)===String(clave));
-  return p?p.nombre:'';
-}
-function crearSolucionesBaseFijo3(){
-  const f=_faltanBaseFijo3(); if(!f.length)return;
-  const ss=DB.get('soluciones').slice();
-  f.forEach(b=>ss.push({id:DB.nextId('soluciones'),nombre:b.nombre,linea:'Panorama',lado:b.lado,
-    perfiles:b.perfiles.map(([clave,tipoVidrio,piezas])=>({clave,nombrePerfil:_nombrePerfilClave(clave),tipoVidrio,piezas})),
-    herrajes:[],fecha:now()}));
-  DB.set('soluciones',ss);
-  toast(`${f.length} soluciones base creadas`);
-  renderSoluciones();
-}
-function _llenarDatalistsSol(){
-  const vistos=new Set();
-  document.getElementById('sol-dl-perfiles').innerHTML=DB.getCombined('perfiles').filter(p=>p.clave&&!vistos.has(String(p.clave))&&vistos.add(String(p.clave)))
-    .map(p=>`<option value="${_escH(p.clave+' — '+p.nombre)}">`).join('');
-  const vh=new Set();
-  document.getElementById('sol-dl-herrajes').innerHTML=DB.getCombined('herrajes').filter(h=>h.descripcion&&!vh.has(h.descripcion)&&vh.add(h.descripcion))
-    .map(h=>`<option value="${_escH(h.descripcion)}">`).join('');
-}
-function _mostrarEditorSol(titulo){
-  const s=solucionActual;
-  document.getElementById('sol-linea').innerHTML=_lineasProducto().map(l=>`<option>${_escH(l)}</option>`).join('');
-  document.getElementById('sol-nombre').value=s.nombre||'';
-  document.getElementById('sol-linea').value=s.linea||'Panorama';
-  document.getElementById('sol-lado').value=s.lado||'ambos';
-  document.getElementById('sol-editor-title').textContent=titulo;
-  const nueva=!DB.get('soluciones').some(x=>x.id===s.id);
-  document.getElementById('sol-btn-del').style.display=nueva?'none':'';
-  document.getElementById('sol-btn-dup').style.display=nueva?'none':'';
-  const pub=document.getElementById('sol-admin-publish');
-  pub.style.display=_esAdminSCAVi()?'flex':'none';
-  document.getElementById('sol-publicar').checked=((window._adminCache&&window._adminCache.soluciones)||[]).some(x=>String(x.id||x._docId)===String(s.id));
-  _llenarDatalistsSol();
-  _renderSolTablas();
-  document.getElementById('sol-editor').style.display='';
-  document.getElementById('sol-placeholder').style.display='none';
-}
-function _renderSolTablas(){
-  const s=solucionActual;
-  const optV=v=>['SENCILLO','DUOVENT','AMBOS'].map(o=>`<option value="${o}"${o===v?' selected':''}>${o==='AMBOS'?'Ambos':o==='SENCILLO'?'Sencillo':'Duovent'}</option>`).join('');
-  document.getElementById('sol-perfiles').innerHTML=(s.perfiles||[]).length?s.perfiles.map((p,i)=>`<tr>
-      <td style="font-family:monospace">${_escH(p.clave)}</td><td>${_escH(p.nombrePerfil||_nombrePerfilClave(p.clave)||'—')}</td>
-      <td><select onchange="solCambiar('perfiles',${i},'tipoVidrio',this.value)">${optV(p.tipoVidrio||'AMBOS')}</select></td>
-      <td><input type="number" min="1" step="1" value="${p.piezas||1}" style="width:70px" onchange="solCambiar('perfiles',${i},'piezas',Math.max(1,parseInt(this.value)||1))"></td>
-      <td><button class="btn btn-ghost btn-sm" title="Quitar" onclick="solQuitar('perfiles',${i})">✕</button></td></tr>`).join('')
-    :'<tr><td colspan="5" style="color:var(--text3);font-size:12px">Sin perfiles: este lado no lleva aluminio (por ejemplo, remata contra muro o contra otro cancel).</td></tr>';
-  document.getElementById('sol-herrajes').innerHTML=(s.herrajes||[]).length?s.herrajes.map((h,i)=>`<tr>
-      <td>${_escH(h.nombreHerraje||'—')}</td>
-      <td><input type="number" min="0" step="any" value="${h.cantidad||0}" style="width:70px" onchange="solCambiar('herrajes',${i},'cantidad',Math.max(0,parseFloat(this.value)||0))"></td>
-      <td><select onchange="solCambiar('herrajes',${i},'por',this.value)"><option value="lado"${h.por!=='metro'?' selected':''}>piezas por lado</option><option value="metro"${h.por==='metro'?' selected':''}>por metro lineal</option></select></td>
-      <td><button class="btn btn-ghost btn-sm" title="Quitar" onclick="solQuitar('herrajes',${i})">✕</button></td></tr>`).join('')
-    :'<tr><td colspan="4" style="color:var(--text3);font-size:12px">Sin herrajes ligados.</td></tr>';
-}
-function _leerCabeceraSol(){
-  const s=solucionActual;
-  s.nombre=document.getElementById('sol-nombre').value.trim();
-  s.linea=document.getElementById('sol-linea').value;
-  s.lado=document.getElementById('sol-lado').value;
-}
-function solCambiar(tipo,i,campo,valor){ _leerCabeceraSol(); solucionActual[tipo][i][campo]=valor; _renderSolTablas(); }
-function solQuitar(tipo,i){ _leerCabeceraSol(); solucionActual[tipo].splice(i,1); _renderSolTablas(); }
-function solAgregarPerfil(){
-  const inp=document.getElementById('sol-add-perfil'), t=inp.value.trim(); if(!t)return;
-  const clave=t.split('—')[0].trim();
-  const p=DB.getCombined('perfiles').find(x=>String(x.clave)===clave)||DB.getCombined('perfiles').find(x=>(x.nombre||'').toLowerCase()===t.toLowerCase());
-  if(!p){toast('No encontré ese perfil en el catálogo','error');return;}
-  _leerCabeceraSol();
-  solucionActual.perfiles.push({clave:String(p.clave),nombrePerfil:p.nombre,tipoVidrio:'AMBOS',piezas:1});
-  inp.value='';_renderSolTablas();
-}
-function solAgregarHerraje(){
-  const inp=document.getElementById('sol-add-herraje'), t=inp.value.trim(); if(!t)return;
-  const h=DB.getCombined('herrajes').find(x=>(x.descripcion||'').toLowerCase()===t.toLowerCase());
-  if(!h){toast('No encontré ese herraje en el catálogo','error');return;}
-  _leerCabeceraSol();
-  solucionActual.herrajes.push({herrajeId:h.id,nombreHerraje:h.descripcion,cantidad:1,por:'lado'});
-  inp.value='';_renderSolTablas();
-}
-function seleccionarSolucion(id){
-  const s=DB.get('soluciones').find(x=>x.id===id); if(!s)return;
-  solucionActual=JSON.parse(JSON.stringify(s));
-  solucionActual.perfiles=solucionActual.perfiles||[];solucionActual.herrajes=solucionActual.herrajes||[];
-  renderSoluciones();_mostrarEditorSol('Editar solución');
-}
-function nuevaSolucion(){
-  const fl=document.getElementById('sol-filtro-linea')?.value;
-  solucionActual={id:DB.nextId('soluciones'),nombre:'',linea:fl||'Panorama',lado:'ambos',perfiles:[],herrajes:[]};
-  renderSoluciones();_mostrarEditorSol('Nueva solución');
-  document.getElementById('sol-nombre').focus();
-}
-function duplicarSolucion(){
-  if(!solucionActual)return; _leerCabeceraSol();
-  solucionActual={...JSON.parse(JSON.stringify(solucionActual)),id:DB.nextId('soluciones'),nombre:solucionActual.nombre+' (copia)'};
-  _mostrarEditorSol('Nueva solución');
-}
-function cerrarSolucion(){
-  solucionActual=null;
-  document.getElementById('sol-editor').style.display='none';
-  document.getElementById('sol-placeholder').style.display='';
-  renderSoluciones();
-}
-function guardarSolucion(){
-  if(!solucionActual)return; _leerCabeceraSol();
-  const s=solucionActual;
-  if(!s.nombre){toast('El nombre es obligatorio','error');return;}
-  const ss=DB.get('soluciones').slice();
-  if(ss.some(x=>x.id!==s.id&&x.linea===s.linea&&(x.nombre||'').toLowerCase()===s.nombre.toLowerCase())){toast('Ya existe una solución con ese nombre en esta línea','error');return;}
-  const obj={id:s.id,nombre:s.nombre,linea:s.linea,lado:s.lado,
-    perfiles:s.perfiles.map(p=>({clave:p.clave,nombrePerfil:p.nombrePerfil||'',tipoVidrio:p.tipoVidrio||'AMBOS',piezas:p.piezas||1})),
-    herrajes:s.herrajes.map(h=>({herrajeId:h.herrajeId,nombreHerraje:h.nombreHerraje||'',cantidad:h.cantidad||0,por:h.por==='metro'?'metro':'lado'})),
-    fecha:now()};
-  const i=ss.findIndex(x=>x.id===s.id);
-  if(i>=0){ss[i]={...ss[i],...obj};toast('Solución actualizada');} else {ss.push(obj);toast('Solución creada');}
-  DB.set('soluciones',ss);
-  if(_esAdminSCAVi()){
-    const cache=(window._adminCache=window._adminCache||{});cache.soluciones=cache.soluciones||[];
-    const j=cache.soluciones.findIndex(x=>String(x.id||x._docId)===String(obj.id));
-    if(document.getElementById('sol-publicar').checked){
-      DB.publishToAdmin('soluciones',obj);
-      if(j>=0)cache.soluciones[j]={...obj,_esAdmin:true}; else cache.soluciones.push({...obj,_esAdmin:true});
-    } else if(j>=0){
-      DB.unpublishFromAdmin('soluciones',obj.id); cache.soluciones.splice(j,1);
-    }
-  }
-  solucionActual=JSON.parse(JSON.stringify(obj));
-  renderSoluciones();_mostrarEditorSol('Editar solución');
-}
-function eliminarSolucion(){
-  if(!solucionActual)return;
-  if(!confirm(`¿Eliminar la solución "${solucionActual.nombre}"?`))return;
-  DB.set('soluciones',DB.get('soluciones').filter(x=>x.id!==solucionActual.id));
-  if(_esAdminSCAVi()&&window._adminCache&&window._adminCache.soluciones){
-    const j=window._adminCache.soluciones.findIndex(x=>String(x.id||x._docId)===String(solucionActual.id));
-    if(j>=0){DB.unpublishFromAdmin('soluciones',solucionActual.id);window._adminCache.soluciones.splice(j,1);}
-  }
-  toast('Solución eliminada');
-  cerrarSolucion();
-}
+function _nombreOpcion(op){ return (op.perfiles||[]).map(p=>`${p.clave} ${p.nombrePerfil||''}${(p.piezas||1)>1?' ×'+p.piezas:''}`.trim()).join(' + ')||'(sin perfiles)'; }
 
-// ══════════════════════════════════════════════════════════════════
-//  RECETAS POR LADOS: cada configuración define la solución por defecto y las permitidas por lado
-//  cfg.lados = {activo, modulos, sup|inf|izq|der|inter: {def, perm:[ids], porModulo}}
-// ══════════════════════════════════════════════════════════════════
-const LADOS_DEF=[['sup','Superior','horizontal'],['inf','Inferior','horizontal'],['izq','Lateral izquierdo','vertical'],['der','Lateral derecho','vertical'],['inter','Intermedios','vertical']];
-function buscarSolucion(id){
-  if(id==null||id==='')return null;
-  return solucionesDisponibles().find(s=>String(s.id||s._docId)===String(id))||null;
-}
-function _solucionesCompatibles(linea,orient){
-  return solucionesDisponibles().filter(s=>s.linea===linea&&(s.lado==='ambos'||s.lado===orient))
-    .sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||''));
-}
-function _modulosCfg(cfg){ return Math.max(1,parseInt(cfg&&cfg.lados&&cfg.lados.modulos)||_modulos(cfg&&cfg.tipo)); }
-// Guarda un cambio de lados en la configuración activa (y actualiza la copia publicada en SCAVi)
-function _guardarCfgLados(mut){
-  if(!recetaActual||!configActual)return;
-  const recetas=DB.get('recetas');
-  const r=recetas.find(x=>x.id===recetaActual.id); if(!r||!r.configs||!r.configs[configActual.idx])return;
-  const cfg=r.configs[configActual.idx];
-  cfg.lados=cfg.lados||{activo:false};
-  mut(cfg.lados,cfg);
-  DB.set('recetas',recetas);recetaActual=r;configActual={idx:configActual.idx,...cfg};
-  if(_esAdminSCAVi()&&((window._adminCache&&window._adminCache.recetas)||[]).some(x=>String(x.id||x._docId)===String(r.id))){
-    DB.publishToAdmin('recetas',r);
-    const j=window._adminCache.recetas.findIndex(x=>String(x.id||x._docId)===String(r.id));
-    if(j>=0)window._adminCache.recetas[j]={...r,_esAdmin:true};
-  }
-  renderLadosConfig();
-}
-function ladosActivar(on){ _guardarCfgLados(L=>{L.activo=!!on;}); }
-function ladosModulos(v){ _guardarCfgLados(L=>{L.modulos=Math.max(1,Math.min(12,parseInt(v)||1));}); }
-function ladosDefecto(k,id){
-  _guardarCfgLados(L=>{L[k]=L[k]||{perm:[]};L[k].def=id||'';if(id&&!(L[k].perm||[]).includes(id))(L[k].perm=L[k].perm||[]).push(id);});
-}
-function ladosPermitida(k,id,on){
-  _guardarCfgLados(L=>{L[k]=L[k]||{perm:[]};const p=new Set(L[k].perm||[]);on?p.add(id):p.delete(id);if(L[k].def)p.add(L[k].def);L[k].perm=[...p];});
-}
-function ladosPorModulo(k,on){ _guardarCfgLados(L=>{L[k]=L[k]||{perm:[]};L[k].porModulo=!!on;}); }
-// Perfiles "sueltos" de la configuración que ya cubren las soluciones por defecto (se contarían doble)
-function _perfilesDuplicadosLados(cfg){
-  const L=cfg.lados||{}, claves=new Set();
-  LADOS_DEF.forEach(([k])=>{const s=buscarSolucion((L[k]||{}).def);(s&&s.perfiles||[]).forEach(p=>claves.add(String(p.clave)));});
-  return (cfg.perfiles||[]).filter(p=>claves.has(String(p.clave)));
-}
-function ladosQuitarDuplicados(){
-  if(!confirm('¿Quitar de la configuración los perfiles que ya cubren los lados? Así no se cuentan dos veces.'))return;
-  _guardarCfgLados((L,cfg)=>{const dup=new Set(_perfilesDuplicadosLados(cfg).map(p=>String(p.clave)));cfg.perfiles=(cfg.perfiles||[]).filter(p=>!dup.has(String(p.clave)));});
-  try{renderComponentesConfig();}catch(e){}
-  toast('Perfiles duplicados quitados de la configuración');
-}
-function renderLadosConfig(){
-  const el=document.getElementById('rc-tab-lados'); if(!el||!recetaActual||!configActual)return;
-  const r=DB.get('recetas').find(x=>x.id===recetaActual.id)||recetaActual;
-  const cfg=(r.configs||[])[configActual.idx]||{}, L=cfg.lados||{}, on=!!L.activo, N=_modulosCfg(cfg);
-  let h=`<label class="lados-switch"><input type="checkbox" ${on?'checked':''} onchange="ladosActivar(this.checked)"> Armar esta configuración por lados</label>
-    <div class="sol-nota" style="margin:10px 0 14px">Cada lado usa una <b>solución de remate</b> de la línea <b>${_escH(r.linea||'')}</b>. Al cotizar se podrá cambiar la solución de cada lado entre las permitidas. Los cortes son a la medida completa del lado (ancho u alto).</div>`;
-  if(!on){ el.innerHTML=h+'<div style="font-size:12px;color:var(--text3)">Desactivado: esta configuración sigue funcionando con sus perfiles y condiciones (casillas) como hasta ahora.</div>'; return; }
-  const hay=solucionesDisponibles().some(s=>s.linea===r.linea);
-  if(!hay){ el.innerHTML=h+`<div class="lados-aviso">No hay soluciones de remate para la línea ${_escH(r.linea||'')}. Créalas en <a href="#" onclick="nav(document.querySelector('[data-view=soluciones]'));return false">Soluciones de remate</a>.</div>`; return; }
-  h+=`<div class="form-group" style="max-width:220px;margin-bottom:12px"><label>Módulos de esta configuración</label><input type="number" min="1" max="12" value="${N}" onchange="ladosModulos(this.value)"></div>`;
-  h+='<div class="lados-tabla">';
-  LADOS_DEF.forEach(([k,nom,orient])=>{
-    if(k==='inter'&&N<2)return;
-    const S=L[k]||{}, comp=_solucionesCompatibles(r.linea,orient), def=S.def?String(S.def):'', perm=new Set((S.perm||[]).map(String));
-    const nombreLado=k==='inter'?`Intermedios <span>(${N-1} entre módulos)</span>`:nom;
-    h+=`<div class="lados-fila"><div class="lados-nombre">${nombreLado}</div>
-      <div><label class="lados-mini">Por defecto</label><select onchange="ladosDefecto('${k}',this.value)"><option value="">— Sin asignar —</option>${comp.map(s=>`<option value="${_escH(String(s.id))}"${String(s.id)===def?' selected':''}>${_escH(s.nombre)}${s._esScavi?' (SCAVi)':''}</option>`).join('')}</select>
-      ${orient==='horizontal'&&N>1?`<label class="lados-chk"><input type="checkbox" ${S.porModulo?'checked':''} onchange="ladosPorModulo('${k}',this.checked)"> Un corte por módulo (ancho ÷ ${N})</label>`:''}</div>
-      <div><label class="lados-mini">Opciones al cotizar</label><div class="lados-chips">${comp.map(s=>{const id=String(s.id),es=id===def;return `<label class="lados-chip${perm.has(id)||es?' on':''}"><input type="checkbox" ${perm.has(id)||es?'checked':''} ${es?'disabled':''} onchange="ladosPermitida('${k}','${_escH(id)}',this.checked)"> ${_escH(s.nombre)}</label>`;}).join('')||'<span style="color:var(--text3);font-size:12px">Sin soluciones compatibles</span>'}</div></div></div>`;
-  });
-  h+='</div>';
-  const dup=_perfilesDuplicadosLados(cfg);
-  if(dup.length) h+=`<div class="lados-aviso">⚠ Estos perfiles de la pestaña Perfiles ya los cubren los lados y se contarían dos veces: <b>${dup.map(p=>_escH(p.clave+' '+(p.nombrePerfil||''))).join(', ')}</b>.
-    <button class="btn btn-ghost btn-sm" style="margin-left:6px" onclick="ladosQuitarDuplicados()">Quitarlos de la configuración</button></div>`;
-  el.innerHTML=h;
-}
-// Líneas de desglose de los lados (usa los mismos cálculos de perfiles y herrajes de la receta)
-function _lineasLados(cfg,elegidos,costoPerfil,costoHerraje){
-  const out=[], LD=cfg.lados||{}, N=_modulosCfg(cfg);
-  LADOS_DEF.forEach(([k,nom,orient])=>{
-    if(k==='inter'&&N<2)return;
-    const solId=(elegidos&&elegidos[k])||(LD[k]||{}).def; if(!solId)return;
-    const sol=buscarSolucion(solId);
-    if(!sol){out.push({label:`${nom}: solución de remate no encontrada`,costo:0,encontrado:false,tipo:'Info',detalle:'',lado:k});return;}
-    const H=orient==='horizontal', seg=H?((LD[k]||{}).porModulo&&N>1?N:1):(k==='inter'?N-1:1);
-    (sol.perfiles||[]).forEach(sp=>{
-      const res=costoPerfil(sp.clave,0,0,sp.tipoVidrio,[{tipo:H?'horizontal':'vertical',cant:(sp.piezas||1)*seg,divisor:H?seg:1}]);
-      if(res===null)return;
-      out.push({...res,tipo:'Perfil',lado:k,solucionId:String(sol.id),detalle:`${nom} · ${res.detalle}`});
-    });
-    (sol.herrajes||[]).forEach(sh=>{
-      const c=sh.cantidad||0, met=sh.por==='metro';
-      const res=costoHerraje(sh.herrajeId,met?0:c*seg,met&&!H?c*seg:0,met&&H?c:0,'AMBOS');
-      if(res===null)return;
-      out.push({...res,tipo:'Herraje',lado:k,solucionId:String(sol.id),detalle:`${nom} · ${res.detalle}`});
+// ── Motor: líneas de un perfil con opciones (una por orientación / corte elegido) ──
+function _lineasPerfilOpciones(cp,pi,ctx){
+  const {ancho,alto,elec,condicionesActivas,costoPerfil,costoHerraje,tipoVid}=ctx;
+  const tvp=(cp.tipoVidrio||'AMBOS').toUpperCase();
+  if(tvp!=='AMBOS'&&tvp!==tipoVid) return [];
+  const out=[];
+  (cp.grupos||[]).forEach((g,gi)=>{
+    const activas=[g.condicion,g.condicion2,g.condicion3].map(c=>(c||'SIEMPRE').toUpperCase()).filter(c=>c!=='SIEMPRE');
+    if(activas.length&&!activas.some(c=>condicionesActivas.has(c))) return;
+    const n=cantCortesGrupo(g,ancho,alto); if(!(n>0)) return;
+    const key=pi+'.'+gi, pos=_posGrupo(cp,g), val=elec&&elec[key];
+    const valido=v=>v==='none'||(g.opciones||[]).some(o=>String(o.id)===String(v))?String(v):'def';
+    const segs=Array.isArray(val)&&val.length===n?val.map((v,j)=>({v:valido(v),n:1,j})):[{v:valido(val||'def'),n,j:-1}];
+    const base={tipo:g.tipo,divisor:g.divisor||1,long:g.long||0};
+    segs.forEach(sg=>{
+      const etiq=[_txtGrupo(g,pos),_txtSegmento(pos,sg.j,n)].filter(Boolean).join(' · ');
+      const meta={opKey:key,opSeg:sg.j,opN:n,opPos:pos,opSel:sg.v,opEtiq:etiq,opDe:cp.clave};
+      if(sg.v==='none'){
+        out.push({tipo:'Opcion',label:`Sin perfil (en lugar de ${cp.clave} ${cp.nombrePerfil||''})`,costo:0,encontrado:true,detalle:etiq,...meta});
+        return;
+      }
+      const op=sg.v==='def'?null:(g.opciones||[]).find(o=>String(o.id)===sg.v);
+      const perfs=op?(op.perfiles||[]):[{clave:cp.clave,piezas:1}];
+      perfs.forEach((pp,k)=>{
+        const res=costoPerfil(pp.clave,0,0,'AMBOS',[{...base,cant:sg.n*(pp.piezas||1)}]);
+        if(!res) return;
+        out.push({...res,tipo:'Perfil',detalle:`${etiq} · ${res.detalle}`,...meta,opHijo:k>0});
+      });
+      (op?(op.herrajes||[]):(g.herrajesDef||[])).forEach(hh=>{
+        const c=+hh.cantidad||0, met=hh.por==='metro', V=g.tipo==='vertical', d=g.divisor||1;
+        const res=costoHerraje(hh.herrajeId,met?0:c*sg.n,met&&V?c*sg.n/d:0,met&&!V?c*sg.n/d:0,'AMBOS');
+        if(res) out.push({...res,tipo:'Herraje',detalle:`${etiq} · ${res.detalle}`,opKeyH:key});
+      });
     });
   });
   return out;
 }
 
-// ── Elegir la solución de cada lado al cotizar (formulario y panel de edición) ──
-const _CONDS_LEGADO_LADOS=['CON_ZOCLO_INF','CON_ZOCLO_SUP','CON_ESCALONADO_VERT','CON_ESCALONADO_SUP'];
-function _cfgConLados(r,cidx){
-  const c=r&&cidx!=null&&cidx!==''?(r.configs||[])[cidx]:null;
-  return c&&c.lados&&c.lados.activo?c:null;
+// ── Estado de elecciones (formulario de cotizar = 'cot'; panel de edición = índice de partida) ──
+let _cotOps={}, _cotOpsKey='', _opLadoSel={};
+var _epOps={}, _epOpsKey={};
+function _cotOpsSync(){
+  const key=document.getElementById('cot-receta').value+'|'+document.getElementById('cot-config').value;
+  if(key!==_cotOpsKey){_cotOps={};_cotOpsKey=key;_opLadoSel.cot=null;}
+  return _cotOps;
 }
-// Solo se guardan los lados que cambian respecto a la receta (y que siguen permitidos)
-function _ladosValidos(cfg,sel){
-  const out={},L=cfg.lados||{};
-  Object.keys(sel||{}).sort().forEach(k=>{
-    const S=L[k]||{}, v=String(sel[k]);
-    if(v&&v!==String(S.def||'')&&(S.perm||[]).map(String).includes(v)) out[k]=v;
-  });
-  return out;
+function _epOpsDe(i){
+  const key=(document.getElementById('ep-receta-'+i)?.value||'')+'|'+(document.getElementById('ep-config-'+i)?.value||'');
+  if(_epOps[i]===undefined){_epOps[i]={...((proyectoActivo.partidas[i]||{}).opciones||{})};_epOpsKey[i]=key;}
+  else if(_epOpsKey[i]!==key){_epOps[i]={};_epOpsKey[i]=key;}
+  return _epOps[i];
 }
-// Panel: dibujo con los lados clicables + una lista por lado
-function _ladosPanelHTML(pre,cfg,sel,ancho,alto,onCambio,onReset,tipoVid){
-  const tv=(tipoVid||'SENCILLO').toUpperCase();
-  const L=cfg.lados||{}, N=_modulosCfg(cfg);
-  const ladosVis=LADOS_DEF.filter(([k])=>k!=='inter'||N>1);
-  const solDe=k=>buscarSolucion((sel&&sel[k])||(L[k]||{}).def);
-  const mod=k=>!!(sel&&sel[k]);
-  // dibujo proporcional
+const _opState=ctx=>ctx==='cot'?_cotOpsSync():_epOpsDe(ctx);
+function _opLimpio(st){ const o={}; Object.keys(st).sort().forEach(k=>{const v=st[k]; if(Array.isArray(v)||(v&&v!=='def')) o[k]=Array.isArray(v)?[...v]:v;}); return Object.keys(o).length?o:null; }
+function _opRecalc(ctx){ ctx==='cot'?calcularPartida():recotizarPartida(ctx); }
+function opElegir(ctx,key,seg,val,n){
+  const st=_opState(ctx);
+  if(seg<0){ if(val==='def') delete st[key]; else st[key]=val; }
+  else { const arr=Array.isArray(st[key])&&st[key].length===n?st[key]:Array(n).fill(st[key]||'def'); arr[seg]=val; st[key]=arr; }
+  _opRecalc(ctx);
+}
+function opPartir(ctx,key,n,seg,val){ const st=_opState(ctx); const v=Array.isArray(st[key])?'def':(st[key]||'def'); st[key]=Array(n).fill(v); if(seg!=null&&val!=null)st[key][seg]=val; _opRecalc(ctx); }
+function opUnir(ctx,key){ const st=_opState(ctx); const v=Array.isArray(st[key])?(st[key][0]||'def'):st[key]; if(!v||v==='def') delete st[key]; else st[key]=v; _opRecalc(ctx); }
+function opRestablecer(ctx){ if(ctx==='cot'){_cotOps={};} else {_epOps[ctx]={};} _opRecalc(ctx); }
+
+// Grupo de la receta al que pertenece una línea
+function _grupoDeLinea(r,cidx,key){
+  const cfg=r&&cidx!=null?(r.configs||[])[cidx]:null; if(!cfg||!key) return null;
+  const [pi,gi]=String(key).split('.').map(Number);
+  const cp=(cfg.perfiles||[])[pi], g=cp&&(cp.grupos||[])[gi];
+  return g?{cp,g}:null;
+}
+function _ctxReceta(ctx){
+  if(ctx==='cot'){const cr=document.getElementById('cot-config').value;return {r:resolveReceta(document.getElementById('cot-receta').value),cidx:cr===''?null:parseInt(cr)};}
+  const cr=document.getElementById('ep-config-'+ctx)?.value||'';
+  return {r:resolveReceta(document.getElementById('ep-receta-'+ctx)?.value||''),cidx:cr===''?null:parseInt(cr)};
+}
+// Lista desplegable de una línea con opciones (en el desglose y en el panel del dibujo)
+function _opSelectHTML(ctx,l,r,cidx){
+  const gg=_grupoDeLinea(r,cidx,l.opKey); if(!gg||!_grupoConOpciones(gg.g)) return '';
+  const {cp,g}=gg, c=typeof ctx==='string'?`'${ctx}'`:ctx;
+  const opts=[['def',`${cp.clave} ${cp.nombrePerfil||''} · receta`],...(g.opciones||[]).map(o=>[String(o.id),_nombreOpcion(o)]),['none','Sin perfil']];
+  const sel=`<select class="op-sel${l.opSel!=='def'?' mod':''}" onclick="event.stopPropagation()" onchange="opElegir(${c},'${l.opKey}',${l.opSeg},this.value,${l.opN})">${opts.map(([v,t])=>`<option value="${_escH(v)}"${v===l.opSel?' selected':''}>${_escH(t)}</option>`).join('')}</select>`;
+  let link='';
+  if(l.opN>=2&&l.opSeg<0) link=`<a href="#" class="op-link" onclick="opPartir(${c},'${l.opKey}',${l.opN});return false">Cambiar solo ${l.opPos==='lat'&&l.opN===2?'un lado':'un corte'}</a>`;
+  else if(l.opSeg===0) link=`<a href="#" class="op-link" onclick="opUnir(${c},'${l.opKey}');return false">Igual en todos los cortes</a>`;
+  return `<div class="op-ctl">${sel}${link}</div>`;
+}
+// Etiqueta del desglose para líneas con opciones: "PERFIL — Vertical — 2 cortes (4.20 m)"
+// En pantalla la orientación ya va en la etiqueta: el detalle se muestra sin repetirla
+function _detalleSinEtiq(l){ const d=String(l.detalle||''); return l.opEtiq&&d.startsWith(l.opEtiq+' · ')?d.slice(l.opEtiq.length+3):d; }
+function _opEtiquetaLinea(l){
+  const ml=(l.cortes||[]).reduce((t,c)=>t+(c.cant||0)*(c.long||0),0);
+  const nC=(l.cortes||[]).reduce((t,c)=>t+(c.cant||0),0);
+  return `<span class="op-etq">${_escH(l.opEtiq||'')}${nC?` — ${nC} corte${nC>1?'s':''} (${num(ml)} m)`:''}</span>`;
+}
+
+// ── Dibujo interactivo: tocar un lado muestra la lista de sus perfiles ──
+function _ladosDeLinea(l){
+  if(l.opPos==='lat'){ if(l.opSeg<0) return ['izq','der']; if(l.opN===2) return [l.opSeg===0?'izq':'der']; return ['izq','der']; }
+  return l.opPos?[l.opPos]:[];
+}
+function _opPanelHTML(ctx,lineas,r,cidx,ancho,alto){
+  const conOp=lineas.filter(l=>l.opKey&&!l.opHijo&&(()=>{const gg=_grupoDeLinea(r,cidx,l.opKey);return gg&&_grupoConOpciones(gg.g);})());
+  if(!conOp.length) return '';
+  const cfg=(r.configs||[])[cidx]||{}, N=_modulos(cfg.tipo);
+  const lado=_opLadoSel[ctx]||null, c=typeof ctx==='string'?`'${ctx}'`:ctx;
+  const estado=k=>{const ls=conOp.filter(l=>_ladosDeLinea(l).includes(k)); if(!ls.length) return 'sin';
+    if(ls.every(l=>l.opSel==='none')) return 'none'; return ls.some(l=>l.opSel!=='def')?'mod':'ok';};
   const a=ancho>0?ancho:1, h0=alto>0?alto:1.6, W=120, Hh=Math.max(70,Math.min(190,W*h0/a)), t=9, x0=10, y0=8;
-  const col=k=>{const s=solDe(k),vacio=s&&!(s.perfiles||[]).length;return {fill:vacio?'none':mod(k)?'#f5c26b':'#9aa7b2',stroke:mod(k)?'#b7791f':'#5b6a76',dash:vacio||!s?'3 2':''};};
-  const rect=(k,x,y,w,h)=>{const c=col(k);return `<rect class="lados-svg-lado" x="${x}" y="${y}" width="${w}" height="${h}" rx="1.5" fill="${c.fill}" stroke="${c.stroke}" stroke-width="1.2" ${c.dash?`stroke-dasharray="${c.dash}"`:''} onclick="document.getElementById('${pre}-lado-${k}').focus()"><title>${_escH((LADOS_DEF.find(d=>d[0]===k)||[])[1]||k)}</title></rect>`;};
-  let svg=`<svg viewBox="0 0 ${W+20} ${Hh+16}" width="${W+20}" class="lados-svg"><rect x="${x0+t}" y="${y0+t}" width="${W-2*t}" height="${Hh-2*t}" fill="rgba(124,198,227,.35)"/>`;
+  const rect=(k,x,y,w,h)=>{const e=estado(k);if(e==='sin')return `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="none" stroke="#5b6a76" stroke-opacity=".35" stroke-dasharray="2 2"/>`;
+    const fill=e==='none'?'none':e==='mod'?'#f5c26b':'#9aa7b2', st=lado===k?'#4f8ef7':e==='mod'?'#b7791f':'#5b6a76';
+    return `<rect class="op-lado" x="${x}" y="${y}" width="${w}" height="${h}" rx="1.5" fill="${fill}" stroke="${st}" stroke-width="${lado===k?2.4:1.2}" ${e==='none'?'stroke-dasharray="3 2"':''} onclick="opLado(${c},'${k}')"><title>${{sup:'Superior',inf:'Inferior',izq:'Lateral izquierdo',der:'Lateral derecho',inter:'Intermedios'}[k]}</title></rect>`;};
+  let svg=`<svg viewBox="0 0 ${W+20} ${Hh+16}" width="${W+20}" class="op-svg"><rect x="${x0+t}" y="${y0+t}" width="${W-2*t}" height="${Hh-2*t}" fill="rgba(124,198,227,.35)"/>`;
   svg+=rect('sup',x0,y0,W,t)+rect('inf',x0,y0+Hh-t,W,t)+rect('izq',x0,y0+t,t,Hh-2*t)+rect('der',x0+W-t,y0+t,t,Hh-2*t);
   if(N>1) for(let i=1;i<N;i++){const xm=x0+t+(W-2*t)*i/N-t/2;svg+=rect('inter',xm,y0+t,t,Hh-2*t);}
   svg+='</svg>';
-  const filas=ladosVis.map(([k,nom])=>{
-    const S=L[k]||{}, def=String(S.def||''), perm=[...new Set([def,...(S.perm||[]).map(String)])].filter(Boolean);
-    const actual=(sel&&sel[k])||def, s=buscarSolucion(actual);
-    const detalle=s?((s.perfiles||[]).length?s.perfiles.filter(p=>{const t=(p.tipoVidrio||'AMBOS').toUpperCase();return t==='AMBOS'||t===tv;}).map(p=>p.nombrePerfil||p.clave).filter((v,i,arr)=>arr.indexOf(v)===i).join(' + '):'Sin perfiles en este lado'):'Solución no encontrada';
-    return `<div class="lados-cot-fila${mod(k)?' mod':''}">
-      <span class="lados-cot-nombre">${k==='inter'?`Intermedios (${N-1})`:nom}</span>
-      <select id="${pre}-lado-${k}" onchange="${onCambio}('${k}',this.value)" ${perm.length<2?'disabled':''}>${perm.map(id=>{const so=buscarSolucion(id);return `<option value="${_escH(id)}"${id===actual?' selected':''}>${_escH(so?so.nombre:'(no encontrada)')}${id===def?' · receta':''}</option>`;}).join('')||'<option>— Sin asignar —</option>'}</select>
-      <span class="lados-cot-tag">${mod(k)?'Modificado':'Receta'}</span>
-      <span class="lados-cot-det">${_escH(detalle)}</span></div>`;
-  }).join('');
-  const nMod=Object.keys(sel||{}).length;
-  return `<div class="lados-cot">
-    <div class="lados-cot-head"><span>🧩 Remates por lado</span><span style="flex:1"></span>
-      ${nMod?`<button class="btn btn-ghost btn-sm" onclick="${onReset}">↺ Restablecer receta</button>`:''}</div>
-    <div class="lados-cot-body">${svg}<div class="lados-cot-filas">${filas}</div></div>
-    <div class="lados-cot-pie">Toca un lado del dibujo o elige en la lista. Solo cambia ese lado; los cortes son a la medida completa.</div></div>`;
+  const nomLado={sup:'Superior',inf:'Inferior',izq:'Lateral izquierdo',der:'Lateral derecho',inter:'Intermedios'};
+  let det='<div class="op-panel-ayuda">Toca un lado del dibujo para cambiar sus perfiles. También puedes cambiarlos en el desglose.</div>';
+  if(lado){
+    const ls=conOp.filter(l=>_ladosDeLinea(l).includes(lado));
+    det=`<div class="op-panel-lado">${nomLado[lado]}</div>`+(ls.length?ls.map(l=>{
+      const gg=_grupoDeLinea(r,cidx,l.opKey);
+      // en laterales sin partir, ofrecer cambiar solo este lado
+      const soloEste=l.opPos==='lat'&&l.opSeg<0&&l.opN===2?`<a href="#" class="op-link" onclick="opPartir(${c},'${l.opKey}',2);return false">Cambiar solo este lado</a>`:'';
+      return `<div class="op-panel-fila"><div class="op-panel-perfil">${_escH(gg.cp.clave+' '+(gg.cp.nombrePerfil||''))} <span>${_escH(l.opEtiq)}</span></div>${_opSelectHTML(ctx,l,r,cidx).replace(/<a [^>]*class="op-link"[^>]*>[^<]*<\/a>/,'')}${soloEste}</div>`;
+    }).join(''):'<div class="op-panel-ayuda">Este lado no tiene opciones de perfil.</div>');
+  }
+  const nMod=conOp.filter(l=>l.opSel!=='def').length;
+  return `<div class="op-panel"><div class="op-panel-head"><span>✏ Perfiles del cancel</span><span style="flex:1"></span>${nMod?`<button class="btn btn-ghost btn-sm" onclick="opRestablecer(${c})">↺ Restablecer receta</button>`:''}</div>
+    <div class="op-panel-body">${svg}<div class="op-panel-det">${det}</div></div></div>`;
 }
-// Oculta las casillas antiguas de zoclo/escalonado cuando la configuración se arma por lados
-function _ocultarCondsLegado(ocultar){
-  _CONDS_LEGADO_LADOS.forEach(id=>{const el=document.getElementById('cond-'+id); if(!el)return;
-    const lb=el.closest('label')||el.parentElement; if(lb)lb.style.display=ocultar?'none':'';
-    if(ocultar)el.checked=false;});
+function opLado(ctx,k){ _opLadoSel[ctx]=_opLadoSel[ctx]===k?null:k; ctx==='cot'?renderDesglose():renderDesgloseEdicion(ctx); }
+
+// Texto para la cotización del cliente: perfiles que se cambiaron respecto a la receta
+function textoCambiosPerfilPartida(partida){
+  const grupos={};
+  (partida.desglose||[]).forEach(l=>{
+    if(!l.opKey||l.opSel==='def'||l.activo===false) return;
+    const k=l.opKey+'|'+l.opSeg; const g=grupos[k]=grupos[k]||{etq:l.opEtiq,nom:[]};
+    if(l.tipo==='Opcion') g.nom.push('sin perfil');
+    else g.nom.push(String(l.label||'').split('—').slice(1).join('—').trim()||l.label);
+  });
+  return Object.values(grupos).map(g=>`${g.etq}: ${g.nom.join(' + ')}`).join(' · ');
 }
-// Formulario de cotizar
-let _cotLados={}, _cotLadosKey='';
-function _cotLadosSync(){
-  const key=document.getElementById('cot-receta').value+'|'+document.getElementById('cot-config').value;
-  if(key!==_cotLadosKey){_cotLados={};_cotLadosKey=key;}
-  const r=resolveReceta(document.getElementById('cot-receta').value);
-  const cfg=_cfgConLados(r,document.getElementById('cot-config').value===''?null:parseInt(document.getElementById('cot-config').value));
-  if(cfg)_cotLados=_ladosValidos(cfg,_cotLados);
-  return cfg;
+
+// ══════════════════════════════════════════════════════════════════
+//  EDITOR DE OPCIONES DE PERFIL (en la receta)
+// ══════════════════════════════════════════════════════════════════
+let _opEdit=null; // {pi, grupos}
+function abrirOpcionesPerfil(pi){
+  const r=DB.get('recetas').find(x=>x.id===recetaActual.id); const cp=r.configs[configActual.idx].perfiles[pi];
+  _opEdit={pi,clave:cp.clave,nombre:cp.nombrePerfil||'',tipoVidrio:cp.tipoVidrio||'AMBOS',
+    grupos:JSON.parse(JSON.stringify(cp.grupos||[])).map(g=>({...g,opciones:g.opciones||[],herrajesDef:g.herrajesDef||[]}))};
+  const vistos=new Set();
+  document.getElementById('op-dl-perfiles').innerHTML=DB.getCombined('perfiles').filter(p=>p.clave&&!vistos.has(String(p.clave))&&vistos.add(String(p.clave)))
+    .map(p=>`<option value="${_escH(p.clave+' — '+p.nombre)}">`).join('');
+  const vh=new Set();
+  document.getElementById('op-dl-herrajes').innerHTML=DB.getCombined('herrajes').filter(h=>h.descripcion&&!vh.has(h.descripcion)&&vh.add(h.descripcion))
+    .map(h=>`<option value="${_escH(h.descripcion)}">`).join('');
+  document.getElementById('op-titulo').textContent=`${cp.clave} ${cp.nombrePerfil||''}`;
+  _renderOpEditor();
+  document.getElementById('modal-opciones-perfil').classList.add('open');
 }
-function renderLadosCotizar(){
-  const w=document.getElementById('cot-lados-wrap'); if(!w)return;
-  const cfg=_cotLadosSync();
-  _ocultarCondsLegado(!!cfg);
-  if(!cfg){w.style.display='none';w.innerHTML='';return;}
-  const ancho=parseFloat(document.getElementById('cot-ancho').value)||0, alto=parseFloat(document.getElementById('cot-alto').value)||0;
-  const vs=buscarVidrio(refVidrio(document.getElementById('cot-vidrio')?.value||''));
-  w.innerHTML=_ladosPanelHTML('cot',cfg,_cotLados,ancho,alto,'cotLadoCambiar','cotLadosRestablecer()',vs&&vs.tipo);
-  w.style.display='';
+function _herrRows(lst,gi,oi){
+  return (lst||[]).map((h,hi)=>`<div class="op-row"><span class="op-row-nom">${_escH(h.nombreHerraje||'—')}</span>
+    <input type="number" min="0" step="any" value="${h.cantidad||0}" onchange="opEdHerr(${gi},'${oi}',${hi},'cantidad',Math.max(0,parseFloat(this.value)||0))">
+    <select onchange="opEdHerr(${gi},'${oi}',${hi},'por',this.value)"><option value="corte"${h.por!=='metro'?' selected':''}>pzs por corte</option><option value="metro"${h.por==='metro'?' selected':''}>por metro</option></select>
+    <button class="btn btn-ghost btn-sm" onclick="opEdQuitarHerr(${gi},'${oi}',${hi})">✕</button></div>`).join('')
+    +`<div class="op-add"><input id="op-addh-${gi}-${oi}" list="op-dl-herrajes" placeholder="+ Herraje ligado (escribe el nombre)…" onkeydown="if(event.key==='Enter')opEdAddHerr(${gi},'${oi}')"><button class="btn btn-ghost btn-sm" onclick="opEdAddHerr(${gi},'${oi}')">Agregar</button></div>`;
 }
-function cotLadoCambiar(k,v){ _cotLados[k]=v; calcularPartida(); }
-function cotLadosRestablecer(){ _cotLados={}; calcularPartida(); }
-// Panel de edición de una partida guardada
-var _epLados={};
-function _epLadosDe(idx){
-  if(_epLados[idx]===undefined){const p=proyectoActivo.partidas[idx];_epLados[idx]={...((p&&p.lados)||{})};}
-  return _epLados[idx];
+function _renderOpEditor(){
+  const E=_opEdit;
+  const tipoTxt=g=>g.tipo==='vertical'?'Vertical':g.tipo==='horizontal'?'Horizontal':'Corte fijo';
+  document.getElementById('op-cuerpo').innerHTML=E.grupos.map((g,gi)=>{
+    const cond=[g.condicion,g.condicion2,g.condicion3].filter(c=>c&&c!=='SIEMPRE').join(' o ');
+    const nTxt=_esGrupoAuto(g)?`(${_txtAutoGrupo(g)})`:g.cant;
+    const cortes=g.tipo==='fijo'?`${g.cant}×${g.long}m`:`${nTxt}×${g.tipo==='vertical'?'alto':'ancho'}${g.divisor>1?'/'+g.divisor:''}`;
+    const guess=_posGrupo({nombrePerfil:E.nombre},{...g,pos:''});
+    return `<div class="op-grupo">
+      <div class="op-grupo-head"><b>${tipoTxt(g)}</b> <span>${cortes}${cond?` · si ${_escH(cond)}`:''}</span>
+        <label class="op-pos">En el dibujo: <select onchange="opEdSet(${gi},'pos',this.value)">
+          <option value=""${!g.pos?' selected':''}>Automático${guess?' ('+POS_TXT[guess].toLowerCase()+')':''}</option>
+          ${Object.entries(POS_TXT).map(([k,v])=>`<option value="${k}"${g.pos===k?' selected':''}>${v}</option>`).join('')}</select></label></div>
+      <div class="op-sub">Herrajes ligados al perfil de la receta <span>se quitan si se elige otra opción</span></div>
+      ${_herrRows(g.herrajesDef,gi,'d')}
+      <div class="op-sub">Opciones de perfil <span>aparecen en la lista al cotizar (además de "Sin perfil")</span></div>
+      ${(g.opciones||[]).map((o,oi)=>`<div class="op-opcion">
+        <div class="op-opcion-head">Opción ${oi+1}<span style="flex:1"></span><button class="btn btn-danger btn-sm" onclick="opEdQuitarOpcion(${gi},${oi})">Quitar opción</button></div>
+        ${(o.perfiles||[]).map((p,ppi)=>`<div class="op-row"><span class="op-row-nom"><b>${_escH(p.clave)}</b> ${_escH(p.nombrePerfil||'')}</span>
+          <input type="number" min="1" step="1" value="${p.piezas||1}" title="Piezas por corte" onchange="opEdPerf(${gi},${oi},${ppi},Math.max(1,parseInt(this.value)||1))"><span class="op-row-u">pzs/corte</span>
+          <button class="btn btn-ghost btn-sm" onclick="opEdQuitarPerf(${gi},${oi},${ppi})">✕</button></div>`).join('')}
+        <div class="op-add"><input id="op-addp-${gi}-${oi}" list="op-dl-perfiles" placeholder="+ Perfil (clave o nombre)…" onkeydown="if(event.key==='Enter')opEdAddPerf(${gi},${oi})"><button class="btn btn-ghost btn-sm" onclick="opEdAddPerf(${gi},${oi})">Agregar</button></div>
+        <div class="op-mini">Herrajes de esta opción</div>${_herrRows(o.herrajes,gi,oi)}
+      </div>`).join('')}
+      <button class="btn btn-ghost btn-sm" onclick="opEdNuevaOpcion(${gi})">+ Agregar opción de perfil</button>
+    </div>`;
+  }).join('')||'<p style="color:var(--text3)">Este perfil no tiene grupos de cortes.</p>';
 }
-function epRenderLados(idx){
-  const w=document.getElementById('ep-lados-'+idx); if(!w)return;
-  const r=resolveReceta(document.getElementById('ep-receta-'+idx)?.value||'');
-  const cr=document.getElementById('ep-config-'+idx)?.value||'';
-  const cfg=_cfgConLados(r,cr===''?null:parseInt(cr));
-  if(!cfg){w.innerHTML='';return;}
-  _epLados[idx]=_ladosValidos(cfg,_epLadosDe(idx));
-  const ancho=parseFloat(document.getElementById('ep-ancho-'+idx).value)||0, alto=parseFloat(document.getElementById('ep-alto-'+idx).value)||0;
-  const vSel=document.getElementById('ep-vidrio-'+idx)?.value||'', vs=(vSel&&vSel!=='dividido'&&vSel!=='congelado')?buscarVidrio(refVidrio(vSel)):null;
-  w.innerHTML=_ladosPanelHTML('ep'+idx,cfg,_epLados[idx],ancho,alto,`epLadoCambiar.bind(null,${idx})`,`epLadosRestablecer(${idx})`,vs&&vs.tipo);
+function opEdSet(gi,campo,v){ _opEdit.grupos[gi][campo]=v; }
+function opEdNuevaOpcion(gi){ _opEdit.grupos[gi].opciones.push({id:'o'+Date.now().toString(36)+Math.floor(Math.random()*1e4),perfiles:[],herrajes:[]}); _renderOpEditor(); }
+function opEdQuitarOpcion(gi,oi){ _opEdit.grupos[gi].opciones.splice(oi,1); _renderOpEditor(); }
+function opEdAddPerf(gi,oi){
+  const inp=document.getElementById(`op-addp-${gi}-${oi}`), t=inp.value.trim(); if(!t)return;
+  const clave=t.split('—')[0].trim();
+  const p=DB.getCombined('perfiles').find(x=>String(x.clave)===clave)||DB.getCombined('perfiles').find(x=>(x.nombre||'').toLowerCase()===t.toLowerCase());
+  if(!p){toast('No encontré ese perfil en el catálogo','error');return;}
+  _opEdit.grupos[gi].opciones[oi].perfiles.push({clave:String(p.clave),nombrePerfil:p.nombre,piezas:1}); _renderOpEditor();
 }
-function epLadoCambiar(idx,k,v){ _epLadosDe(idx)[k]=v; recotizarPartida(idx); }
-function epLadosRestablecer(idx){ _epLados[idx]={}; recotizarPartida(idx); }
-// Texto para la cotización del cliente: solo los lados que cambiaron respecto a la receta
-function textoRematesPartida(partida){
-  const ls=partida.lados||{}, ks=LADOS_DEF.map(d=>d[0]).filter(k=>ls[k]); if(!ks.length)return '';
-  return ks.map(k=>{const s=buscarSolucion(ls[k]);const nom=((LADOS_DEF.find(d=>d[0]===k)||[])[1]||k).toLowerCase();return s?`${nom}: ${s.nombre}`:'';}).filter(Boolean).join(' · ');
+function opEdPerf(gi,oi,ppi,v){ _opEdit.grupos[gi].opciones[oi].perfiles[ppi].piezas=v; }
+function opEdQuitarPerf(gi,oi,ppi){ _opEdit.grupos[gi].opciones[oi].perfiles.splice(ppi,1); _renderOpEditor(); }
+const _opHerrLista=(gi,oi)=>oi==='d'?_opEdit.grupos[gi].herrajesDef:_opEdit.grupos[gi].opciones[+oi].herrajes;
+function opEdAddHerr(gi,oi){
+  const inp=document.getElementById(`op-addh-${gi}-${oi}`), t=inp.value.trim(); if(!t)return;
+  const h=DB.getCombined('herrajes').find(x=>(x.descripcion||'').toLowerCase()===t.toLowerCase());
+  if(!h){toast('No encontré ese herraje en el catálogo','error');return;}
+  _opHerrLista(gi,oi).push({herrajeId:h.id,nombreHerraje:h.descripcion,cantidad:1,por:'corte'}); _renderOpEditor();
+}
+function opEdHerr(gi,oi,hi,campo,v){ _opHerrLista(gi,oi)[hi][campo]=v; }
+function opEdQuitarHerr(gi,oi,hi){ _opHerrLista(gi,oi).splice(hi,1); _renderOpEditor(); }
+function guardarOpcionesPerfil(){
+  const E=_opEdit; if(!E)return;
+  for(const g of E.grupos) for(const o of g.opciones) if(!(o.perfiles||[]).length){toast('Cada opción necesita al menos un perfil (para quitar el perfil ya existe "Sin perfil")','error');return;}
+  const recetas=DB.get('recetas'), r=recetas.find(x=>x.id===recetaActual.id), cp=r.configs[configActual.idx].perfiles[E.pi];
+  cp.grupos=(cp.grupos||[]).map((g,gi)=>{
+    const ng={...g}, eg=E.grupos[gi]||{};
+    if(eg.pos) ng.pos=eg.pos; else delete ng.pos;
+    if((eg.opciones||[]).length) ng.opciones=eg.opciones; else delete ng.opciones;
+    if((eg.herrajesDef||[]).length) ng.herrajesDef=eg.herrajesDef; else delete ng.herrajesDef;
+    return ng;
+  });
+  DB.set('recetas',recetas); recetaActual=r; configActual={idx:configActual.idx,...r.configs[configActual.idx]};
+  if(window._uid==='z447DgJCSTW8xRDp8pkIZ5S1A8G3'&&((window._adminCache&&window._adminCache.recetas)||[]).some(x=>String(x.id||x._docId)===String(r.id))){
+    DB.publishToAdmin('recetas',r);
+    const j=window._adminCache.recetas.findIndex(x=>String(x.id||x._docId)===String(r.id)); if(j>=0)window._adminCache.recetas[j]={...r,_esAdmin:true};
+  }
+  cerrarModal('modal-opciones-perfil'); _opEdit=null;
+  try{renderComponentesConfig();}catch(e){}
+  toast('Opciones de perfil guardadas');
 }
 
 function renderRecetaLista(){
@@ -2693,6 +2479,7 @@ function renderComponentesConfig(){
         <td style="font-size:11px;color:var(--text2)">${resGrupos}</td>
         <td><span class="badge ${cp.tipoVidrio==='SENCILLO'?'badge-blue':cp.tipoVidrio==='DUOVENT'?'badge-purple':'badge-green'}">${cp.tipoVidrio||'AMBOS'}</span></td>
         <td style="display:flex;gap:4px">
+          <button class="btn btn-ghost btn-sm" onclick="abrirOpcionesPerfil(${i})" title="Opciones de perfil al cotizar">⚙ Opciones${(()=>{const n=(cp.grupos||[]).reduce((t,g)=>t+((g.opciones||[]).length),0);return n?` <span class="op-cuenta">${n}</span>`:'';})()}</button>
           <button class="btn btn-ghost btn-sm btn-icon" onclick="editarPerfilConfig(${i})" title="Editar">✏</button>
           <button class="btn btn-danger btn-sm btn-icon" onclick="quitarComponenteConfig('perfil',${i})" title="Eliminar">✕</button>
         </td>
@@ -2936,7 +2723,6 @@ function toggleRcBtn(which){
   document.getElementById('rc-btn-herraje').style.display   = which==='herraje'   ? '' : 'none';
   document.getElementById('rc-btn-separador').style.display = which==='separador' ? '' : 'none';
   if(which==='separador') cargarSeparadorConfig();
-  if(which==='lados') renderLadosConfig();
 }
 
 function cargarSeparadorConfig(){
@@ -3600,7 +3386,6 @@ function cargarConfigsPorReceta(){
   const tipoCancel=tipoCancelFromNombre(r ? r.nombre : '');
   document.getElementById('cot-opciones-cancel-wrap').style.display=(tipoCancel!=='NINGUNO')?'':'none';
   document.querySelectorAll('#cot-condiciones-grid input[type=checkbox]').forEach(c=>c.checked=false);
-  renderLadosCotizar();
 }
 
 function detectarCondicionesReceta(r){
@@ -3647,16 +3432,21 @@ function renderDesglose(){
   if(!proyectoActivo||!proyectoActivo._temp) return;
   const lineas=proyectoActivo._temp.lineasDesglose||[];
   const cantidad=proyectoActivo._temp.cantidad||1;
+  const {r:rOp,cidx:cOp}=_ctxReceta('cot');
+  const panelOp=document.getElementById('cot-opc-panel');
+  if(panelOp) panelOp.innerHTML=rOp?_opPanelHTML('cot',lineas,rOp,cOp,parseFloat(document.getElementById('cot-ancho').value)||0,parseFloat(document.getElementById('cot-alto').value)||0):'';
+  const ladoOp=_opLadoSel.cot;
 
   document.getElementById('cot-desglose').innerHTML=lineas.length?
     lineas.map((l,i)=>{
       const badgeColor=l.tipo==='Vidrio'?'badge-green':l.tipo==='Herraje'?'badge-amber':l.tipo==='Info'?'badge-red':'badge-blue';
-      return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);${!l.activo?'opacity:.4':''}">
+      const marcado=ladoOp&&l.opKey&&_ladosDeLinea(l).includes(ladoOp);
+      return `<div class="${marcado?'op-marcada':''}" style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);${!l.activo?'opacity:.4':''}">
         <input type="checkbox" ${l.activo?'checked':''} onchange="toggleDesglose(${i},this.checked)"
           style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent);flex-shrink:0">
-        <span class="badge ${badgeColor}" style="flex-shrink:0">${l.tipo}</span>
-        <span style="font-size:12px;flex:1;color:${l.encontrado===false?'var(--red)':'var(--text)'}">${l.label}</span>
-        ${l.detalle?`<span style="font-size:11px;color:var(--text3);white-space:nowrap">${l.detalle}</span>`:''}
+        <span class="badge ${badgeColor}" style="flex-shrink:0">${l.tipo==='Opcion'?'Perfil':l.tipo}</span>
+        <span style="font-size:12px;flex:1;color:${l.encontrado===false?'var(--red)':'var(--text)'}">${l.label}${l.opKey&&!l.opHijo?_opEtiquetaLinea(l)+(rOp?_opSelectHTML('cot',l,rOp,cOp):''):''}</span>
+        ${l.detalle?`<span style="font-size:11px;color:var(--text3);white-space:nowrap">${_detalleSinEtiq(l)}</span>`:''}
         <span style="font-family:var(--mono);font-size:13px;font-weight:600;color:${l.activo&&l.costo>0?'var(--green)':'var(--text3)'};white-space:nowrap;min-width:80px;text-align:right">${fmt(l.costo)}</span>
       </div>`;
     }).join(''):
@@ -4163,13 +3953,16 @@ function cotizarPartida(o){
   if(cidx!==null){
     const cfg=(r.configs||[])[cidx];
     if(cfg){
-      (cfg.perfiles||[]).forEach(cp=>{
+      (cfg.perfiles||[]).forEach((cp,pi)=>{
+        // Perfil con opciones: una línea por orientación/corte con la opción elegida y sus herrajes ligados
+        if(_perfilConOpciones(cp)){
+          lineasDesglose.push(..._lineasPerfilOpciones(cp,pi,{ancho,alto,elec:o.opciones,condicionesActivas,costoPerfil,costoHerraje,tipoVid:tipoVidrioSeleccionado}));
+          return;
+        }
         const res=costoPerfil(cp.clave,cp.cortesV||0,cp.cortesH||0,cp.tipoVidrio,cp.grupos);
         if(res===null)return; // filtrado por tipo vidrio
         lineasDesglose.push({...res,tipo:'Perfil'});
       });
-      // Receta por lados: cada lado agrega los perfiles y herrajes de su solución de remate
-      if(cfg.lados&&cfg.lados.activo) lineasDesglose.push(..._lineasLados(cfg,o.lados,costoPerfil,costoHerraje));
       (cfg.herrajes||[]).forEach(ch=>{
         // Filter by general condicion (header-level)
         const chCond=(ch.condicion||'SIEMPRE').toUpperCase();
@@ -4297,13 +4090,12 @@ function _leerEntradaCotizar(){
       altoInf:parseFloat(document.getElementById('cot-alto-inf').value)||0
     }:null,
     condiciones:_leerCondicionesForm(),
-    lados:(()=>{const cfg=_cotLadosSync();return cfg&&Object.keys(_cotLados).length?{..._cotLados}:null;})()
+    opciones:_opLimpio(_cotOpsSync())
   };
 }
 
 function calcularPartida(){
   const e=_leerEntradaCotizar();
-  renderLadosCotizar();
   const r=resolveReceta(e.recetaId);
 
   // Mostrar desglose aunque no haya acabado, para ver los perfiles pendientes
@@ -4402,12 +4194,12 @@ function agregarPartida(){
     totalPartida:total
   };
   if(e.vidrioDividido) partida.vidrioDividido={...e.vidrioDividido};
-  if(e.lados) partida.lados={...e.lados};
+  if(e.opciones) partida.opciones=JSON.parse(JSON.stringify(e.opciones));
 
   proyectoActivo.partidas=proyectoActivo.partidas||[];
   proyectoActivo.partidas.push(partida);
   proyectoActivo._temp=null;
-  _cotLados={};
+  _cotOps={}; _opLadoSel.cot=null;
   // Reset extras
   document.getElementById('ep-item').value='';
   document.getElementById('eh-item').value='';
@@ -4438,7 +4230,7 @@ function agregarPartida(){
 }
 
 function renderPartidas(){
-  _epLados={};
+  _epOps={}; _epOpsKey={};
   _epEstado={}; // los paneles de edición se vuelven a dibujar cerrados: descartar ediciones pendientes
   const partidas=proyectoActivo?proyectoActivo.partidas||[]:[];
   const el=document.getElementById('cot-partidas-lista');
@@ -4540,11 +4332,10 @@ function renderPartidas(){
           </div>
         </div>
 
-        <div id="ep-lados-${i}" style="margin-bottom:12px"></div>
-
         <!-- Desglose recalculado -->
         <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:12px">
           <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Desglose — desmarca lo que no deseas incluir</div>
+          <div id="ep-opc-panel-${i}"></div>
           <div id="ep-desglose-${i}"></div>
           <!-- Extras manuales -->
           <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border2)">
@@ -4807,7 +4598,7 @@ function _entradaGuardadaPartida(p){
     vidriosCongelados:vSel==='congelado'?(p.desglose||[]).filter(l=>l.tipo==='Vidrio'):null,
     condiciones:p.condiciones||{},
     sustituciones:p.sustitucionesMarca||null,
-    lados:p.lados||null,
+    opciones:p.opciones||null,
     prevLineas:p.desglose||[]
   }};
 }
@@ -5352,9 +5143,9 @@ function toggleEditPartida(idx){
     else if(lineaSel){ selL.add(new Option(lineaSel,lineaSel)); selL.value=lineaSel; }
     // Populate recetas select (sin disparar recálculo — solo refleja el estado guardado)
     epCargarRecetasSinRecalcular(idx);
+    delete _epOps[idx]; _opLadoSel[idx]=null;
     // Mostrar el desglose EXACTO que ya se guardó, no uno regenerado desde la receta
     renderDesgloseEdicion(idx);
-    delete _epLados[idx]; epRenderLados(idx);
   }
 }
 
@@ -5438,20 +5229,19 @@ function recotizarPartida(idx){
     vidriosCongelados:vSel==='congelado'?(p.desglose||[]).filter(l=>l.tipo==='Vidrio'):null,
     condiciones:p.condiciones||{},
     sustituciones:p.sustitucionesMarca||null,
-    lados:(()=>{const cfg=_cfgConLados(r,cidx);return cfg?_ladosValidos(cfg,_epLadosDe(idx)):null;})(),
+    opciones:_opLimpio(_epOpsDe(idx)),
     // Preserve activo state (y extras) from the current edit state or the saved desglose
     prevLineas:(est&&est.lineas)||p.desglose||[]
   };
   const res=cotizarPartida(entrada);
   if(!res) return;
-  epRenderLados(idx);
 
   _epEstado[idx]={
     lineas:res.lineasDesglose, recalculado:true,
     recetaId:ridRaw, recetaNombre:r.nombre, recetaEsAdmin:ridRaw.startsWith('a_'),
     linea:document.getElementById('ep-linea-'+idx).value,
     configIdx:cidx, config:(cidx!==null&&r.configs&&r.configs[cidx])?r.configs[cidx].tipo:'—',
-    vidrioId:entrada.vidrioId, vidrioDividido:entrada.vidrioDividido, lados:entrada.lados
+    vidrioId:entrada.vidrioId, vidrioDividido:entrada.vidrioDividido, opciones:entrada.opciones
   };
   renderDesgloseEdicion(idx,res.lineasDesglose,res.totalSinIVA);
 }
@@ -5465,13 +5255,17 @@ function renderDesgloseEdicion(idx, lineas, total){
   }
   const el=document.getElementById('ep-desglose-'+idx);
   if(!el) return;
+  const {r:rOp,cidx:cOp}=_ctxReceta(idx);
+  const panelOp=document.getElementById('ep-opc-panel-'+idx);
+  if(panelOp) panelOp.innerHTML=rOp?_opPanelHTML(idx,lineas,rOp,cOp,parseFloat(document.getElementById('ep-ancho-'+idx)?.value)||0,parseFloat(document.getElementById('ep-alto-'+idx)?.value)||0):'';
+  const ladoOp=_opLadoSel[idx];
   el.innerHTML=lineas.length?lineas.map((l,li)=>`
-    <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);${l.activo===false?'opacity:.4':''}">
+    <div class="${ladoOp&&l.opKey&&_ladosDeLinea(l).includes(ladoOp)?'op-marcada':''}" style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);${l.activo===false?'opacity:.4':''}">
       <input type="checkbox" ${l.activo!==false?'checked':''} onchange="toggleDesgloseEdicion(${idx},${li},this.checked)"
         style="width:15px;height:15px;cursor:pointer;accent-color:var(--accent);flex-shrink:0">
       <span class="badge ${l.tipo==='Vidrio'?'badge-green':l.tipo==='Herraje'?'badge-amber':'badge-blue'}" style="font-size:10px;flex-shrink:0">${l.tipo}</span>
-      <span style="font-size:12px;flex:1;color:${l.encontrado===false?'var(--red)':'var(--text)'}">${l.label}</span>
-      <span style="font-size:11px;color:var(--text3);white-space:nowrap">${l.detalle||''}</span>
+      <span style="font-size:12px;flex:1;color:${l.encontrado===false?'var(--red)':'var(--text)'}">${l.label}${l.opKey&&!l.opHijo?_opEtiquetaLinea(l)+(rOp?_opSelectHTML(idx,l,rOp,cOp):''):''}</span>
+      <span style="font-size:11px;color:var(--text3);white-space:nowrap">${_detalleSinEtiq(l)}</span>
       <span style="font-family:var(--mono);font-size:12px;font-weight:600;min-width:72px;text-align:right;color:${l.activo!==false&&l.costo>0?'var(--green)':'var(--text3)'}">${fmt(l.costo)}</span>
     </div>`).join(''):
     '<p style="color:var(--text3);font-size:12px;padding:8px 0">Sin materiales calculados — verifica receta, configuración y medidas</p>';
@@ -5669,9 +5463,9 @@ function guardarEdicionPartida(idx){
     p.configIdx=est.configIdx;
     p.vidrioId=est.vidrioId;
     if(est.vidrioDividido) p.vidrioDividido=est.vidrioDividido; else delete p.vidrioDividido;
-    if(est.lados&&Object.keys(est.lados).length) p.lados={...est.lados}; else delete p.lados;
+    if(est.opciones) p.opciones=JSON.parse(JSON.stringify(est.opciones)); else delete p.opciones;
   }
-  delete _epLados[idx];
+  delete _epOps[idx]; _opLadoSel[idx]=null;
   // Commit desglose
   p.desglose=lineas;
   p.totalPartida=total;
@@ -7213,14 +7007,14 @@ function imprimirCotizacionCliente(){
     const vidTxt=vid?vid+(mitad?' (mitad superior)':''):'';
     const cubTxt=cub?cub.txt+(mitad?' (mitad inferior)':''):'';
     const herrTxt=esConHerrajesPrincipales(pt)?textoHerrajesPrincipales(pt):'';
-    const remTxt=textoRematesPartida(pt);
+    const cambTxt=textoCambiosPerfilPartida(pt);
     const dib=dibujoPartida(pt);
     if(!dib)sinDibujo++;
     const img=dib?elevacionSVG(pt.ancho,pt.alto,dib):'<span class="sinimg">Sin dibujo</span>';
     return `<div class="partida">
       <div><div class="n">${i+1}</div></div>
       <div>${pt.ubicacion?`<div class="ubi">${E(pt.ubicacion)}</div>`:''}<div class="desc">${E(pt.receta||'Partida')}</div>
-        ${esp?`<div class="esp">${esp}</div>`:''}${vidTxt?`<div class="esp"><b>Vidrio:</b> ${E(vidTxt)}</div>`:''}${cubTxt?`<div class="esp"><b>Cubierta:</b> ${E(cubTxt)}</div>`:''}${herrTxt?`<div class="esp"><b>Herrajes:</b> ${E(herrTxt)}</div>`:''}${remTxt?`<div class="esp"><b>Remates:</b> ${E(remTxt)}</div>`:''}<span class="med">${n2(pt.ancho)} × ${n2(pt.alto)} m</span></div>
+        ${esp?`<div class="esp">${esp}</div>`:''}${vidTxt?`<div class="esp"><b>Vidrio:</b> ${E(vidTxt)}</div>`:''}${cubTxt?`<div class="esp"><b>Cubierta:</b> ${E(cubTxt)}</div>`:''}${herrTxt?`<div class="esp"><b>Herrajes:</b> ${E(herrTxt)}</div>`:''}${cambTxt?`<div class="esp"><b>Perfiles:</b> ${E(cambTxt)}</div>`:''}<span class="med">${n2(pt.ancho)} × ${n2(pt.alto)} m</span></div>
       <div class="c cant">${cant}</div>
       <div class="r pu">${fmt(pu)}</div>
       <div class="r st">${fmt(st)}</div>

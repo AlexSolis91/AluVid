@@ -42,7 +42,7 @@ service cloud.firestore {
         && d.vence <= request.time + duration.value(8, 'd'); // 7 días + 1 de tolerancia de reloj
     }
 
-    function tablaApp(t) { return t in ['perfiles','herrajes','vidrios','recetas','proyectos','soluciones']; }
+    function tablaApp(t) { return t in ['perfiles','herrajes','vidrios','recetas','proyectos']; }
 
     // El administrador tiene acceso completo
     match /{document=**} {
