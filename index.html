@@ -1446,7 +1446,7 @@ onAuthStateChanged(_auth, async (user) => {
 window._cache = {};
 
 // ── Versión de la app (subir en cada deploy con fixes) ─────────
-const APP_VERSION = '1.37.1';
+const APP_VERSION = '1.37.2';
 
 window.cerrarSesionApp = function() {
   if ((DB._pending > 0 || _proyHayCambios()) &&
@@ -2150,7 +2150,7 @@ function textoCambiosPerfilPartida(partida){
     if(!l.opKey||l.opSel==='def'||l.activo===false) return;
     const k=l.opKey+'|'+l.opSeg; const g=grupos[k]=grupos[k]||{etq:l.opEtiq,nom:[]};
     if(l.tipo==='Opcion') g.nom.push('sin perfil');
-    else g.nom.push(String(l.label||'').split('—').slice(1).join('—').trim()||l.label);
+    else g.nom.push(String(l.label||'').split('—').slice(1).join('—').trim()||l.perfilClave||l.label);
   });
   return Object.values(grupos).map(g=>`${g.etq}: ${g.nom.join(' + ')}`).join(' · ');
 }
@@ -4731,6 +4731,16 @@ function _arAnalizarPartida(p){
     const g=guard.find(g=>!g.usada&&g.l.tipo===r.l.tipo&&regla(g,r));
     if(g){g.usada=true;r.par=g;}
   }));
+  // Partida guardada antes de las opciones de perfil: guardaba UNA línea por perfil (todos sus
+  // grupos juntos) y la receta con opciones da una línea por grupo. Las demás líneas del mismo
+  // perfil/herraje ya están incluidas en esa línea guardada: no son componentes nuevos.
+  rec.forEach(r=>{
+    if(r.par||!(r.l.opKey||r.l.opKeyH)) return;
+    const g=guard.find(g=>g.usada&&!g.l.opKey&&!g.l.opKeyH&&g.l.tipo===r.l.tipo&&(r.l.tipo==='Herraje'
+      ?(g.id.hid!=null&&g.id.hid===r.id.hid)
+      :((g.id.idComp&&g.id.idComp===r.id.idComp)||(g.id.clave&&g.id.clave===r.id.clave))));
+    if(g) r.par=g;
+  });
   const sobrantes=guard.filter(g=>!g.usada);
   const dudosos=new Set(sobrantes.filter(g=>!g.id.conocida).map(g=>g.l.tipo));
   const nuevas=[], avisos=[];
@@ -4940,6 +4950,7 @@ function _apSeparador(p,ctx){
 // Re-precia UNA línea (sin mutar). Devuelve {cambio:bool, costo, detalle, unidades:[{ant,nuevo}], avisos:[]}
 function _apLinea(l,p,ctx){
   const sin=motivo=>({cambio:false,avisos:[motivo]});
+  if(l&&l.tipo==='Opcion') return {cambio:false,avisos:[]}; // "Sin perfil": $0, nada que actualizar
   if(!l||!['Perfil','Herraje','Vidrio'].includes(l.tipo)) return sin('Sin precio unitario que actualizar — se conserva');
   if(l.encontrado===false) return sin('No tenía precio en la cotización (no estaba en el catálogo) — se conserva');
   if(!Number.isFinite(l.costo)) return sin('Costo guardado inválido — se conserva');
