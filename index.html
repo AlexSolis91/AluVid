@@ -1472,7 +1472,7 @@ onAuthStateChanged(_auth, async (user) => {
 window._cache = {};
 
 // ── Versión de la app (subir en cada deploy con fixes) ─────────
-const APP_VERSION = '1.38.0';
+const APP_VERSION = '1.38.1';
 
 window.cerrarSesionApp = function() {
   if ((DB._pending > 0 || _proyHayCambios()) &&
@@ -7191,7 +7191,7 @@ function imprimirCotizacionCliente(venta){
   const heroMini=`<div class="hero mini"><div class="logo">${LOGO_SCAVI_SVG}<div class="brand">SCAV<span>i</span></div></div>
     <div class="doc"><div class="folio">${folio}</div><div class="fecha">${proyecto||cliente}</div></div></div>`;
   const cabecera=`<div class="titulo">${venta?'Cotización de Cancelería de Aluminio y Vidrio':'Cotización de Materiales de Aluminio y Vidrio'}</div>
-    <div class="subtitulo">${venta?'Propuesta económica':'Servicios Profesionales de Análisis de Costos'}</div>
+    ${venta?'':'<div class="subtitulo">Servicios Profesionales de Análisis de Costos</div>'}
     <div class="datos">
       ${cliente?`<div><span class="lbl">Cliente</span><b>${cliente}</b></div>`:''}
       ${proyecto?`<div><span class="lbl">Proyecto</span><b>${proyecto}</b></div>`:''}
