@@ -864,7 +864,8 @@ onAuthStateChanged(_auth, async (user) => {
             <div style="font-family:var(--mono);font-size:22px;font-weight:700;color:var(--purple)" id="mat-folio-title"></div>
             <div style="font-size:12px;color:var(--text2)" id="mat-cliente-title"></div>
           </div>
-          <div style="display:flex;gap:8px">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <label title="Si los cortes de un tramo caben en la mitad, se compra medio tramo. Se guarda con el proyecto y también baja el sobrante de las cotizaciones" style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;margin-right:6px"><input type="checkbox" id="mat-medios" onchange="toggleMediosTramos(this.checked)" style="width:15px;height:15px;margin:0;accent-color:var(--accent)"> Considerar medios tramos</label>
             <button class="btn btn-ghost btn-sm" onclick="document.getElementById('mat-detalle').style.display='none';document.getElementById('mat-proyectos-lista').style.display=''">← Proyectos</button>
             <button class="btn btn-ghost btn-sm" onclick="imprimirListaMaterial()">🖨 Lista de Material</button>
             <button class="btn btn-ghost btn-sm" onclick="imprimirCortes()">📐 Distribución de Cortes</button>
@@ -1487,7 +1488,7 @@ onAuthStateChanged(_auth, async (user) => {
 window._cache = {};
 
 // ── Versión de la app (subir en cada deploy con fixes) ─────────
-const APP_VERSION = '1.39.0';
+const APP_VERSION = '1.40.0';
 
 window.cerrarSesionApp = function() {
   if ((DB._pending > 0 || _proyHayCambios()) &&
@@ -3309,7 +3310,7 @@ function sobranteProyecto(p){
   let totalSobrante=0;
   Object.values(mapaPerfiles).forEach(({perfil,cortes})=>{
     if(!cortes.length) return;
-    const {sobrante}=cuttingStockFFD(cortes,perfil.longitudTramo,CONFIG_CORTE);
+    const {sobrante}=cuttingStockFFD(cortes,perfil.longitudTramo,cfgCorte(p));
     totalSobrante+=sobrante*(perfil.precioML||0);
   });
   return totalSobrante;
@@ -5981,6 +5982,25 @@ function renderMatPartidasChecklist(){
   }).join('')||'<div class="empty-state"><p>Este proyecto no tiene partidas</p></div>';
 }
 
+// Medios tramos: opción guardada en el proyecto (lista de material, impresiones y sobrante de cotizaciones)
+async function toggleMediosTramos(on){
+  if(!matProyectoActivo)return;
+  const id=matProyectoActivo.id;
+  const proyectos=DB.get('proyectos'), idx=proyectos.findIndex(x=>x.id===id);
+  if(idx<0)return;
+  const nuevo={...proyectos[idx]};
+  if(on) nuevo.mediosTramos=true; else delete nuevo.mediosTramos;
+  proyectos[idx]=nuevo; matProyectoActivo=nuevo;
+  // Si el mismo proyecto está abierto en el editor, se actualiza su copia sin marcarlo como modificado
+  if(proyectoActivo&&proyectoActivo.id===id){
+    const limpio=_proySnap!=null&&_proySnap===_firmaProyecto(proyectoActivo);
+    if(on) proyectoActivo.mediosTramos=true; else delete proyectoActivo.mediosTramos;
+    if(limpio) _proySnap=_firmaProyecto(proyectoActivo);
+  }
+  calcularListaMaterial(proyectoMatFiltrado());
+  try{ await DB.set('proyectos',proyectos); toast(on?'Medios tramos activados para este proyecto':'Medios tramos desactivados'); }catch(e){}
+}
+
 function toggleMatPartida(i){
   if(matPartidasSeleccionadas.has(i)) matPartidasSeleccionadas.delete(i);
   else matPartidasSeleccionadas.add(i);
@@ -6010,6 +6030,7 @@ function abrirMatProyecto(id){
   document.getElementById('mat-detalle').style.display='';
   document.getElementById('mat-folio-title').textContent=matProyectoActivo.folio;
   document.getElementById('mat-cliente-title').textContent=matProyectoActivo.cliente||'Sin cliente';
+  document.getElementById('mat-medios').checked=!!matProyectoActivo.mediosTramos;
   // Por defecto todas las partidas quedan seleccionadas
   const total=(matProyectoActivo.partidas||[]).length;
   matPartidasSeleccionadas = new Set(Array.from({length:total},(_,i)=>i));
@@ -6264,10 +6285,28 @@ function cuttingStockFFD(cortes, longitudTramo, cfg=CONFIG_CORTE){
     if(!colocado) bins.push({cortes:[p.out],usadoMm:p.mm}); // nuevo tramo: primer corte sin kerf
   });
 
-  res.tramos=bins.map(b=>({cortes:b.cortes,usado:b.usadoMm/1000,libre:(utilMm-b.usadoMm)/1000,total:L,despunte:desp/1000}));
-  const sobMm=bins.reduce((s,b)=>s+(utilMm-b.usadoMm)+desp,0);
+  // Medios tramos (opción del proyecto): todo tramo cuyos cortes caben en la mitad se compra como medio
+  const medioMm=Math.floor(Lmm/2)-desp;
+  const esMedio=b=>!!(cfg&&cfg.medios)&&medioMm>0&&b.usadoMm<=medioMm;
+  res.tramos=bins.map(b=>{
+    const m=esMedio(b), u=m?medioMm:utilMm;
+    return {cortes:b.cortes,usado:b.usadoMm/1000,libre:(u-b.usadoMm)/1000,total:m?Lmm/2000:L,despunte:desp/1000,medio:m};
+  });
+  const sobMm=bins.reduce((s,b)=>s+((esMedio(b)?medioMm:utilMm)-b.usadoMm)+desp,0);
   res.sobrante=sobMm/1000;
+  res.medios=res.tramos.filter(t=>t.medio).length;
+  res.completos=res.tramos.length-res.medios;
+  res.metros=(res.completos*Lmm+res.medios*Lmm/2)/1000;
   return res;
+}
+// Configuración de corte del proyecto (medios tramos si el proyecto lo pide)
+function cfgCorte(p){ return p&&p.mediosTramos?{...CONFIG_CORTE,medios:true}:CONFIG_CORTE; }
+// "4 tramos" · "3 tramos + 1 medio" · "1 medio tramo"
+function txtTramos(ffd){
+  const c=ffd.completos!=null?ffd.completos:ffd.tramos.length, m=ffd.medios||0;
+  const tc=c?c+' tramo'+(c!==1?'s':''):'';
+  if(!m) return tc||'0 tramos';
+  return c?tc+' + '+m+' medio'+(m!==1?'s':''):m+' medio'+(m!==1?'s':'')+' tramo'+(m!==1?'s':'');
 }
 // Textos de advertencia de un perfil (lista de material e impresiones)
 function avisosCortePerfil(perfil,ffd,avisos){
@@ -6287,7 +6326,7 @@ function calcularListaMaterial(proyecto){
   // ── PERFILES ──────────────────────────────────────────────────
   const perfilesHTML=Object.values(mapaPerfiles).map(({perfil,cortes,avisos})=>{
     if(cortes.length===0)return'';
-    const ffd=cuttingStockFFD(cortes,perfil.longitudTramo,CONFIG_CORTE);
+    const ffd=cuttingStockFFD(cortes,perfil.longitudTramo,cfgCorte(proyecto));
     const {tramos,sobrante}=ffd;
     const costSobrante=sobrante*(perfil.precioML||0);
     const avisosTxt=avisosCortePerfil(perfil,ffd,avisos);
@@ -6314,7 +6353,7 @@ function calcularListaMaterial(proyecto){
         <div style="display:flex;gap:16px;align-items:center">
           <span style="font-size:12px;color:var(--text3)">Tramo: <strong style="color:var(--text)">${num(perfil.longitudTramo)} m</strong></span>
           <span style="font-size:12px;color:var(--text3)">Precio/ml: <strong style="color:var(--text)">${fmt(perfil.precioML)}</strong></span>
-          <span class="badge badge-purple">${ffd.tramoInvalido?'Tramo sin definir':tramos.length+' tramo'+(tramos.length!==1?'s':'')}</span>
+          <span class="badge badge-purple">${ffd.tramoInvalido?'Tramo sin definir':txtTramos(ffd)}</span>
         </div>
       </div>
       ${avisosTxt.length?`<div style="background:rgba(248,113,113,.08);border-bottom:1px solid rgba(248,113,113,.3);padding:8px 16px;font-size:12px;color:var(--red,#f87171)">${avisosTxt.map(a=>'<div>⚠ '+a+'</div>').join('')}</div>`:''}
@@ -6348,7 +6387,7 @@ function calcularListaMaterial(proyecto){
             const pct=Math.min(100,Math.round((t.usado/t.total)*100));
             return `<div style="margin-bottom:8px">
               <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:3px">
-                <span>Tramo ${ti+1}</span>
+                <span>Tramo ${ti+1}${t.medio?' <b style="color:var(--purple)">· medio ('+num(t.total)+' m)</b>':''}</span>
                 <span>${t.cortes.map(c=>num(c.longitud)+'m'+(c.revisar?' ⚠':'')).join(' + ')} = ${num(t.usado)}m usados</span>
                 <span style="color:${t.libre<0.1?'var(--green)':'var(--amber)'}">sobra ${num(t.libre)}m</span>
               </div>
@@ -6887,7 +6926,7 @@ function sobrantePorPerfil(p){
   const out=[];
   Object.values(mapaPerfiles).forEach(({perfil,cortes})=>{
     if(!cortes.length)return;
-    const {sobrante}=cuttingStockFFD(cortes,perfil.longitudTramo,CONFIG_CORTE);
+    const {sobrante}=cuttingStockFFD(cortes,perfil.longitudTramo,cfgCorte(p));
     if(sobrante>0.01) out.push({nombre:perfil.nombre||perfil.clave||'Perfil',clave:perfil.clave||'',m:sobrante,costo:sobrante*(perfil.precioML||0)});
   });
   return out.sort((a,b)=>b.costo-a.costo);
@@ -7332,15 +7371,15 @@ function imprimirListaMaterial(){
   let perfilesRows='';
   Object.values(mapaPerfiles).forEach(({perfil,cortes,avisos})=>{
     if(!cortes.length)return;
-    const ffd=cuttingStockFFD(cortes,perfil.longitudTramo,CONFIG_CORTE);
+    const ffd=cuttingStockFFD(cortes,perfil.longitudTramo,cfgCorte(p));
     const {tramos}=ffd;
     const avisosTxt=avisosCortePerfil(perfil,ffd,avisos);
     perfilesRows+=`<tr>
       <td style="font-family:monospace;font-weight:700;color:#1a56db">${perfil.idCompuesto}</td>
       <td>${perfil.nombre}</td>
       <td style="font-family:monospace">${num(perfil.longitudTramo)} m</td>
-      <td style="font-weight:700;text-align:center">${ffd.tramoInvalido?'—':tramos.length}</td>
-      <td style="font-family:monospace">${ffd.tramoInvalido?'—':num(tramos.length*perfil.longitudTramo)+' m'}</td>
+      <td style="font-weight:700;text-align:center">${ffd.tramoInvalido?'—':(ffd.medios?txtTramos(ffd):tramos.length)}</td>
+      <td style="font-family:monospace">${ffd.tramoInvalido?'—':num(ffd.metros)+' m'}</td>
     </tr>${avisosTxt.length?`<tr><td colspan="5" style="color:#b91c1c;font-size:11px;background:#fef2f2">${avisosTxt.map(a=>'⚠ '+a).join('<br>')}</td></tr>`:''}`;
   });
 
@@ -7460,7 +7499,7 @@ function imprimirCortes(){
 
   Object.values(mapaPerfiles).forEach(({perfil,cortes,avisos})=>{
     if(!cortes.length)return;
-    const ffd=cuttingStockFFD(cortes,perfil.longitudTramo,CONFIG_CORTE);
+    const ffd=cuttingStockFFD(cortes,perfil.longitudTramo,cfgCorte(p));
     const {tramos,sobrante}=ffd;
     const avisosTxt=avisosCortePerfil(perfil,ffd,avisos);
 
@@ -7492,7 +7531,7 @@ function imprimirCortes(){
       const anchoLibre=(libre/t.total*100).toFixed(2);
       return `<div style="margin-bottom:10px">
         <div style="display:flex;justify-content:space-between;font-size:10px;color:#555;margin-bottom:3px">
-          <strong>Tramo ${ti+1}</strong>
+          <strong>Tramo ${ti+1}${t.medio?' · medio ('+num(t.total)+' m)':''}</strong>
           <span>${t.cortes.map(c=>num(c.longitud)+'m'+(c.revisar?' ⚠':'')).join(' + ')}</span>
           <span style="color:${libre<0.05?'#1e7e34':'#cc8400'}">sobra ${num(libre)}m</span>
         </div>
@@ -7515,7 +7554,7 @@ function imprimirCortes(){
         <div style="display:flex;gap:20px;font-size:11px">
           <span>Tramo: <strong>${num(perfil.longitudTramo)} m</strong></span>
           <span>Precio/ml: <strong>${fmt(perfil.precioML)}</strong></span>
-          <span>Tramos necesarios: <strong>${ffd.tramoInvalido?'—':tramos.length}</strong></span>
+          <span>Tramos necesarios: <strong>${ffd.tramoInvalido?'—':txtTramos(ffd)}</strong></span>
         </div>
       </div>
       ${avisosTxt.length?`<div style="padding:8px 14px;background:#fef2f2;border-bottom:1px solid #fecaca;color:#b91c1c;font-size:11px">${avisosTxt.map(a=>'⚠ '+a).join('<br>')}</div>`:''}
