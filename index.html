@@ -221,6 +221,13 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
 .op-panel-perfil{font-size:12px}.op-panel-perfil span{color:var(--text3);font-size:11px;margin-left:4px}
 .op-panel-ayuda{font-size:12px;color:var(--text3);padding-top:6px}
 .op-sigue{color:var(--accent2)}
+.tramo-ops{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tramo-op{display:flex;flex-direction:column;gap:3px;text-align:left;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg3);color:var(--text2);cursor:pointer;font:inherit}
+.tramo-op b{font-size:13px;color:var(--text)}
+.tramo-op span{font-size:11px;color:var(--text3);line-height:1.35}
+.tramo-op em{font-style:normal;font-size:12px;font-family:var(--mono);color:var(--amber);margin-top:2px}
+.tramo-op:hover{border-color:rgba(79,142,247,.5)}
+.tramo-op.on{border-color:var(--accent);background:rgba(79,142,247,.12);box-shadow:0 0 0 1px var(--accent) inset}
 .op-comps{display:flex;flex-direction:column;gap:4px}
 .op-comp{display:flex;align-items:center;gap:6px;font-size:12px!important;text-transform:none!important;letter-spacing:0!important;color:var(--text2)!important;padding:4px 8px;border:1px solid var(--border);border-radius:6px;cursor:pointer}
 .op-comp input{width:auto;margin:0}.op-comp span{color:var(--text3);font-size:11px}
@@ -808,7 +815,7 @@ onAuthStateChanged(_auth, async (user) => {
               <div style="font-size:11px;color:var(--text3);margin-top:2px" id="cot-total-iva-label"></div>
             </div>
             <div style="display:flex;align-items:center;gap:14px">
-              <button class="btn btn-primary btn-sm" onclick="imprimirCotizacionCliente()" title="Formato SCAVi con la elevación de cada cancel, sobrante y total de material">📄 Cotización para cliente</button>
+              <button class="btn btn-primary btn-sm" onclick="abrirCotizacionCliente()" title="Formato SCAVi con la elevación de cada cancel, sobrante y total de material">📄 Cotización para cliente</button>
               <button class="btn btn-primary btn-sm" onclick="abrirCotizacionVenta()" title="Precios de venta: costo × tu factor de utilidad, con el sobrante repartido sin mostrarse">💰 Cotización con utilidad</button>
               <button class="btn btn-ghost btn-sm" onclick="imprimirCotizacion(false)">🖨 Imprimir cotización</button>
               <button class="btn btn-ghost btn-sm" onclick="imprimirCotizacion(true)" title="Incluye perfiles, herrajes y vidrio de cada partida">🖨 Con detalle de materiales</button>
@@ -1362,6 +1369,21 @@ onAuthStateChanged(_auth, async (user) => {
 </div>
 
 <!-- MODAL cambiar marca de perfiles -->
+<div class="modal-overlay" id="modal-cot-cliente">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header">
+      <span class="modal-title">📄 Cotización para cliente</span>
+      <button class="btn btn-ghost btn-icon" onclick="cerrarModal('modal-cot-cliente')">✕</button>
+    </div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">¿Cómo se calcula el sobrante de perfiles? La elección se guarda en el proyecto (también en la Lista de Material).</div>
+    <div id="cc-tramos" class="tramo-ops" style="margin-bottom:16px"></div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="cerrarModal('modal-cot-cliente')">Cancelar</button>
+      <button class="btn btn-primary" onclick="generarCotizacionCliente()">📄 Generar cotización</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-cot-venta">
   <div class="modal" style="max-width:460px">
     <div class="modal-header">
@@ -1379,6 +1401,8 @@ onAuthStateChanged(_auth, async (user) => {
         <div style="display:flex;align-items:center;gap:8px;height:38px;font-size:13px;color:var(--text)"><input type="checkbox" id="cv-iva" onchange="cvResumen()" style="width:16px;height:16px;margin:0;accent-color:var(--accent)"><span onclick="document.getElementById('cv-iva').click()" style="cursor:pointer">Agregar IVA 16%</span></div>
       </div>
     </div>
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:6px">Sobrante de perfiles</div>
+    <div id="cv-tramos" class="tramo-ops" style="margin-bottom:14px"></div>
     <div id="cv-resumen" style="border:1px solid var(--border);border-radius:var(--radius);background:var(--bg3);padding:10px 12px;margin-bottom:14px;font-size:12px"></div>
     <div class="form-actions">
       <button class="btn btn-ghost" onclick="cerrarModal('modal-cot-venta')">Cancelar</button>
@@ -1488,7 +1512,7 @@ onAuthStateChanged(_auth, async (user) => {
 window._cache = {};
 
 // ── Versión de la app (subir en cada deploy con fixes) ─────────
-const APP_VERSION = '1.40.0';
+const APP_VERSION = '1.40.1';
 
 window.cerrarSesionApp = function() {
   if ((DB._pending > 0 || _proyHayCambios()) &&
@@ -7106,12 +7130,57 @@ function preciosVentaProyecto(p,factor,sobrante){
   });
   return {sobrante:sob,costo:base,partidas,total:partidas.reduce((t,x)=>t+x.st,0)};
 }
+// ── Tramos completos / medios tramos al generar cotizaciones ──
+let _tramosSel=false,_tramosSob={completos:0,medios:0};
+function _sobTotal(p,medios){ return sobrantePorPerfil({...p,mediosTramos:!!medios}).reduce((t,r)=>t+r.costo,0); }
+function _calcSobOpciones(){ _tramosSob={completos:_sobTotal(proyectoActivo,false),medios:_sobTotal(proyectoActivo,true)}; }
+function _htmlTramos(fn){
+  return [false,true].map(m=>`<button type="button" class="tramo-op${m===_tramosSel?' on':''}" onclick="${fn}(${m})">
+    <b>${m?'Medios tramos':'Tramos completos'}</b>
+    <span>${m?'Si los cortes caben en la mitad, se compra medio tramo':'Todos los perfiles en tramo completo'}</span>
+    <em>Sobrante ${fmt(_tramosSob[m?'medios':'completos'])}</em></button>`).join('');
+}
+// Guarda la opción en el proyecto abierto y en el guardado (sin marcar el editor como modificado)
+function _fijarMediosTramos(on){
+  if(!proyectoActivo||!!proyectoActivo.mediosTramos===!!on) return;
+  const limpio=_proySnap!=null&&_proySnap===_firmaProyecto(proyectoActivo);
+  if(on) proyectoActivo.mediosTramos=true; else delete proyectoActivo.mediosTramos;
+  if(limpio) _proySnap=_firmaProyecto(proyectoActivo);
+  const proyectos=DB.get('proyectos'), idx=proyectos.findIndex(x=>x.id===proyectoActivo.id);
+  if(idx<0) return; // proyecto aún sin guardar: se guarda junto con él
+  const nuevo={...proyectos[idx]};
+  if(on) nuevo.mediosTramos=true; else delete nuevo.mediosTramos;
+  proyectos[idx]=nuevo;
+  if(matProyectoActivo&&matProyectoActivo.id===nuevo.id) matProyectoActivo=nuevo;
+  DB.set('proyectos',proyectos).catch(()=>{});
+}
+function abrirCotizacionCliente(){
+  if(!proyectoActivo||!proyectoActivo.partidas||!proyectoActivo.partidas.length){
+    toast('Agrega al menos una partida antes de imprimir','error');return;
+  }
+  _tramosSel=!!proyectoActivo.mediosTramos; _calcSobOpciones(); ccTramos(_tramosSel);
+  document.getElementById('modal-cot-cliente').classList.add('open');
+}
+function ccTramos(m){ _tramosSel=m; document.getElementById('cc-tramos').innerHTML=_htmlTramos('ccTramos'); }
+function generarCotizacionCliente(){
+  _fijarMediosTramos(_tramosSel);
+  cerrarModal('modal-cot-cliente');
+  imprimirCotizacionCliente();
+}
+function cvTramos(m){
+  _tramosSel=m; _cvSob=_tramosSob[m?'medios':'completos'];
+  document.getElementById('cv-tramos').innerHTML=_htmlTramos('cvTramos');
+  cvResumen();
+}
+
 let _cvSob=0;
 function abrirCotizacionVenta(){
   if(!proyectoActivo||!proyectoActivo.partidas||!proyectoActivo.partidas.length){
     toast('Agrega al menos una partida antes de imprimir','error');return;
   }
-  _cvSob=sobrantePorPerfil(proyectoActivo).reduce((t,r)=>t+r.costo,0);
+  _calcSobOpciones(); _tramosSel=!!proyectoActivo.mediosTramos;
+  _cvSob=_tramosSob[_tramosSel?'medios':'completos'];
+  document.getElementById('cv-tramos').innerHTML=_htmlTramos('cvTramos');
   const f=document.getElementById('cv-factor');
   f.value=proyectoActivo.factorUtilidad||'';
   document.getElementById('cv-iva').checked=!!proyectoActivo.cotVentaIva;
@@ -7140,6 +7209,7 @@ function generarCotizacionVenta(){
   if(!(factor>0)){toast('Teclea un factor de utilidad mayor a 0','error');return;}
   proyectoActivo.factorUtilidad=factor;
   proyectoActivo.cotVentaIva=iva;
+  _fijarMediosTramos(_tramosSel);
   cerrarModal('modal-cot-venta');
   imprimirCotizacionCliente({factor,iva,sobrante:_cvSob});
 }
