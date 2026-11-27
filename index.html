@@ -221,6 +221,22 @@ tbody td{padding:10px 14px;color:var(--text);vertical-align:middle}
 .op-panel-perfil{font-size:12px}.op-panel-perfil span{color:var(--text3);font-size:11px;margin-left:4px}
 .op-panel-ayuda{font-size:12px;color:var(--text3);padding-top:6px}
 .op-sigue{color:var(--accent2)}
+.sust-fila{cursor:pointer;border-radius:4px}
+.sust-fila:hover{background:rgba(79,142,247,.08)}
+.sust-ico{font-size:11px;color:var(--text3);margin-left:4px}
+.sust-fila:hover .sust-ico{color:var(--accent2)}
+.sust-panel{margin:4px 0 8px 23px;padding:10px;border:1px solid rgba(79,142,247,.45);border-radius:var(--radius);background:var(--bg2)}
+.sust-top{display:flex;gap:8px;align-items:center}
+.sust-top .search-wrap input{width:100%}
+.sust-solo{display:flex;align-items:center;gap:5px;font-size:12px!important;text-transform:none!important;letter-spacing:0!important;color:var(--text2)!important;white-space:nowrap;cursor:pointer;margin:0}
+.sust-solo input{width:auto;margin:0}
+.sust-nota{font-size:11px;color:var(--text3);margin:6px 0}
+.sust-lista{max-height:240px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg3)}
+.sust-item{display:flex;align-items:center;gap:8px;padding:6px 10px;font-size:12px;cursor:pointer;border-bottom:1px solid var(--border)}
+.sust-item:hover{background:rgba(79,142,247,.12)}
+.sust-item.otro{opacity:.7}
+.sust-item .sust-precio{margin-left:auto;font-family:var(--mono);color:var(--text3);white-space:nowrap}
+.sust-mas{padding:6px 10px;font-size:11px;color:var(--text3)}
 .tramo-ops{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .tramo-op{display:flex;flex-direction:column;gap:3px;text-align:left;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg3);color:var(--text2);cursor:pointer;font:inherit}
 .tramo-op b{font-size:13px;color:var(--text)}
@@ -1512,7 +1528,7 @@ onAuthStateChanged(_auth, async (user) => {
 window._cache = {};
 
 // ── Versión de la app (subir en cada deploy con fixes) ─────────
-const APP_VERSION = '1.40.1';
+const APP_VERSION = '1.41.0';
 
 window.cerrarSesionApp = function() {
   if ((DB._pending > 0 || _proyHayCambios()) &&
@@ -3883,7 +3899,7 @@ function _calcLineaExtra(ex,ancho,alto,acabado){
     const cortes=[];
     if(v>0&&largoV>0) cortes.push({long:largoV,cant:v});
     if(h>0&&largoH>0) cortes.push({long:largoH,cant:h});
-    const idComp=(acabado||'').replace(/\s+/g,'')+ex.clave;
+    const idComp=ex.idComp||((acabado||'').replace(/\s+/g,'')+ex.clave); // idComp: sustituido por un perfil de otro acabado
     const p=DB.getCombined('perfiles').find(x=>x.idCompuesto===idComp);
     if(!p) return {label:`${ex.clave} (acabado "${acabado||''}" no encontrado) [EXTRA]`,tipo:'Perfil',costo:0,encontrado:false,
       detalle:`${num(ml)} ml`,extra:{...ex},esExtra:true,cortes,ml,perfilIdCompuesto:null,perfilClave:ex.clave};
@@ -3918,6 +3934,7 @@ function cotizarPartida(o){
   const vidrioId=o.vidrioId||null;
   const div=o.vidrioDividido||null;
   const sustituciones=o.sustituciones||null;
+  const sustH=o.sustHerrajes||null; // {herrajeIdReceta: herrajeIdNuevo} — sustituido desde el desglose
 
   // Use combined catalog (user + admin) for pricing — user prices take priority
   const todosPerfiles=DB.getCombined('perfiles');
@@ -3955,7 +3972,12 @@ function cotizarPartida(o){
     // "Cambiar marca": mantener la marca sustituida al recotizar
     let sustituido=false, avisoMarca='';
     const sub=sustituciones&&sustituciones[clave];
-    if(p&&sub&&sub.proveedor&&(p.proveedor||'').trim()!==sub.proveedor){
+    if(sub&&sub.directa){
+      // Sustituido desde el desglose: mismo acabado de la partida, o fijo si se eligió de otro acabado
+      const q=(!sub.fijo&&acabado?todosPerfiles.find(x=>x.idCompuesto===acabadoClean+sub.clave):null)
+        ||todosPerfiles.find(x=>x.idCompuesto===sub.idCompuesto);
+      if(q){ sustituido=true; p=q; }
+    } else if(p&&sub&&sub.proveedor&&(p.proveedor||'').trim()!==sub.proveedor){
       const eq=_cmEquivalente(p,sub.proveedor,todosPerfiles);
       if(eq){ sustituido=eq.clave!==clave; p=eq; }
       else avisoMarca=` (sin equivalente en ${sub.proveedor})`;
@@ -4023,7 +4045,8 @@ function cotizarPartida(o){
   const costoHerraje=(herrajeId, cantPiezas, metrosV, metrosH, tipoVidH, condCantidad, condV, condH, condM2, m2DivAncho, m2DivAlto, porCorte)=>{
     const tvh=(tipoVidH||'AMBOS').toUpperCase();
     if(tvh!=='AMBOS'&&tvh!==tipoVidrioSeleccionado) return null;
-    const h=todosHerrajes.find(x=>x.id===herrajeId);
+    const hidS=sustH&&sustH[String(herrajeId)]!=null?sustH[String(herrajeId)]:herrajeId;
+    const h=todosHerrajes.find(x=>x.id===hidS)||(hidS!==herrajeId?todosHerrajes.find(x=>String(x.id!==undefined?x.id:x._docId)===String(hidS)):null);
     if(!h)return{label:'Herraje no encontrado',costo:0,detalle:'',encontrado:false,herrajeId,cantPzas:0};
 
     let costo=0, detalle='', mlTot=0, m2Tot=0, pzas=0;
@@ -4736,6 +4759,7 @@ function _entradaGuardadaPartida(p){
     vidriosCongelados:vSel==='congelado'?(p.desglose||[]).filter(l=>l.tipo==='Vidrio'):null,
     condiciones:p.condiciones||{},
     sustituciones:p.sustitucionesMarca||null,
+    sustHerrajes:p.sustHerrajes||null,
     opciones:p.opciones||null,
     prevLineas:p.desglose||[]
   }};
@@ -5374,10 +5398,11 @@ function recotizarPartida(idx){
   const entrada={
     receta:r, configIdx:cidx, ancho, alto, cantidad, acabado,
     vidrioId:(vSel&&vSel!=='dividido'&&vSel!=='congelado')?refVidrio(vSel):null,
-    vidrioDividido:vSel==='dividido'?(p.vidrioDividido||null):null,
+    vidrioDividido:vSel==='dividido'?((est&&est.divPend)||p.vidrioDividido||null):null,
     vidriosCongelados:vSel==='congelado'?(p.desglose||[]).filter(l=>l.tipo==='Vidrio'):null,
     condiciones:p.condiciones||{},
-    sustituciones:p.sustitucionesMarca||null,
+    sustituciones:(est&&est.sust)||p.sustitucionesMarca||null,
+    sustHerrajes:(est&&est.sustH)||p.sustHerrajes||null,
     opciones:_opLimpio(_epOpsDe(idx)),
     // Preserve activo state (y extras) from the current edit state or the saved desglose
     prevLineas:(est&&est.lineas)||p.desglose||[]
@@ -5390,7 +5415,8 @@ function recotizarPartida(idx){
     recetaId:ridRaw, recetaNombre:r.nombre, recetaEsAdmin:ridRaw.startsWith('a_'),
     linea:document.getElementById('ep-linea-'+idx).value,
     configIdx:cidx, config:(cidx!==null&&r.configs&&r.configs[cidx])?r.configs[cidx].tipo:'—',
-    vidrioId:entrada.vidrioId, vidrioDividido:entrada.vidrioDividido, opciones:entrada.opciones
+    vidrioId:entrada.vidrioId, vidrioDividido:entrada.vidrioDividido, opciones:entrada.opciones,
+    sust:est&&est.sust, sustH:est&&est.sustH, divPend:est&&est.divPend
   };
   renderDesgloseEdicion(idx,res.lineasDesglose,res.totalSinIVA);
 }
@@ -5413,13 +5439,163 @@ function renderDesgloseEdicion(idx, lineas, total){
       <input type="checkbox" ${l.activo!==false?'checked':''} onchange="toggleDesgloseEdicion(${idx},${li},this.checked)"
         style="width:15px;height:15px;cursor:pointer;accent-color:var(--accent);flex-shrink:0">
       <span class="badge ${l.tipo==='Vidrio'?'badge-green':l.tipo==='Herraje'?'badge-amber':'badge-blue'}" style="font-size:10px;flex-shrink:0">${l.tipo}</span>
-      <span style="font-size:12px;flex:1;color:${l.encontrado===false?'var(--red)':'var(--text)'}">${l.label}${l.opKey&&!l.opHijo?_opEtiquetaLinea(l)+(rOp?_opSelectHTML(idx,l,rOp,cOp):''):''}</span>
+      <span class="${_sustPuede(idx,l)?'sust-fila':''}" ${_sustPuede(idx,l)?`onclick="sustAbrir(${idx},${li})" title="Clic para sustituir por otro ${l.tipo==='Vidrio'?'vidrio':l.tipo==='Herraje'?'herraje':'perfil'}"`:''} style="font-size:12px;flex:1;color:${l.encontrado===false?'var(--red)':'var(--text)'}">${l.label}${_sustPuede(idx,l)?' <span class="sust-ico">⇄</span>':''}${l.opKey&&!l.opHijo?_opEtiquetaLinea(l)+(rOp?_opSelectHTML(idx,l,rOp,cOp):''):''}</span>
       <span style="font-size:11px;color:var(--text3);white-space:nowrap">${_detalleSinEtiq(l)}</span>
       <span style="font-family:var(--mono);font-size:12px;font-weight:600;min-width:72px;text-align:right;color:${l.activo!==false&&l.costo>0?'var(--green)':'var(--text3)'}">${fmt(l.costo)}</span>
-    </div>`).join(''):
+    </div>${_sust&&_sust.idx===idx&&_sust.li===li?_sustPanelHTML(idx,l):''}`).join(''):
     '<p style="color:var(--text3);font-size:12px;padding:8px 0">Sin materiales calculados — verifica receta, configuración y medidas</p>';
   const elTotal=document.getElementById('ep-total-'+idx);
   if(elTotal) elTotal.textContent=fmt(total);
+  if(_sust&&_sust.idx===idx){ const q=document.getElementById('sust-q'); if(q){ q.value=_sust.q||''; sustFiltrar(); q.focus(); } }
+}
+
+// ── Sustituir perfil / herraje / vidrio desde el desglose de la partida ──
+let _sust=null; // {idx, li, q, items}
+const _sustNorm=t=>String(t||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+function _sustPuede(idx,l){
+  if(!l||l.opKey||l.opHijo) return false;
+  if(l.tipo==='Perfil'||l.tipo==='Herraje') return true;
+  if(l.tipo==='Vidrio'){ const v=document.getElementById('ep-vidrio-'+idx); return !!(v&&v.value!=='congelado'&&(l.vidrioId!=null)); }
+  return false;
+}
+function sustAbrir(idx,li){
+  _sust=(_sust&&_sust.idx===idx&&_sust.li===li)?null:{idx,li,q:''};
+  renderDesgloseEdicion(idx);
+}
+function sustCerrar(){ const i=_sust&&_sust.idx; _sust=null; if(i!=null) renderDesgloseEdicion(i); }
+function _sustPanelHTML(idx,l){
+  const nom=l.tipo==='Vidrio'?'vidrio':l.tipo==='Herraje'?'herraje o accesorio':'perfil';
+  const nota=l.tipo==='Perfil'?'Se conservan los cortes y metros lineales; cambia el precio por ml.'
+    :l.tipo==='Herraje'?'Se conserva la cantidad ('+_sustUnidadTxt(l)+'); solo aparecen herrajes con la misma unidad.'
+    :'Se conservan los m²; cambia el precio por m².';
+  return `<div class="sust-panel">
+    <div class="sust-top">
+      <div class="search-wrap" style="flex:1"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="sust-q" placeholder="Sustituir ${nom}: escribe nombre o clave…" oninput="_sust.q=this.value;sustFiltrar()" onkeydown="sustTecla(event)" autocomplete="off"></div>
+      ${l.tipo!=='Vidrio'?'<label class="sust-solo"><input type="checkbox" id="sust-solo"> Solo esta línea</label>':''}
+      <button class="btn btn-ghost btn-sm" onclick="sustCerrar()">✕</button>
+    </div>
+    <div class="sust-nota">${nota}</div>
+    <div id="sust-lista" class="sust-lista"></div>
+  </div>`;
+}
+// Cantidades de una línea: datos estructurados o, en partidas antiguas, leídas del detalle
+function _sustCant(l){
+  const det=String(l.detalle||''), lee=re=>{const m=det.match(re);return m?parseFloat(m[1].replace(/,/g,'')):0;};
+  let ml=Number.isFinite(+l.ml)&&l.ml!=null?+l.ml:null;
+  if(ml==null&&Array.isArray(l.cortes)&&l.cortes.length) ml=l.cortes.reduce((t,c)=>t+(c.cant||0)*(c.long||0),0);
+  if(ml==null) ml=lee(/([\d,.]+)\s*ml/);
+  const pz=l.cantPzas!=null?(+l.cantPzas||0):lee(/([\d,.]+)\s*pzs/);
+  const m2=l.m2!=null?(+l.m2||0):(l.tipo==='Herraje'?lee(/([\d,.]+)\s*m²/):0);
+  return {ml:ml||0,pz,m2};
+}
+function _sustUnidadTxt(l){ const c=_sustCant(l), u=[]; if(c.ml>0)u.push(num(c.ml)+' ml'); if(c.pz>0)u.push(c.pz+' pzs'); if(c.m2>0)u.push(num(c.m2)+' m²'); return u.join(' + ')||'sin cantidad'; }
+function _sustLinea(){ const est=_sust&&_epEstadoDe(_sust.idx); return est&&est.lineas[_sust.li]; }
+function _sustCandidatos(l){
+  const idx=_sust.idx;
+  if(l.tipo==='Perfil'){
+    const acab=(document.getElementById('ep-acabado-'+idx)?.value||'').trim().replace(/\s+/g,'').toLowerCase();
+    const vistos=new Set();
+    return DB.getCombined('perfiles').filter(p=>p.idCompuesto&&!vistos.has(p.idCompuesto)&&vistos.add(p.idCompuesto)&&p.idCompuesto!==l.perfilIdCompuesto)
+      .map(p=>({ref:p.idCompuesto,obj:p,txt:`${p.idCompuesto} ${p.clave} ${p.nombre}`,
+        mismo:String(p.acabado||'').replace(/\s+/g,'').toLowerCase()===acab,
+        html:`<b>${_escH(p.idCompuesto)}</b> — ${_escH(p.nombre||'')} <span class="badge badge-blue">${_escH(p.acabado||'')}</span>`,
+        precio:`${fmt(p.precioML||0)}/ml`}));
+  }
+  if(l.tipo==='Herraje'){
+    const cc=_sustCant(l), nec=[cc.ml>0&&'precioML',cc.pz>0&&'precioUnitario',cc.m2>0&&'precioM2'].filter(Boolean);
+    const vistos=new Set();
+    return DB.getCombined('herrajes').filter(h=>{
+      const id=String(h.id!==undefined?h.id:h._docId);
+      if(vistos.has(id)||id===String(l.herrajeId)) return false; vistos.add(id);
+      return nec.every(k=>h[k]>0);
+    }).map(h=>({ref:h.id!==undefined?h.id:h._docId,obj:h,txt:`${h.descripcion} ${h.clave||''}`,mismo:true,
+      html:`<b>${_escH(h.descripcion||'')}</b>${h.clave?' ['+_escH(h.clave)+']':''}`,
+      precio:[h.precioML>0&&fmt(h.precioML)+'/ml',h.precioUnitario>0&&fmt(h.precioUnitario)+'/pza',h.precioM2>0&&fmt(h.precioM2)+'/m²'].filter(Boolean).join(' · ')}));
+  }
+  return vidriosParaCotizar().filter(v=>String(v._ref)!==String(l.vidrioId))
+    .map(v=>({ref:v._ref,obj:v,txt:`${v.descripcion} ${v.tipo||''}`,mismo:true,
+      html:`<b>${_escH(v.descripcion||'')}</b> <span class="badge badge-green">${_escH(v.tipo||'')}</span>`,precio:`${fmt(v.precioM2||0)}/m²`}));
+}
+function sustFiltrar(){
+  const el=document.getElementById('sust-lista'), l=_sustLinea(); if(!el||!l) return;
+  const q=_sustNorm(_sust.q), qc=q.replace(/ /g,''), toks=q.split(' ').filter(Boolean);
+  let items=_sustCandidatos(l).filter(c=>{ if(!q) return true; const t=_sustNorm(c.txt); return toks.every(k=>t.includes(k))||t.replace(/ /g,'').includes(qc); });
+  items.sort((a,b)=>(b.mismo-a.mismo)||String(a.txt).localeCompare(String(b.txt),'es'));
+  const total=items.length; items=items.slice(0,60); _sust.items=items;
+  el.innerHTML=items.length?items.map((c,i)=>`<div class="sust-item${c.mismo?'':' otro'}" onclick="sustElegir(${i})">${c.html}<span class="sust-precio">${c.precio}</span></div>`).join('')+
+    (total>items.length?`<div class="sust-mas">${total-items.length} más… escribe para filtrar</div>`:'')
+    :'<div class="sust-mas">Sin coincidencias</div>';
+}
+function sustTecla(e){ if(e.key==='Escape'){e.preventDefault();sustCerrar();} else if(e.key==='Enter'){e.preventDefault(); if(_sust.items&&_sust.items.length) sustElegir(0);} }
+function sustElegir(i){
+  const c=_sust&&_sust.items&&_sust.items[i]; if(!c) return;
+  const idx=_sust.idx, li=_sust.li, est=_epEstadoDe(idx), l=est.lineas[li], p=proyectoActivo.partidas[idx];
+  const solo=!!document.getElementById('sust-solo')?.checked;
+  const ancho=parseFloat(document.getElementById('ep-ancho-'+idx).value)||0;
+  const alto=parseFloat(document.getElementById('ep-alto-'+idx).value)||0;
+  const acabado=(document.getElementById('ep-acabado-'+idx).value||'').trim();
+  _sust=null;
+  if(l.tipo==='Vidrio'){
+    const sel=document.getElementById('ep-vidrio-'+idx);
+    if(sel.value==='dividido'){
+      est.divPend={...(est.divPend||p.vidrioDividido||{})};
+      est.divPend[l.seccion==='inf'?'infId':'supId']=c.ref;
+    } else {
+      if(![...sel.options].some(o=>o.value===String(c.ref))){ const o=document.createElement('option'); o.value=String(c.ref); o.textContent=c.obj.descripcion; sel.appendChild(o); }
+      sel.value=String(c.ref);
+    }
+    recotizarPartida(idx);
+    if(!(_epEstado[idx]&&_epEstado[idx].recalculado)){ toast('No se pudo recotizar el vidrio — revisa receta y medidas','error'); renderDesgloseEdicion(idx); return; }
+    toast('Vidrio sustituido: '+c.obj.descripcion);
+    return;
+  }
+  const mismaLinea=x=>x.tipo===l.tipo&&!x.opKey&&!x.opHijo&&(l.tipo==='Perfil'
+    ?(l.perfilIdCompuesto?x.perfilIdCompuesto===l.perfilIdCompuesto:x.perfilClave===l.perfilClave)
+    :String(x.herrajeId)===String(l.herrajeId));
+  const objetivos=solo?[l]:est.lineas.filter(mismaLinea);
+  let n=0,sinMl=0;
+  if(l.tipo==='Perfil'){
+    const pf=c.obj, otroAcab=!c.mismo;
+    est.sust=est.sust||{...(p.sustitucionesMarca||{})};
+    objetivos.forEach(t=>{
+      if(t.esExtra&&t.extra){
+        t.extra={...t.extra,clave:pf.clave}; if(otroAcab) t.extra.idComp=pf.idCompuesto; else delete t.extra.idComp;
+        Object.assign(t,_calcLineaExtra(t.extra,ancho,alto,acabado)); n++; return;
+      }
+      const ml=_sustCant(t).ml;
+      if(!(ml>0)){sinMl++;return;}
+      const ext=/\[EXTRA\]/.test(t.label||'')?' [EXTRA]':'';
+      const claveRec=t.claveOriginal||t.claveReceta||t.perfilClave;
+      if(!ext) est.sust[claveRec]={directa:true,clave:pf.clave,idCompuesto:pf.idCompuesto,fijo:otroAcab};
+      t.claveOriginal=claveRec;
+      t.costo=(pf.precioML||0)*ml;
+      const det=t.detalle||'', iEq=det.lastIndexOf(' = ');
+      t.detalle=(iEq>=0?det.slice(0,iEq)+' = ':'')+`${num(ml)} ml × ${fmt(pf.precioML||0)}/ml`;
+      t.label=`${pf.idCompuesto} — ${pf.nombre}${ext}`; t.ml=ml;
+      t.perfilIdCompuesto=pf.idCompuesto; t.perfilClave=pf.clave; t.encontrado=true; n++;
+    });
+  } else {
+    const h=c.obj, hid=c.ref;
+    est.sustH=est.sustH||{...(p.sustHerrajes||{})};
+    objetivos.forEach(t=>{
+      if(t.esExtra&&t.extra){
+        t.extra={...t.extra,herrajeId:hid};
+        Object.assign(t,_calcLineaExtra(t.extra,ancho,alto,acabado)); n++; return;
+      }
+      const ext=/\[EXTRA\]/.test(t.label||'')?' [EXTRA]':'';
+      const orig=t.herrajeOriginal!=null?t.herrajeOriginal:t.herrajeId;
+      if(!ext&&orig!=null){ est.sustH[String(orig)]=hid; t.herrajeOriginal=orig; }
+      const {ml,pz,m2}=_sustCant(t);
+      t.costo=(h.precioML||0)*ml+(h.precioUnitario||0)*pz+(h.precioM2||0)*m2;
+      t.detalle=[ml>0&&`${num(ml)} ml × ${fmt(h.precioML||0)}/ml`,pz>0&&`${pz} pzs × ${fmt(h.precioUnitario||0)}`,m2>0&&`${num(m2)} m² × ${fmt(h.precioM2||0)}/m²`].filter(Boolean).join(' + ');
+      t.label=h.descripcion+(h.clave?' ['+h.clave+']':'')+ext;
+      t.herrajeId=hid; t.encontrado=true; n++;
+    });
+  }
+  renderDesgloseEdicion(idx);
+  if(sinMl) toast(`${sinMl} línea(s) sin metros lineales — se dejaron sin cambio`,'error');
+  if(n) toast(`${n} línea${n!==1?'s':''} sustituida${n!==1?'s':''} — recuerda "Guardar cambios"`);
 }
 
 // Estado de edición de una partida (copia del desglose guardado si aún no se ha recotizado)
@@ -5615,6 +5791,10 @@ function guardarEdicionPartida(idx){
     if(est.opciones) p.opciones=JSON.parse(JSON.stringify(est.opciones)); else delete p.opciones;
   }
   delete _epOps[idx]; _opLadoSel[idx]=null;
+  // Sustituciones hechas desde el desglose (se aplican también al recotizar después)
+  if(est&&est.sust){ if(Object.keys(est.sust).length) p.sustitucionesMarca=est.sust; else delete p.sustitucionesMarca; }
+  if(est&&est.sustH){ if(Object.keys(est.sustH).length) p.sustHerrajes=est.sustH; else delete p.sustHerrajes; }
+  if(_sust&&_sust.idx===idx) _sust=null;
   // Commit desglose
   p.desglose=lineas;
   p.totalPartida=total;
