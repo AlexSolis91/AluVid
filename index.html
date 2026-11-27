@@ -1528,7 +1528,7 @@ onAuthStateChanged(_auth, async (user) => {
 window._cache = {};
 
 // ── Versión de la app (subir en cada deploy con fixes) ─────────
-const APP_VERSION = '1.41.0';
+const APP_VERSION = '1.42.0';
 
 window.cerrarSesionApp = function() {
   if ((DB._pending > 0 || _proyHayCambios()) &&
@@ -3703,8 +3703,7 @@ function calcExtraPerfil(){
   const ml=(v*largoV)+(h*largoH);
   const el=document.getElementById('ep-preview');
   if(!clave){el.textContent='';return;}
-  const idComp=acabado.replace(/\s+/g,'')+clave;
-  const p=DB.get('perfiles').find(x=>x.idCompuesto===idComp);
+  const p=perfilParaAcabado(DB.getCombined('perfiles'),acabado,clave);
   if(!p){el.innerHTML=`<span style="color:var(--red)">${clave} — acabado "${acabado}" no encontrado</span>`;return;}
   el.innerHTML=`<span style="color:var(--text2)">${p.idCompuesto} — ${p.nombre} | ${num(ml)} ml × ${fmt(p.precioML)}/ml = <strong style="color:var(--green)">${fmt(ml*p.precioML)}</strong></span>`;
 }
@@ -3891,6 +3890,18 @@ function _cmEquivalente(actual,destino,perfiles){
 
 // Línea [EXTRA] calculada desde sus datos de captura (se recalcula con las medidas actuales)
 // ex: {tipo:'perfil', clave, v, lv, h, lh} | {tipo:'herraje', herrajeId, cant, v, lv, h, lh}
+// ── Perfiles "Sin Acabado": si la clave existe con acabado Sin Acabado, se usa ese en cualquier acabado ──
+const _esSinAcabado=pf=>!!pf&&String(pf.acabado||'').replace(/\s+/g,'').toLowerCase()==='sinacabado';
+function _perfilSinAcabado(lista,clave){
+  if(clave==null||clave==='') return null;
+  return (lista||[]).find(x=>_esSinAcabado(x)&&String(x.clave)===String(clave))||null;
+}
+// Perfil para cotizar: primero Sin Acabado; si no existe, el del acabado de la partida
+function perfilParaAcabado(lista,acabado,clave){
+  const sa=_perfilSinAcabado(lista,clave); if(sa) return sa;
+  const a=String(acabado||'').replace(/\s+/g,'');
+  return a?(lista||[]).find(x=>x.idCompuesto===a+clave)||null:null;
+}
 function _calcLineaExtra(ex,ancho,alto,acabado){
   const v=ex.v||0, lv=ex.lv||0, h=ex.h||0, lh=ex.lh||0;
   const largoV=lv||alto, largoH=lh||ancho;
@@ -3900,7 +3911,8 @@ function _calcLineaExtra(ex,ancho,alto,acabado){
     if(v>0&&largoV>0) cortes.push({long:largoV,cant:v});
     if(h>0&&largoH>0) cortes.push({long:largoH,cant:h});
     const idComp=ex.idComp||((acabado||'').replace(/\s+/g,'')+ex.clave); // idComp: sustituido por un perfil de otro acabado
-    const p=DB.getCombined('perfiles').find(x=>x.idCompuesto===idComp);
+    const todosP=DB.getCombined('perfiles');
+    const p=ex.idComp?todosP.find(x=>x.idCompuesto===idComp):perfilParaAcabado(todosP,acabado,ex.clave);
     if(!p) return {label:`${ex.clave} (acabado "${acabado||''}" no encontrado) [EXTRA]`,tipo:'Perfil',costo:0,encontrado:false,
       detalle:`${num(ml)} ml`,extra:{...ex},esExtra:true,cortes,ml,perfilIdCompuesto:null,perfilClave:ex.clave};
     const detParts=[];
@@ -3967,14 +3979,13 @@ function cotizarPartida(o){
     if(tvp!=='AMBOS' && tvp!==tipoVidrioSeleccionado) return null;
 
     const acabadoClean=acabado.replace(/\s+/g,'');
-    const idComp=acabadoClean+clave;
-    let p=acabado ? todosPerfiles.find(x=>x.idCompuesto===idComp) : null;
+    let p=perfilParaAcabado(todosPerfiles,acabado,clave);
     // "Cambiar marca": mantener la marca sustituida al recotizar
     let sustituido=false, avisoMarca='';
     const sub=sustituciones&&sustituciones[clave];
     if(sub&&sub.directa){
       // Sustituido desde el desglose: mismo acabado de la partida, o fijo si se eligió de otro acabado
-      const q=(!sub.fijo&&acabado?todosPerfiles.find(x=>x.idCompuesto===acabadoClean+sub.clave):null)
+      const q=(!sub.fijo?perfilParaAcabado(todosPerfiles,acabado,sub.clave):null)
         ||todosPerfiles.find(x=>x.idCompuesto===sub.idCompuesto);
       if(q){ sustituido=true; p=q; }
     } else if(p&&sub&&sub.proveedor&&(p.proveedor||'').trim()!==sub.proveedor){
@@ -5048,7 +5059,7 @@ function _apLinea(l,p,ctx){
   if(!Number.isFinite(l.costo)) return sin('Costo guardado inválido — se conserva');
   const det=String(l.detalle||'');
   const avisos=[];
-  let comps=[], sep=null, costo, estructurada=true;
+  let comps=[], sep=null, costo, estructurada=true, pfSA=null;
   const qtyDe=(c,campo)=>{
     const v=l[campo];
     if(Number.isFinite(v)&&v>0) return v;
@@ -5057,8 +5068,9 @@ function _apLinea(l,p,ctx){
 
   if(l.tipo==='Perfil'){
     const idComp=l.perfilIdCompuesto||_cmExtraerIdComp(l.label);
-    const pf=idComp?ctx.perfiles.find(x=>x.idCompuesto===idComp):null;
+    let pf=idComp?ctx.perfiles.find(x=>x.idCompuesto===idComp):null;
     if(!pf) return sin(`Perfil "${idComp||'?'}" no encontrado en el catálogo — se conserva`);
+    if(!_esSinAcabado(pf)){ const sa=_perfilSinAcabado(ctx.perfiles,pf.clave); if(sa){ pfSA=sa; pf=sa; } }
     comps=_apBuscarComps(det,'ml');
     if(comps.length!==1||_apBuscarComps(det,'pzs').length||_apBuscarComps(det,'m2').length)
       return sin('No se pudo leer la cantidad (ml) de su detalle — se conserva');
@@ -5142,8 +5154,9 @@ function _apLinea(l,p,ctx){
   }
   detalle=_apReescribir(detalle,comps);
   // Cambia si cambia el precio que se muestra, o (cantidades exactas) si cambia el costo en ≥ medio centavo
-  const cambio=textoCambia||(estructurada&&Math.abs(costo-l.costo)>=0.005);
-  return {cambio,costo,detalle,unidades,avisos};
+  const cambio=textoCambia||(estructurada&&Math.abs(costo-l.costo)>=0.005)||!!pfSA;
+  if(pfSA) unidades.unshift({ant:l.perfilIdCompuesto||_cmExtraerIdComp(l.label)||'',nuevo:pfSA.idCompuesto});
+  return {cambio,costo,detalle,unidades,avisos,pfSA};
 }
 
 // Analiza una partida (sin mutar): {cambios:[...], avisos, totalActual, totalNuevo, nota} o {error}
@@ -5156,7 +5169,8 @@ function _apAnalizarPartida(p,ctx){
     (r.avisos||[]).forEach(motivo=>avisos.push({label:etiqueta,tipo:(l&&l.tipo)||'',motivo,inactiva:!!l&&l.activo===false}));
     if(r.cambio){
       cambios.push({li,label:etiqueta,tipo:l.tipo,activo:l.activo!==false,costoAnt:l.costo,costoNuevo:r.costo,
-        detalleAnt:l.detalle||'',detalleNuevo:r.detalle,unidades:r.unidades});
+        detalleAnt:l.detalle||'',detalleNuevo:r.detalle,unidades:r.unidades,
+        idCompNuevo:r.pfSA?r.pfSA.idCompuesto:null,nombreNuevo:r.pfSA?r.pfSA.nombre:null,claveNueva:r.pfSA?r.pfSA.clave:null});
       costos[li]=r.costo;
     }
   });
@@ -5188,7 +5202,7 @@ function _apAnalizar(){
   });
   return out;
 }
-const _apFirma=af=>JSON.stringify(af.map(a=>[a.i,a.id,(a.p.desglose||[]).length,a.cambios.map(c=>[c.li,c.costoAnt,c.costoNuevo,c.detalleNuevo])]));
+const _apFirma=af=>JSON.stringify(af.map(a=>[a.i,a.id,(a.p.desglose||[]).length,a.cambios.map(c=>[c.li,c.costoAnt,c.costoNuevo,c.detalleNuevo,c.idCompNuevo])]));
 var _apVista=null;
 
 function abrirActualizarPrecios(){
@@ -5255,6 +5269,12 @@ function aplicarActualizarPrecios(){
       const l=p.desglose[c.li];
       l.costo=c.costoNuevo;
       l.detalle=c.detalleNuevo;
+      if(c.idCompNuevo){ // perfil Sin Acabado
+        const ext=/\[EXTRA\]/.test(l.label||'')?' [EXTRA]':'';
+        if(!l.claveOriginal&&!ext) l.claveOriginal=l.claveReceta||l.perfilClave||c.claveNueva;
+        l.label=`${c.idCompNuevo} — ${c.nombreNuevo}${ext}`;
+        l.perfilIdCompuesto=c.idCompNuevo; l.perfilClave=c.claveNueva;
+      }
     });
     // Mismo cálculo que al guardar la edición de una partida: líneas activas × cantidad
     p.totalPartida=p.desglose.filter(l=>l.activo!==false).reduce((s,l)=>s+l.costo,0)*(p.cantidad||1);
@@ -5498,7 +5518,7 @@ function _sustCandidatos(l){
     const vistos=new Set();
     return DB.getCombined('perfiles').filter(p=>p.idCompuesto&&!vistos.has(p.idCompuesto)&&vistos.add(p.idCompuesto)&&p.idCompuesto!==l.perfilIdCompuesto)
       .map(p=>({ref:p.idCompuesto,obj:p,txt:`${p.idCompuesto} ${p.clave} ${p.nombre}`,
-        mismo:String(p.acabado||'').replace(/\s+/g,'').toLowerCase()===acab,
+        mismo:String(p.acabado||'').replace(/\s+/g,'').toLowerCase()===acab||_esSinAcabado(p),
         html:`<b>${_escH(p.idCompuesto)}</b> — ${_escH(p.nombre||'')} <span class="badge badge-blue">${_escH(p.acabado||'')}</span>`,
         precio:`${fmt(p.precioML||0)}/ml`}));
   }
