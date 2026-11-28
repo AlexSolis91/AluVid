@@ -833,8 +833,6 @@ onAuthStateChanged(_auth, async (user) => {
             <div style="display:flex;align-items:center;gap:14px">
               <button class="btn btn-primary btn-sm" onclick="abrirCotizacionCliente()" title="Formato SCAVi con la elevación de cada cancel, sobrante y total de material">📄 Cotización para cliente</button>
               <button class="btn btn-primary btn-sm" onclick="abrirCotizacionVenta()" title="Precios de venta: costo × tu factor de utilidad, con el sobrante repartido sin mostrarse">💰 Cotización con utilidad</button>
-              <button class="btn btn-ghost btn-sm" onclick="imprimirCotizacion(false)">🖨 Imprimir cotización</button>
-              <button class="btn btn-ghost btn-sm" onclick="imprimirCotizacion(true)" title="Incluye perfiles, herrajes y vidrio de cada partida">🖨 Con detalle de materiales</button>
               <div class="total-value" id="cot-total-proyecto">$0.00</div>
             </div>
           </div>
@@ -1528,7 +1526,7 @@ onAuthStateChanged(_auth, async (user) => {
 window._cache = {};
 
 // ── Versión de la app (subir en cada deploy con fixes) ─────────
-const APP_VERSION = '1.42.0';
+const APP_VERSION = '1.42.1';
 
 window.cerrarSesionApp = function() {
   if ((DB._pending > 0 || _proyHayCambios()) &&
